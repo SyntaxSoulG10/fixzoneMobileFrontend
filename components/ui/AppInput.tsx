@@ -12,7 +12,6 @@ import { COLORS } from '../../constants/colors';
 
 interface AppInputProps extends TextInputProps {
   label?: string;
-  leftElement?: React.ReactNode;
   rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
   error?: string;
@@ -21,7 +20,6 @@ interface AppInputProps extends TextInputProps {
 
 const AppInput: React.FC<AppInputProps> = ({
   label,
-  leftElement,
   rightIcon,
   onRightIconPress,
   error,
@@ -45,8 +43,6 @@ const AppInput: React.FC<AppInputProps> = ({
           !!error && styles.inputError,
         ]}
       >
-        {leftElement}
-
         <TextInput
           style={[styles.input, style]}
           placeholderTextColor={COLORS.textMuted}
