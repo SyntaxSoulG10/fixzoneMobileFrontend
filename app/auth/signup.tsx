@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
+import SegmentedToggle from '../../components/ui/SegmentedToggle';
 import { COLORS } from '../../constants/colors';
 
 export default function SignupScreen() {
@@ -37,21 +38,14 @@ export default function SignupScreen() {
         </Text>
       </View>
 
-      {/* Segmented Toggle */}
-      <View style={styles.segmentedControl}>
-        <TouchableOpacity 
-          style={styles.segment}
-          onPress={() => router.replace('/auth/login')}
-        >
-          <Text style={styles.segmentText}>Login</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.segment, styles.segmentActive]}
-        >
-          <Text style={styles.segmentText}>Sign up</Text>
-        </TouchableOpacity>
-      </View>
+      <SegmentedToggle 
+        active="signup" 
+        onChange={(val) => {
+          if (val === 'login') {
+            router.replace('/auth/login');
+          }
+        }} 
+      />
 
       <AppInput
         label="Email Address"
@@ -135,31 +129,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 12,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 30,
-    marginBottom: 16,
-    overflow: 'hidden',
-    height: 50,
-  },
-  segment: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-    borderRadius: 30,
-  },
-  segmentActive: {
-    borderColor: COLORS.primary,
-  },
-  segmentText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
   },
   btn: {
     marginTop: 0,
