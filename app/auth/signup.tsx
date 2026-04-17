@@ -16,8 +16,8 @@ export default function SignupScreen() {
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('signup');
 
   const handleCreateAccount = () => {
-    // Navigate home or to account creation
-    router.replace('/');
+    // Navigate to the final profile creation step
+    router.push('/auth/complete-profile' as any);
   };
 
   const handleLogin = () => {
