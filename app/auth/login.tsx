@@ -12,11 +12,44 @@ export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
 
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (emailError) setEmailError('');
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (passwordError) setPasswordError('');
+  };
+
   const handleLogin = () => {
-    // Navigate home
-    router.replace('/');
+    let isValid = true;
+    if (!email) {
+      setEmailError('Email is required');
+      isValid = false;
+    } else if (!email.includes('@') || !email.includes('.')) {
+      setEmailError('Invalid email format');
+      isValid = false;
+    }
+    
+    if (!password) {
+      setPasswordError('Password is required');
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
+    setIsLoading(true);
+    // Simulate network delay to preview the loading state
+    setTimeout(() => {
+      setIsLoading(false);
+      router.replace('/');
+    }, 1500);
   };
 
   const handleForgotPassword = () => {
@@ -55,7 +88,8 @@ export default function LoginScreen() {
         label="Email Address"
         placeholder="user@example.com"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={handleEmailChange}
+        error={emailError}
         rightIcon="mail"
         autoCapitalize="none"
         keyboardType="email-address"
@@ -66,7 +100,8 @@ export default function LoginScreen() {
         label="Password"
         placeholder="********"
         value={password}
-        onChangeText={setPassword}
+        onChangeText={handlePasswordChange}
+        error={passwordError}
         isPassword
         style={{ marginBottom: 4 }}
       />
@@ -80,6 +115,8 @@ export default function LoginScreen() {
         onPress={handleLogin}
         style={styles.btn}
         rightIcon="log-in-outline"
+        loading={isLoading}
+        disabled={isLoading}
       />
 
       <View style={styles.dividerContainer}>

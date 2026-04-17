@@ -46,6 +46,7 @@ export default function VerifyOtpScreen() {
         label="Verify"
         onPress={handleVerify}
         style={styles.btn}
+        disabled={code.length !== 5}
       />
 
       <View style={styles.resendContainer}>

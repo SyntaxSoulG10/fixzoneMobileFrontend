@@ -15,6 +15,10 @@ export default function SetNewPasswordScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  const confirmError = confirmPassword && confirmPassword !== password 
+    ? 'Passwords do not match' 
+    : '';
+
   const handleSetPassword = () => {
     // In a real app we'd validate and save
     router.push('/');
@@ -52,12 +56,14 @@ export default function SetNewPasswordScreen() {
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         isPassword
+        error={confirmError}
       />
 
       <AppButton
         label="Set New Password"
         onPress={handleSetPassword}
         style={styles.btn}
+        disabled={!password || !confirmPassword || password !== confirmPassword}
       />
 
       <AppButton

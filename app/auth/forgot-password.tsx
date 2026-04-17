@@ -12,6 +12,16 @@ import { COLORS } from '../../constants/colors';
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+
+  const validateEmail = (text: string) => {
+    setEmail(text);
+    if (text.length > 0 && (!text.includes('@') || !text.includes('.'))) {
+      setEmailError('Invalid email format');
+    } else {
+      setEmailError('');
+    }
+  };
 
   const handleSendCode = () => {
     // In a real app we would call an API here
@@ -34,7 +44,8 @@ export default function ForgotPasswordScreen() {
         label="Email ID/ Phone Number"
         placeholder="user@example.com"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={validateEmail}
+        error={emailError}
         rightIcon="mail"
         keyboardType="email-address"
         autoCapitalize="none"
@@ -44,6 +55,7 @@ export default function ForgotPasswordScreen() {
         label="Send Verification Code"
         onPress={handleSendCode}
         style={styles.btn}
+        disabled={!email || !!emailError}
       />
 
       <View style={styles.loginContainer}>
