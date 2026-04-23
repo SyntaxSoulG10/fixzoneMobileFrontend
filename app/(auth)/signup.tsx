@@ -13,15 +13,14 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('signup');
 
   const handleCreateAccount = () => {
     // Navigate to the final profile creation step
-    router.push('/auth/complete-profile' as any);
+    router.push('/(auth)/complete-profile');
   };
 
   const handleLogin = () => {
-    router.push('/auth/login');
+    router.push('/(auth)/login');
   };
 
   return (
@@ -42,7 +41,7 @@ export default function SignupScreen() {
         active="signup" 
         onChange={(val) => {
           if (val === 'login') {
-            router.replace('/auth/login');
+            router.replace('/(auth)/login');
           }
         }} 
       />
@@ -99,8 +98,6 @@ export default function SignupScreen() {
           <Text style={styles.registerLink}>Log In</Text>
         </TouchableOpacity>
       </View>
-
-     
     </ScreenContainer>
   );
 }
@@ -187,16 +184,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '500',
-  },
-  footerLinks: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '400',
   },
 });

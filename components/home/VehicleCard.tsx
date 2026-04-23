@@ -13,7 +13,14 @@ interface VehicleCardProps {
 export default function VehicleCard({ image, name, plate, status, lastService }: VehicleCardProps) {
   return (
     <TouchableOpacity 
-      className="bg-gray-100 rounded-3xl overflow-hidden mr-4 w-64 border border-gray-200"
+      className="bg-gray-100 rounded-3xl overflow-hidden mr-4 w-64 border border-gray-200 shadow-sm"
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+      }}
     >
       <Image 
         source={{ uri: image }} 
