@@ -7,15 +7,16 @@ import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import SegmentedToggle from '../../components/ui/SegmentedToggle';
 import { COLORS } from '../../constants/colors';
+import { useAuth } from '../../context/auth_context';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -27,7 +28,7 @@ export default function LoginScreen() {
     if (passwordError) setPasswordError('');
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     let isValid = true;
     if (!email) {
       setEmailError('Email is required');
@@ -44,26 +45,28 @@ export default function LoginScreen() {
 
     if (!isValid) return;
 
-    setIsLoading(true);
-    // Simulate network delay to preview the loading state
-    setTimeout(() => {
-      setIsLoading(false);
-      router.replace('/');
-    }, 1500);
+    setIsSubmitting(true);
+    try {
+      await login();
+      // Redirection is handled by _layout.tsx based on AuthContext state
+    } catch (error) {
+      console.error('Login failed', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleForgotPassword = () => {
-    router.push('/auth/forgot-password');
+    router.push('/(auth)/forgot-password');
   };
 
   const handleRegister = () => {
-    router.push('/auth/signup');
+    router.push('/(auth)/signup');
   };
 
   return (
     <ScreenContainer scrollable={false}>
       <View style={styles.header}>
-      
         <Image 
           source={require('../../assets/images/fixzone-logo.png')} 
           style={styles.logo}
@@ -79,7 +82,7 @@ export default function LoginScreen() {
         active="login" 
         onChange={(val) => {
           if (val === 'signup') {
-            router.replace('/auth/signup');
+            router.replace('/(auth)/signup');
           }
         }} 
       />
@@ -115,8 +118,8 @@ export default function LoginScreen() {
         onPress={handleLogin}
         style={styles.btn}
         rightIcon="log-in-outline"
-        loading={isLoading}
-        disabled={isLoading}
+        loading={isSubmitting}
+        disabled={isSubmitting}
       />
 
       <View style={styles.dividerContainer}>

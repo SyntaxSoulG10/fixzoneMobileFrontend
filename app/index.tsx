@@ -2,7 +2,7 @@ import { Redirect } from "expo-router";
 import React from "react";
 
 export default function Index() {
-  // Directly routing you to the login screen so you can see it on app launch! 
-  // Later we can restore your 'useAuth' checking logic here.
-  return <Redirect href={'/auth/login' as any} />;
+  // We now handle auth logic in _layout.tsx. 
+  // This index.tsx serves as the entry point and will default to the tabs group.
+  return <Redirect href={'/(tabs)' as any} />;
 }
