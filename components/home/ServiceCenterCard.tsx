@@ -17,7 +17,7 @@ export default function ServiceCenterCard({ image, name, location, type, distanc
       className="bg-gray-200 rounded-2xl flex-row items-center p-3 mb-4 border border-orange-100"
     >
       <Image 
-        source={{ uri: image }} 
+        source={typeof image === 'string' ? { uri: image } : image} 
         className="w-16 h-16 rounded-xl"
       />
       <View className="flex-1 ml-4">

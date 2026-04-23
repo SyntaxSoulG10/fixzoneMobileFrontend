@@ -23,7 +23,7 @@ export default function VehicleCard({ image, name, plate, status, lastService }:
       }}
     >
       <Image 
-        source={{ uri: image }} 
+        source={typeof image === 'string' ? { uri: image } : image} 
         className="w-full h-32"
         resizeMode="cover"
       />

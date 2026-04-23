@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import HomeHeader from '../../components/home/HomeHeader';
 import SearchBar from '../../components/home/SearchBar';
 import PromoBanner from '../../components/home/PromoBanner';
@@ -16,6 +17,9 @@ export default function HomeScreen() {
     serviceType: '',
     availability: '',
   });
+
+  const [showAllTrusted, setShowAllTrusted] = React.useState(false);
+  const [showAllNearby, setShowAllNearby] = React.useState(false);
 
   const handleApplyFilters = (newFilters: FilterState) => {
     setFilters(newFilters);
@@ -46,9 +50,9 @@ export default function HomeScreen() {
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-xl font-bold text-gray-900">My Vehicles</Text>
           <TouchableOpacity className="flex-row items-center">
-            <Text className="text-orange-500 font-bold mr-1">Add New</Text>
-            <View className="bg-orange-500 rounded-full w-5 h-5 items-center justify-center">
-              <Text className="text-white font-bold">+</Text>
+            <Text className="text-orange-500 font-bold mr-2">Add New</Text>
+            <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
+              <Ionicons name="add" size={18} color="white" />
             </View>
           </TouchableOpacity>
         </View>
@@ -74,12 +78,14 @@ export default function HomeScreen() {
       <View className="px-5 mt-8">
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-xl font-bold text-gray-900">Trusted Service Centers</Text>
-          <TouchableOpacity>
-            <Text className="text-orange-500 font-bold">View All</Text>
+          <TouchableOpacity onPress={() => setShowAllTrusted(!showAllTrusted)}>
+            <Text className="text-orange-500 font-bold">
+              {showAllTrusted ? 'Show Less' : 'View All'}
+            </Text>
           </TouchableOpacity>
         </View>
         
-        {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
+        {(showAllTrusted ? MOCK_SERVICE_CENTERS : MOCK_SERVICE_CENTERS.slice(0, 2)).map(center => (
           <ServiceCenterCard 
             key={center.id}
             image={center.image}
@@ -95,12 +101,14 @@ export default function HomeScreen() {
       <View className="px-5 mt-4 mb-8">
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-xl font-bold text-gray-900">Nearby Service Centers</Text>
-          <TouchableOpacity>
-            <Text className="text-orange-500 font-bold">View All</Text>
+          <TouchableOpacity onPress={() => setShowAllNearby(!showAllNearby)}>
+            <Text className="text-orange-500 font-bold">
+              {showAllNearby ? 'Show Less' : 'View All'}
+            </Text>
           </TouchableOpacity>
         </View>
         
-        {MOCK_SERVICE_CENTERS.slice(2, 4).map(center => (
+        {(showAllNearby ? MOCK_SERVICE_CENTERS : MOCK_SERVICE_CENTERS.slice(2, 4)).map(center => (
           <ServiceCenterCard 
             key={`nearby-${center.id}`}
             image={center.image}
