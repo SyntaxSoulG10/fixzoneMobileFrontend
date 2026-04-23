@@ -7,17 +7,26 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarActiveTintColor: '#000000', // Black as per the UI image
+        tabBarInactiveTintColor: '#6B7280',
         headerShown: false,
         tabBarStyle: {
-          height: 60,
-          paddingBottom: 10,
-          paddingTop: 5,
+          height: 70,
+          paddingBottom: 12,
+          paddingTop: 8,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#F3F4F6',
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: '700', // Bold labels as per UI
+          marginTop: 2,
         },
       }}
     >
@@ -26,7 +35,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={26} color={color} />
           ),
         }}
       />
@@ -35,7 +44,7 @@ export default function TabLayout() {
         options={{
           title: 'Book',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={26} color={color} />
           ),
         }}
       />
@@ -44,7 +53,7 @@ export default function TabLayout() {
         options={{
           title: 'My vehicles',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'car' : 'car-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'car' : 'car-outline'} size={26} color={color} />
           ),
         }}
       />
@@ -53,7 +62,7 @@ export default function TabLayout() {
         options={{
           title: 'History',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'time' : 'time-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'time' : 'time-outline'} size={26} color={color} />
           ),
         }}
       />
