@@ -1,51 +1,11 @@
 import React from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
-import ScreenContainer from '../../components/ui/ScreenContainer';
 import HomeHeader from '../../components/home/HomeHeader';
 import SearchBar from '../../components/home/SearchBar';
 import PromoBanner from '../../components/home/PromoBanner';
 import VehicleCard from '../../components/home/VehicleCard';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
-import { COLORS } from '../../constants/colors';
-
-// Temporary mock data (will move to mock_data.ts in next step)
-const MOCK_VEHICLES = [
-  {
-    id: '1',
-    name: 'Honda Vezel',
-    plate: 'WP BCY 9454',
-    status: 'Service Due',
-    lastService: '06/02/2026',
-    image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?q=80&w=500&auto=format&fit=crop'
-  },
-  {
-    id: '2',
-    name: 'Honda Vezel',
-    plate: 'WP BCY 9454',
-    status: 'Up to date',
-    lastService: '06/02/2026',
-    image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?q=80&w=500&auto=format&fit=crop'
-  }
-];
-
-const MOCK_CENTERS = [
-  {
-    id: '1',
-    name: 'AutoMiraj',
-    location: 'Colombo 07',
-    type: 'Hybrid Specialist',
-    distance: '2.4 km',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=500&auto=format&fit=crop'
-  },
-  {
-    id: '2',
-    name: 'CarCare Hub',
-    location: 'Kandy 02',
-    type: 'Hybrid Specialist',
-    distance: '24 km',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=500&auto=format&fit=crop'
-  }
-];
+import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 
 export default function HomeScreen() {
   return (
@@ -92,7 +52,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
         
-        {MOCK_CENTERS.map(center => (
+        {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
           <ServiceCenterCard 
             key={center.id}
             image={center.image}
@@ -113,7 +73,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
         
-        {MOCK_CENTERS.map(center => (
+        {MOCK_SERVICE_CENTERS.slice(2, 4).map(center => (
           <ServiceCenterCard 
             key={`nearby-${center.id}`}
             image={center.image}
