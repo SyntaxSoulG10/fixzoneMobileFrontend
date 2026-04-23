@@ -5,14 +5,41 @@ import SearchBar from '../../components/home/SearchBar';
 import PromoBanner from '../../components/home/PromoBanner';
 import VehicleCard from '../../components/home/VehicleCard';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
+import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
 import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 
 export default function HomeScreen() {
+  const [isFilterVisible, setIsFilterVisible] = React.useState(false);
+  const [filters, setFilters] = React.useState<FilterState>({
+    distance: '',
+    vehicleType: '',
+    serviceType: '',
+    availability: '',
+  });
+
+  const handleApplyFilters = (newFilters: FilterState) => {
+    setFilters(newFilters);
+    setIsFilterVisible(false);
+    // Logic to filter the list could go here
+    console.log('Applied Filters:', newFilters);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      distance: '',
+      vehicleType: '',
+      serviceType: '',
+      availability: '',
+    });
+    console.log('Filters Reset');
+  };
+
   return (
-    <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false}>
-      <HomeHeader />
-      <SearchBar />
-      <PromoBanner />
+    <View className="flex-1 bg-white">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <HomeHeader />
+        <SearchBar onFilterPress={() => setIsFilterVisible(true)} />
+        <PromoBanner />
 
       {/* My Vehicles Section */}
       <View className="px-5 mt-4">
@@ -85,5 +112,14 @@ export default function HomeScreen() {
         ))}
       </View>
     </ScrollView>
+
+      <FilterBottomSheet
+        visible={isFilterVisible}
+        onClose={() => setIsFilterVisible(false)}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+        initialFilters={filters}
+      />
+    </View>
   );
 }

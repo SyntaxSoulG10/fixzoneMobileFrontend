@@ -12,7 +12,7 @@ export default function HomeHeader() {
         </TouchableOpacity>
         <View>
           <Text className="text-gray-500 text-xs font-medium">Fix Zone</Text>
-          <Text className="text-xl font-bold text-gray-900">Ayubowan Chanuka !</Text>
+          <Text className="text-xl font-bold text-gray-900">Welcome Chanuka !</Text>
         </View>
       </View>
       

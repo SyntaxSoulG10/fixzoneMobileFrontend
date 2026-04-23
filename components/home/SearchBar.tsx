@@ -3,7 +3,11 @@ import { View, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 
-export default function SearchBar() {
+interface SearchBarProps {
+  onFilterPress?: () => void;
+}
+
+export default function SearchBar({ onFilterPress }: SearchBarProps) {
   return (
     <View className="px-5 py-2">
       <View 
@@ -16,7 +20,7 @@ export default function SearchBar() {
           className="flex-1 ml-2 text-base text-gray-700"
           placeholderTextColor="#9CA3AF"
         />
-        <TouchableOpacity className="ml-2">
+        <TouchableOpacity className="ml-2" onPress={onFilterPress}>
           <Ionicons name="options-outline" size={24} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
