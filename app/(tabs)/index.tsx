@@ -36,9 +36,9 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-white">
+      <HomeHeader />
+      <SearchBar onFilterPress={() => setIsFilterVisible(true)} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <HomeHeader />
-        <SearchBar onFilterPress={() => setIsFilterVisible(true)} />
         <PromoBanner />
 
       {/* My Vehicles Section */}
