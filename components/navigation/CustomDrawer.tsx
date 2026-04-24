@@ -2,13 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
-import { MOCK_USER } from '../../constants/mock_data';
 import { useAuth } from '../../context/auth_context';
+import { useUser } from '../../context/UserContext';
 
 export default function CustomDrawer(props: any) {
   const router = useRouter();
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { user } = useUser();
 
   const menuItems = [
     { label: 'Dash Board', icon: 'grid-outline', route: '/(tabs)' },
@@ -35,10 +36,19 @@ export default function CustomDrawer(props: any) {
     <View style={styles.container}>
       {/* Profile Section */}
       <View style={styles.profileSection}>
-        <Image source={MOCK_USER.profileImage} style={styles.avatar} />
-        <Text style={styles.userName}>{MOCK_USER.name}</Text>
-        <Text style={styles.userPhone}>0719210898</Text>
-        <TouchableOpacity style={styles.editButton}>
+        {user.profileImage ? (
+          <Image source={{ uri: user.profileImage }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="person" size={50} color="#6B7280" />
+          </View>
+        )}
+        <Text style={styles.userName}>{user.name}</Text>
+        <Text style={styles.userPhone}>{user.mobile}</Text>
+        <TouchableOpacity 
+          style={styles.editButton}
+          onPress={() => navigateTo('/profile')}
+        >
           <Ionicons name="create-outline" size={14} color="#000" />
           <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>

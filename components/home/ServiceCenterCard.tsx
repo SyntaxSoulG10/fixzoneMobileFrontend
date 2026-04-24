@@ -47,33 +47,32 @@ export default function ServiceCenterCard({
     });
   };
 
-  const renderVehicleIcon = (vType: VehicleType) => {
-    let iconName: keyof typeof Ionicons.glyphMap = 'car-outline';
-    if (vType === 'bike') iconName = 'bicycle-outline';
-    if (vType === 'van') iconName = 'bus-outline';
-    if (vType === 'lorry') iconName = 'car-outline';
-
-    return <Ionicons key={vType} name={iconName} size={16} color="black" style={{ marginRight: 8 }} />;
+  const renderVehicleChip = (vType: VehicleType) => {
+    return (
+      <View key={vType} style={styles.vehicleChip}>
+        <Text style={styles.vehicleChipText}>
+          {vType.charAt(0).toUpperCase() + vType.slice(1)}
+        </Text>
+      </View>
+    );
   };
 
   if (variant === 'compact') {
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={handlePress}
         style={styles.compactCard}
       >
-        <Image 
-          source={typeof image === 'string' ? { uri: image } : image} 
+        <Image
+          source={typeof image === 'string' ? { uri: image } : image}
           style={styles.compactImage}
         />
         <View style={styles.compactInfo}>
           <Text style={styles.compactName}>{name} - {location}</Text>
           <Text style={styles.compactSubtitle}>{type} - {distance}</Text>
-          <Text style={styles.compactLabel}>Served for :</Text>
-          <View style={styles.compactIcons}>
-            <Ionicons name="bicycle-outline" size={16} color="#f97316" style={{ marginRight: 12 }} />
-            <Ionicons name="car-outline" size={16} color="#f97316" style={{ marginRight: 12 }} />
-            <Ionicons name="bus-outline" size={16} color="#f97316" />
+          <Text style={styles.servedForLabel}>Served for :</Text>
+          <View style={styles.compactChipRow}>
+            {supportedVehicles.map(renderVehicleChip)}
           </View>
         </View>
       </TouchableOpacity>
@@ -82,14 +81,14 @@ export default function ServiceCenterCard({
 
   // Premium Variant (High-Fidelity)
   return (
-    <TouchableOpacity 
-      style={styles.premiumCard} 
-      onPress={handlePress} 
+    <TouchableOpacity
+      style={styles.premiumCard}
+      onPress={handlePress}
       activeOpacity={0.9}
     >
       <View style={styles.premiumImageContainer}>
-        <Image 
-          source={typeof image === 'string' ? { uri: image } : image} 
+        <Image
+          source={typeof image === 'string' ? { uri: image } : image}
           style={styles.premiumImage}
           resizeMode="cover"
         />
@@ -97,7 +96,7 @@ export default function ServiceCenterCard({
 
       <View style={styles.premiumInfoContainer}>
         <Text style={styles.premiumName}>{name}</Text>
-        
+
         <View style={styles.premiumLocationRow}>
           <Ionicons name="location-sharp" size={14} color="#6B7280" />
           <Text style={styles.premiumLocationText}>{location}    {distance} away</Text>
@@ -107,8 +106,9 @@ export default function ServiceCenterCard({
 
         <View style={styles.premiumBottomRow}>
           <View style={styles.premiumVehiclesAndPrice}>
-            <View style={styles.premiumVehicleIcons}>
-              {supportedVehicles.map(renderVehicleIcon)}
+            <Text style={styles.servedForLabel}>Served for :</Text>
+            <View style={styles.premiumVehicleChips}>
+              {supportedVehicles.map(renderVehicleChip)}
             </View>
             <Text style={styles.premiumPriceLabel}>STARTING FROM</Text>
             <Text style={styles.premiumPriceValue}>LKR {priceFrom.toLocaleString()}</Text>
@@ -226,9 +226,37 @@ const styles = StyleSheet.create({
   premiumVehiclesAndPrice: {
     flex: 1,
   },
-  premiumVehicleIcons: {
+  servedForLabel: {
+    color: '#6B7280',
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  vehicleChip: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 0.5,
+    borderColor: '#E84E0F',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  vehicleChipText: {
+    color: '#4B5563',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  compactChipRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  premiumVehicleChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
   },
   premiumPriceLabel: {
     fontSize: 10,

@@ -1,0 +1,232 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import ScreenContainer from '../components/ui/ScreenContainer';
+import AppInput from '../components/ui/AppInput';
+import AppButton from '../components/ui/AppButton';
+import { COLORS } from '../constants/colors';
+import { useUser } from '../context/UserContext';
+
+const { width } = Dimensions.get('window');
+
+export default function ProfileScreen() {
+  const router = useRouter();
+  const { user, updateUser } = useUser();
+
+  // Form State
+  const [name, setName] = useState(user.name);
+  const [mobile, setMobile] = useState(user.mobile);
+  const [email, setEmail] = useState(user.email);
+  const [profileImage, setProfileImage] = useState(user.profileImage);
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo access to upload profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = () => {
+    if (!name || !mobile || !email) {
+      Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+    
+    updateUser({ name, mobile, email, profileImage });
+    Alert.alert('Success', 'Profile updated successfully!');
+    router.back();
+  };
+
+  return (
+    <ScreenContainer scrollable={false}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerSide} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={28} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Profile</Text>
+        <View style={styles.headerSide} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Profile Image Section */}
+        <View style={styles.imageSection}>
+          <TouchableOpacity style={styles.imageWrapper} onPress={pickImage} activeOpacity={0.9}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="person" size={60} color="#D1D5DB" />
+              </View>
+            )}
+            <View style={styles.editBadge}>
+              <Ionicons name="camera" size={18} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.userName}>{user.name}</Text>
+          <Text style={styles.userRole}>Premium Member</Text>
+        </View>
+
+        {/* Details Section */}
+        <View style={styles.detailsSection}>
+          <AppInput
+            label="Full Name"
+            placeholder="Your Name"
+            value={name}
+            onChangeText={setName}
+            icon="person-outline"
+          />
+          <AppInput
+            label="Mobile Number"
+            placeholder="Your Mobile"
+            value={mobile}
+            onChangeText={setMobile}
+            keyboardType="phone-pad"
+            icon="call-outline"
+          />
+          <AppInput
+            label="Email Address"
+            placeholder="Your Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            icon="mail-outline"
+          />
+        </View>
+
+        <View style={styles.footer}>
+          <AppButton
+            label="Save Changes"
+            onPress={handleSave}
+            style={styles.saveBtn}
+          />
+          
+          <TouchableOpacity style={styles.logoutBtn}>
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <Text style={styles.logoutText}>Logout from Account</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  headerSide: {
+    width: 40,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#000',
+    marginTop: -2,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  imageSection: {
+    alignItems: 'center',
+    paddingVertical: 30,
+    backgroundColor: '#fff',
+  },
+  imageWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    position: 'relative',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+    marginTop: 16,
+  },
+  userRole: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  detailsSection: {
+    padding: 20,
+  },
+  footer: {
+    padding: 20,
+    marginTop: 10,
+  },
+  saveBtn: {
+    marginBottom: 20,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#EF4444',
+    marginLeft: 8,
+  },
+});

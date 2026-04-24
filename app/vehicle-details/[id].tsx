@@ -30,12 +30,7 @@ export default function VehicleDetailsScreen() {
           <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vehicle Details</Text>
-        <TouchableOpacity 
-          style={styles.headerSide} 
-          onPress={() => router.push({ pathname: '/(tabs)/vehicles', params: { editId: vehicle.id } })}
-        >
-          <Ionicons name="create-outline" size={24} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>

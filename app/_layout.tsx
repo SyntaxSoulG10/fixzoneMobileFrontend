@@ -55,12 +55,16 @@ function RootLayoutNav() {
   );
 }
 
+import { UserProvider } from "../context/UserContext";
+
 export default function Layout() {
   return (
-    <BookingProvider>
-      <AuthProvider>
-        <RootLayoutNav />
-      </AuthProvider>
-    </BookingProvider>
+    <UserProvider>
+      <BookingProvider>
+        <AuthProvider>
+          <RootLayoutNav />
+        </AuthProvider>
+      </BookingProvider>
+    </UserProvider>
   );
 }

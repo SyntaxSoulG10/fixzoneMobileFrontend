@@ -40,7 +40,9 @@ export default function VehiclesScreen() {
 
   // Form State
   const [vType, setVType] = useState('');
+  const [customVType, setCustomVType] = useState('');
   const [brand, setBrand] = useState('');
+  const [customBrand, setCustomBrand] = useState('');
   const [model, setModel] = useState('');
   const [fuel, setFuel] = useState('');
   const [plate, setPlate] = useState('');
@@ -72,6 +74,8 @@ export default function VehiclesScreen() {
       // In a real app we'd have full data, here we parse or use defaults
       setVType('Car'); 
       setBrand(vehicle.name.split(' ')[0]);
+      setCustomBrand('');
+      setCustomVType('');
       setModel(vehicle.name.split(' ').slice(1).join(' '));
       setPlate(vehicle.plate);
       setFuel('Petrol');
@@ -79,7 +83,9 @@ export default function VehiclesScreen() {
     } else {
       setEditingVehicle(null);
       setVType('');
+      setCustomVType('');
       setBrand('');
+      setCustomBrand('');
       setModel('');
       setFuel('');
       setPlate('');
@@ -89,7 +95,10 @@ export default function VehiclesScreen() {
   };
 
   const handleSave = () => {
-    if (!vType || !brand || !model || !plate) {
+    const finalVType = vType === 'Others' ? customVType : vType;
+    const finalBrand = brand === 'Other' ? customBrand : brand;
+
+    if (!finalVType || !finalBrand || !model || !plate) {
       Alert.alert('Error', 'Please fill all required fields');
       return;
     }
@@ -97,14 +106,14 @@ export default function VehiclesScreen() {
     if (editingVehicle) {
       setVehicles(prev => prev.map(v => v.id === editingVehicle.id ? {
         ...v,
-        name: `${brand} ${model}`,
+        name: `${finalBrand} ${model}`,
         plate: plate,
         image: vehicleImage ? { uri: vehicleImage } : (v.image || DEFAULT_VEHICLE_IMAGE),
       } : v));
     } else {
       const newVehicle: Vehicle = {
         id: Math.random().toString(),
-        name: `${brand} ${model}`,
+        name: `${finalBrand} ${model}`,
         plate: plate,
         status: 'Up to date',
         lastService: 'New',
@@ -136,11 +145,11 @@ export default function VehiclesScreen() {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.headerSide} 
-          onPress={() => router.push('/')}
+          onPress={() => router.back()}
         >
           <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Vehicles</Text>
+        <Text style={styles.headerTitle}>My vehicles</Text>
         <View style={styles.headerSide} />
       </View>
 
@@ -149,30 +158,50 @@ export default function VehiclesScreen() {
         showsVerticalScrollIndicator={false}
       >
         {vehicles.map((vehicle) => (
-          <View key={vehicle.id} style={styles.card}>
-            <TouchableOpacity 
-              activeOpacity={0.9}
-              onPress={() => router.push(`/vehicle-details/${vehicle.id}`)}
-            >
-              <Image source={vehicle.image} style={styles.cardImage} />
-              <View style={styles.cardContent}>
-                <Text style={styles.vehicleName}>{vehicle.name}</Text>
+          <View key={vehicle.id} style={styles.vehicleCard}>
+            <View style={styles.cardMain}>
+              <Image source={vehicle.image} style={styles.vehicleImage} />
+              <View style={styles.vehicleInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.name}</Text>
+                  <View style={[
+                    styles.statusBadge, 
+                    { backgroundColor: vehicle.status === 'Up to date' ? '#ECFDF5' : '#FEF2F2' }
+                  ]}>
+                    <View style={[
+                      styles.statusDot, 
+                      { backgroundColor: vehicle.status === 'Up to date' ? '#10B981' : '#EF4444' }
+                    ]} />
+                    <Text style={[
+                      styles.statusText, 
+                      { color: vehicle.status === 'Up to date' ? '#059669' : '#DC2626' }
+                    ]}>{vehicle.status}</Text>
+                  </View>
+                </View>
                 <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>
-                <Text style={styles.serviceDate}>Last Service Date - {vehicle.lastService}</Text>
-                <View style={styles.divider} />
+                
+                <View style={styles.serviceInfoRow}>
+                  <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                  <Text style={styles.lastServiceText}>Last: {vehicle.lastService}</Text>
+                </View>
               </View>
-            </TouchableOpacity>
+            </View>
 
-            <View style={[styles.cardContent, { paddingTop: 0, paddingBottom: 20 }]}>
-              <View style={styles.cardActions}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => openModal(vehicle)}>
-                  <Ionicons name="create-outline" size={22} color="#000" />
-                  <Text style={styles.actionText}>Edit</Text>
+            <View style={styles.cardFooter}>
+              <TouchableOpacity 
+                style={styles.detailsBtn} 
+                onPress={() => router.push(`/vehicle-details/${vehicle.id}`)}
+              >
+                <Text style={styles.detailsBtnText}>View Details</Text>
+                <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+              
+              <View style={styles.actionGroup}>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => openModal(vehicle)}>
+                  <Ionicons name="create-outline" size={20} color="#6B7280" />
                 </TouchableOpacity>
-
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(vehicle.id)}>
-                  <Ionicons name="trash-outline" size={22} color="#000" />
-                  <Text style={styles.actionText}>Delete</Text>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => handleDelete(vehicle.id)}>
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -202,16 +231,40 @@ export default function VehiclesScreen() {
               placeholder="Select Type"
               value={vType}
               options={vehicleTypes}
-              onSelect={setVType}
+              onSelect={(val) => {
+                setVType(val);
+                if (val !== 'Others') setCustomVType('');
+              }}
             />
+
+            {vType === 'Others' && (
+              <AppInput
+                label="Custom Vehicle Type"
+                placeholder="e.g. Electric Scooter"
+                value={customVType}
+                onChangeText={setCustomVType}
+              />
+            )}
 
             <AppDropdown
               label="Brand"
               placeholder="Select Brand"
               value={brand}
               options={brandMap[vType] || ['Other']}
-              onSelect={setBrand}
+              onSelect={(val) => {
+                setBrand(val);
+                if (val !== 'Other') setCustomBrand('');
+              }}
             />
+
+            {brand === 'Other' && (
+              <AppInput
+                label="Custom Brand"
+                placeholder="e.g. Tesla"
+                value={customBrand}
+                onChangeText={setCustomBrand}
+              />
+            )}
 
             <AppInput
               label="Model"
@@ -268,7 +321,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 30,
+    paddingTop: 25,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
@@ -289,61 +342,107 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 100,
   },
-  card: {
+  vehicleCard: {
     backgroundColor: '#fff',
     borderRadius: 24,
-    marginBottom: 20,
-    overflow: 'hidden',
-    elevation: 8,
+    marginBottom: 16,
+    padding: 16,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowRadius: 8,
   },
-  cardImage: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-  },
-  cardContent: {
-    padding: 20,
-  },
-  vehicleName: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#000',
-    marginBottom: 4,
-  },
-  vehiclePlate: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  serviceDate: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginBottom: 16,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  actionBtn: {
+  cardMain: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  actionText: {
-    fontSize: 16,
+  vehicleImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+  },
+  vehicleInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  vehicleName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#000',
+  },
+  vehiclePlate: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  serviceInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lastServiceText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  detailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailsBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.primary,
+    marginRight: 4,
+  },
+  actionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: 8,
   },
   fab: {
