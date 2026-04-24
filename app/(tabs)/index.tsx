@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import HomeHeader from '../../components/home/HomeHeader';
 import SearchBar from '../../components/home/SearchBar';
 import PromoBanner from '../../components/home/PromoBanner';
@@ -18,8 +19,7 @@ export default function HomeScreen() {
     availability: '',
   });
 
-  const [showAllTrusted, setShowAllTrusted] = React.useState(false);
-  const [showAllNearby, setShowAllNearby] = React.useState(false);
+  const router = useRouter();
 
   const handleApplyFilters = (newFilters: FilterState) => {
     setFilters(newFilters);
@@ -74,25 +74,16 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Trusted Service Centers Section */}
       <View className="px-5 mt-8">
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-xl font-bold text-gray-900">Trusted Service Centers</Text>
-          <TouchableOpacity onPress={() => setShowAllTrusted(!showAllTrusted)}>
-            <Text className="text-orange-500 font-bold">
-              {showAllTrusted ? 'Show Less' : 'View All'}
-            </Text>
-          </TouchableOpacity>
         </View>
         
-        {(showAllTrusted ? MOCK_SERVICE_CENTERS : MOCK_SERVICE_CENTERS.slice(0, 2)).map(center => (
+        {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
           <ServiceCenterCard 
             key={center.id}
-            image={center.image}
-            name={center.name}
-            location={center.location}
-            type={center.type}
-            distance={center.distance}
+            {...center}
+            variant="compact"
           />
         ))}
       </View>
@@ -101,21 +92,16 @@ export default function HomeScreen() {
       <View className="px-5 mt-4 mb-8">
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-xl font-bold text-gray-900">Nearby Service Centers</Text>
-          <TouchableOpacity onPress={() => setShowAllNearby(!showAllNearby)}>
-            <Text className="text-orange-500 font-bold">
-              {showAllNearby ? 'Show Less' : 'View All'}
-            </Text>
+          <TouchableOpacity onPress={() => router.push('/book')}>
+            <Text className="text-orange-500 font-bold">View All</Text>
           </TouchableOpacity>
         </View>
         
-        {(showAllNearby ? MOCK_SERVICE_CENTERS : MOCK_SERVICE_CENTERS.slice(2, 4)).map(center => (
+        {MOCK_SERVICE_CENTERS.slice(2).map(center => (
           <ServiceCenterCard 
             key={`nearby-${center.id}`}
-            image={center.image}
-            name={center.name}
-            location={center.location}
-            type={center.type}
-            distance={center.distance}
+            {...center}
+            variant="compact"
           />
         ))}
       </View>

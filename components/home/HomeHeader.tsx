@@ -15,7 +15,7 @@ export default function HomeHeader() {
         </TouchableOpacity>
         <View>
           <Text className="text-gray-500 text-xs font-medium">Fix Zone</Text>
-          <Text className="text-xl font-bold text-gray-900">Welcome {MOCK_USER.name.split(' ').pop()} !</Text>
+          <Text className="text-xl font-bold text-gray-900">{MOCK_USER.name} !</Text>
         </View>
       </View>
       
