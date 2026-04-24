@@ -351,8 +351,70 @@ export const MOCK_SERVICE_CENTERS: ServiceCenter[] = [
   }
 ];
 
+export interface Booking {
+  id: string;
+  centerId: string;
+  packageId: string;
+  vehicleId: string;
+  date: string;
+  month: string;
+  year: string;
+  time: string;
+  status: 'Pending' | 'Completed' | 'Cancelled';
+  totalPrice: number;
+  bookingFee: number;
+  paymentMethod?: string;
+  invoiceId?: string;
+}
+
+export const MOCK_BOOKINGS: Booking[] = [
+  {
+    id: 'b1',
+    centerId: '2',
+    packageId: 'c1',
+    vehicleId: '2',
+    date: '24',
+    month: 'Oct',
+    year: '2026',
+    time: '10:00 AM',
+    status: 'Pending',
+    totalPrice: 15000,
+    bookingFee: 1500,
+  },
+  {
+    id: 'b2',
+    centerId: '2',
+    packageId: 'c1',
+    vehicleId: '2',
+    date: '14',
+    month: 'Feb',
+    year: '2026',
+    time: '08:00 AM',
+    status: 'Completed',
+    totalPrice: 15000,
+    bookingFee: 1500,
+    paymentMethod: 'Credit Card',
+    invoiceId: 'INV-2026-001'
+  },
+  {
+    id: 'b3',
+    centerId: '2',
+    packageId: 'c2',
+    vehicleId: '2',
+    date: '28',
+    month: 'Jan',
+    year: '2026',
+    time: '02:00 PM',
+    status: 'Completed',
+    totalPrice: 14000,
+    bookingFee: 1400,
+    paymentMethod: 'Lanka QR',
+    invoiceId: 'INV-2026-002'
+  }
+];
+
 export const MOCK_USER = {
-  name: 'Ayubowan Chanuka',
+  name: 'Welcome Chanuka',
   profileImage: require('../assets/images/user_profile_chanuka.jpg'),
   notifications: 3
 };

@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { MOCK_USER } from '../../constants/mock_data';
@@ -27,7 +26,6 @@ export default function CustomDrawer(props: any) {
     if (route === '/(tabs)') {
       router.replace('/(tabs)');
     } else {
-      // For now, these are placeholders
       console.log('Navigating to:', route);
     }
     props.navigation.closeDrawer();
@@ -120,6 +118,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,
+    color: '#000',
   },
   menuContainer: {
     flex: 1,
