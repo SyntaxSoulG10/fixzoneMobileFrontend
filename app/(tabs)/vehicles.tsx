@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from "expo-image-picker";
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
@@ -43,6 +44,27 @@ export default function VehiclesScreen() {
   const [model, setModel] = useState('');
   const [fuel, setFuel] = useState('');
   const [plate, setPlate] = useState('');
+  const [vehicleImage, setVehicleImage] = useState<string | null>(null);
+
+  const pickVehicleImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo access to upload image.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setVehicleImage(result.assets[0].uri);
+    }
+  };
 
   const openModal = (vehicle?: Vehicle) => {
     if (vehicle) {
@@ -53,6 +75,7 @@ export default function VehiclesScreen() {
       setModel(vehicle.name.split(' ').slice(1).join(' '));
       setPlate(vehicle.plate);
       setFuel('Petrol');
+      setVehicleImage(typeof vehicle.image === 'object' ? vehicle.image.uri : null);
     } else {
       setEditingVehicle(null);
       setVType('');
@@ -60,6 +83,7 @@ export default function VehiclesScreen() {
       setModel('');
       setFuel('');
       setPlate('');
+      setVehicleImage(null);
     }
     setIsModalVisible(true);
   };
@@ -75,6 +99,7 @@ export default function VehiclesScreen() {
         ...v,
         name: `${brand} ${model}`,
         plate: plate,
+        image: vehicleImage ? { uri: vehicleImage } : (v.image || DEFAULT_VEHICLE_IMAGE),
       } : v));
     } else {
       const newVehicle: Vehicle = {
@@ -83,7 +108,7 @@ export default function VehiclesScreen() {
         plate: plate,
         status: 'Up to date',
         lastService: 'New',
-        image: DEFAULT_VEHICLE_IMAGE,
+        image: vehicleImage ? { uri: vehicleImage } : DEFAULT_VEHICLE_IMAGE,
       };
       setVehicles(prev => [...prev, newVehicle]);
     }
@@ -211,10 +236,19 @@ export default function VehiclesScreen() {
               autoCapitalize="characters"
             />
 
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="camera-outline" size={40} color="#9CA3AF" />
-              <Text style={styles.imagePlaceholderText}>Upload Vehicle Image</Text>
-            </View>
+            <TouchableOpacity style={styles.imagePlaceholder} onPress={pickVehicleImage}>
+              {vehicleImage ? (
+                <Image
+                  source={{ uri: vehicleImage }}
+                  style={styles.uploadedImage}
+                />
+              ) : (
+                <>
+                  <Ionicons name="camera-outline" size={40} color="#9CA3AF" />
+                  <Text style={styles.imagePlaceholderText}>Upload Vehicle Image</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             <AppButton
               label={editingVehicle ? "Update Vehicle" : "Add Vehicle"}
@@ -367,6 +401,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     fontWeight: '600',
+  },
+  uploadedImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
+    resizeMode: "cover",
   },
   saveBtn: {
     marginTop: 10,
