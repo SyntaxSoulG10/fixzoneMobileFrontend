@@ -80,9 +80,6 @@ export default function BookScreen() {
               <Text style={styles.sectionTitle}>Premium Centers</Text>
               <Text style={styles.sectionSubtitle}>Handpicked for Quality assurance</Text>
             </View>
-            <TouchableOpacity>
-              <Text style={styles.viewMapText}>View Map</Text>
-            </TouchableOpacity>
           </View>
         }
         showsVerticalScrollIndicator={false}
@@ -155,11 +152,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontWeight: '600',
-  },
-  viewMapText: {
-    fontSize: 14,
-    color: '#E84E0F',
-    fontWeight: '700',
   },
   cardWrapper: {
     marginBottom: 0,

@@ -113,9 +113,15 @@ export default function ServiceCenterDetails() {
               <Ionicons name="location-sharp" size={14} color="#fff" />
               <Text style={styles.heroLocationText}>{center.location} • {center.distance} away</Text>
             </View>
-            <View style={styles.heroRatingRow}>
+            <View style={styles.heroStatusRow}>
               <Ionicons name="star" size={16} color="#F59E0B" />
               <Text style={styles.heroRatingText}>{center.rating}({center.ratingCount})</Text>
+              <Text style={styles.heroStatusDivider}> • </Text>
+              {isOpen() ? (
+                <Text style={styles.heroStatusOpen}>Open until {center.openUntil}</Text>
+              ) : (
+                <Text style={styles.heroStatusClosed}>Closed • Opens at {center.openingTime}</Text>
+              )}
             </View>
           </View>
           <TouchableOpacity style={styles.shareButton}>
@@ -147,14 +153,6 @@ export default function ServiceCenterDetails() {
               <Text style={styles.actionText}>Share</Text>
             </TouchableOpacity>
           </View>
-
-          <View style={styles.statusContainer}>
-            {isOpen() ? (
-              <Text style={styles.statusTextOpen}>🟢 Open • Closes at {center.openUntil}</Text>
-            ) : (
-              <Text style={styles.statusTextClosed}>🔴 Closed • Opens at {center.openingTime}</Text>
-            )}
-          </View>
         </View>
 
         {/* Vehicle Type Selection Tabs */}
@@ -184,6 +182,10 @@ export default function ServiceCenterDetails() {
 }
 
 function PackageCard({ pkg }: { pkg: ServicePackage }) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
+  const displayedFeatures = isExpanded ? pkg.features : pkg.features.slice(0, 3);
+
   return (
     <View style={styles.pkgCard}>
       <View style={styles.pkgImageContainer}>
@@ -207,14 +209,22 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
         <Text style={styles.pkgDuration}>⏱ {pkg.duration}</Text>
 
         <View style={styles.featuresList}>
-          {pkg.features.slice(0, 3).map((feature, index) => (
+          {displayedFeatures.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
               <Ionicons name="checkmark-circle" size={18} color="#000" />
               <Text style={styles.featureText}>{feature}</Text>
             </View>
           ))}
+          
           {pkg.features.length > 3 && (
-            <Text style={styles.moreFeatures}>+{pkg.features.length - 3} more</Text>
+            <TouchableOpacity 
+              onPress={() => setIsExpanded(!isExpanded)}
+              style={styles.expandButton}
+            >
+              <Text style={styles.moreFeatures}>
+                {isExpanded ? 'Show less' : `+${pkg.features.length - 3} more`}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -372,18 +382,23 @@ const styles = StyleSheet.create({
   actionTextPrimary: {
     color: '#000',
   },
-  statusContainer: {
-    alignItems: 'flex-end',
+  heroStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  statusTextOpen: {
+  heroStatusDivider: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+  },
+  heroStatusOpen: {
     color: '#10B981',
+    fontSize: 13,
     fontWeight: '800',
-    fontSize: 14,
   },
-  statusTextClosed: {
+  heroStatusClosed: {
     color: '#EF4444',
+    fontSize: 13,
     fontWeight: '800',
-    fontSize: 14,
   },
   tabsContainer: {
     marginTop: 24,
@@ -511,12 +526,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#E84E0F',
     fontWeight: '800',
+  },
+  expandButton: {
+    paddingVertical: 8,
     marginLeft: 26,
+    alignSelf: 'flex-start',
   },
   bookButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: '#E84E0F',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',

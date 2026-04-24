@@ -93,12 +93,6 @@ export default function ServiceCenterCard({
           style={styles.premiumImage}
           resizeMode="cover"
         />
-        {isVerified && (
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="checkmark-circle" size={14} color="#fff" />
-            <Text style={styles.verifiedText}>FIXZONE VERIFIED</Text>
-          </View>
-        )}
       </View>
 
       <View style={styles.premiumInfoContainer}>
@@ -196,23 +190,6 @@ const styles = StyleSheet.create({
   premiumImage: {
     width: '100%',
     height: '100%',
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: '#E84E0F',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  verifiedText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '800',
-    marginLeft: 4,
   },
   premiumInfoContainer: {
     padding: 16,

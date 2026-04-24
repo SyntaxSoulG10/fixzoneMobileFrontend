@@ -4,13 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 import { MOCK_USER } from '../../constants/mock_data';
 
+import { useNavigation } from '@react-navigation/native';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+
 export default function HomeHeader() {
+  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const profileImage = MOCK_USER.profileImage;
   
   return (
     <View className="flex-row items-center justify-between px-5 pt-12 pb-4 bg-white">
       <View className="flex-row items-center">
-        <TouchableOpacity className="mr-4">
+        <TouchableOpacity className="mr-4" onPress={() => navigation.openDrawer()}>
           <Ionicons name="menu" size={28} color={COLORS.primary} />
         </TouchableOpacity>
         <View>
@@ -20,7 +24,7 @@ export default function HomeHeader() {
       </View>
       
       <View className="flex-row items-center">
-        <TouchableOpacity className="mr-4">
+        <TouchableOpacity className="mr-4" onPress={() => navigation.openDrawer()}>
           <View className="p-1 rounded-full border-2 border-orange-500">
             <Image 
               source={typeof profileImage === 'string' ? { uri: profileImage } : profileImage} 
