@@ -49,7 +49,10 @@ export default function HomeScreen() {
       <View className="px-5 mt-4">
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-xl font-bold text-gray-900">My Vehicles</Text>
-          <TouchableOpacity className="flex-row items-center">
+          <TouchableOpacity 
+            className="flex-row items-center"
+            onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+          >
             <Text className="text-orange-500 font-bold mr-2">Add New</Text>
             <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
               <Ionicons name="add" size={18} color="white" />

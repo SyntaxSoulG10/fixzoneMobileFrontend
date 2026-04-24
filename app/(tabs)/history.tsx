@@ -33,7 +33,11 @@ export default function HistoryScreen() {
     const isPending = booking.status === 'Pending';
 
     return (
-      <View key={booking.id} style={styles.card}>
+      <TouchableOpacity 
+        key={booking.id} 
+        style={styles.card}
+        onPress={() => router.push(`/invoice/${booking.id}`)}
+      >
         <View style={styles.cardMainContent}>
           <View style={styles.cardTextContent}>
             <View style={styles.statusRow}>
@@ -67,12 +71,11 @@ export default function HistoryScreen() {
                   <TouchableOpacity style={[styles.actionButton, styles.rebookButton]}>
                     <Text style={styles.actionButtonText}>Rebook</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <View 
                     style={styles.invoiceIconBtn}
-                    onPress={() => router.push(`/invoice/${booking.id}`)}
                   >
                     <Ionicons name="document-text" size={24} color="#9CA3AF" />
-                  </TouchableOpacity>
+                  </View>
                 </>
               )}
             </View>
@@ -83,7 +86,7 @@ export default function HistoryScreen() {
             style={styles.centerImage} 
           />
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

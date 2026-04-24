@@ -29,26 +29,20 @@ export default function InvoiceScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity 
+          style={styles.closeButton} 
+          onPress={() => router.back()}
+        >
           <Ionicons name="close" size={28} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Invoice</Text>
-        <TouchableOpacity style={styles.shareButton}>
-          <Ionicons name="share-outline" size={24} color="#000" />
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+
         {/* Status Section */}
         <View style={styles.statusSection}>
-          <View style={[styles.statusIconBg, isCompleted ? styles.completedIconBg : styles.pendingIconBg]}>
-            <Ionicons 
-              name={isCompleted ? "checkmark-circle" : "time"} 
-              size={40} 
-              color={isCompleted ? "#10B981" : "#EF4444"} 
-            />
-          </View>
           <Text style={styles.statusTitle}>{isCompleted ? 'Payment Successful' : 'Booking Confirmed'}</Text>
           <Text style={styles.statusDate}>{booking.month} {booking.date}, {booking.year} | {booking.time}</Text>
         </View>
@@ -56,7 +50,7 @@ export default function InvoiceScreen() {
         {/* Invoice Card */}
         <View style={styles.invoiceCard}>
           <Text style={styles.cardSectionTitle}>Service Summary</Text>
-          
+
           <View style={styles.detailRow}>
             <View>
               <Text style={styles.detailLabel}>Service Center</Text>
@@ -79,8 +73,18 @@ export default function InvoiceScreen() {
 
           <View style={styles.divider} />
 
+          <Text style={styles.cardSectionTitle}>Service Items Completed</Text>
+          {pkg.features.map((feature, index) => (
+            <View key={index} style={styles.featureItem}>
+              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+              <Text style={styles.featureText}>{feature}</Text>
+            </View>
+          ))}
+
+          <View style={styles.divider} />
+
           <Text style={styles.cardSectionTitle}>Payment Breakdown</Text>
-          
+
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Service Package Cost</Text>
             <Text style={styles.priceValue}>LKR {booking.totalPrice.toLocaleString()}.00</Text>
@@ -92,7 +96,9 @@ export default function InvoiceScreen() {
           </View>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Remaining Balance to be Paid</Text>
+            <Text style={styles.totalLabel}>
+              {isCompleted ? 'Balance Paid' : 'Balance to be Paid'}
+            </Text>
             <Text style={styles.totalValue}>LKR {(booking.totalPrice - booking.bookingFee).toLocaleString()}.00</Text>
           </View>
 
@@ -109,18 +115,19 @@ export default function InvoiceScreen() {
         </View>
 
         {/* Action Buttons */}
-        <TouchableOpacity style={styles.downloadButton}>
-          <Ionicons name="download-outline" size={20} color="#fff" />
-          <Text style={styles.downloadButtonText}>Download Invoice (PDF)</Text>
-        </TouchableOpacity>
+        {isCompleted && (
+          <TouchableOpacity style={styles.downloadButton}>
+            <Ionicons name="download-outline" size={20} color="#fff" />
+            <Text style={styles.downloadButtonText}>Download Invoice (PDF)</Text>
+          </TouchableOpacity>
+        )}
 
-        <View style={styles.wishSection}>
-          <Text style={styles.wishText}>Thank you, come again!</Text>
-        </View>
+        {isCompleted && (
+          <View style={styles.wishSection}>
+            <Text style={styles.wishText}>Thank you, come again!</Text>
+          </View>
+        )}
 
-        <Text style={styles.footerNote}>
-          Please present this invoice at the service center.
-        </Text>
 
       </ScrollView>
     </View>
@@ -149,8 +156,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111827',
   },
-  shareButton: {
-    padding: 4,
+  closeButton: {
+    width: 40,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   scrollContent: {
     paddingBottom: 60,
@@ -159,6 +168,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 30,
     backgroundColor: '#fff',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    zIndex: 1,
   },
   statusIconBg: {
     width: 80,
@@ -225,6 +240,18 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '600',
     marginTop: 2,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  featureText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '600',
+    marginLeft: 10,
+    flex: 1,
   },
   divider: {
     height: 1,
