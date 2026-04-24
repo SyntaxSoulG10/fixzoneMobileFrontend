@@ -8,9 +8,11 @@ import PromoBanner from '../../components/home/PromoBanner';
 import VehicleCard from '../../components/home/VehicleCard';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
 import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
+import { useBookings } from '../../context/BookingContext';
 import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 
 export default function HomeScreen() {
+  const { pendingBookings } = useBookings();
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
   const [filters, setFilters] = React.useState<FilterState>({
     distance: '',
@@ -43,7 +45,7 @@ export default function HomeScreen() {
       <HomeHeader />
       <SearchBar onFilterPress={() => setIsFilterVisible(true)} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <PromoBanner />
+        <PromoBanner pendingBookings={pendingBookings} />
 
       {/* My Vehicles Section */}
       <View className="px-5 mt-4">

@@ -413,6 +413,55 @@ export const MOCK_BOOKINGS: Booking[] = [
   }
 ];
 
+export interface Promotion {
+  id: string;
+  title: string;
+  centerName: string;
+  location: string;
+  description: string;
+  expiryDate: string;
+  image: any;
+}
+
+export const MOCK_PROMOTIONS: Promotion[] = [
+  {
+    id: 'p1',
+    title: '15% Off Winter Check-Up',
+    centerName: 'Automiraj',
+    location: 'Colombo 07',
+    description: 'Keep your vehicle safe and reliable this season with a full winter inspection.',
+    expiryDate: 'Expires Dec 31',
+    image: require('../assets/images/automiraj_exterior.jpg'),
+  },
+  {
+    id: 'p2',
+    title: 'Loyalty Reward',
+    centerName: 'Automiraj',
+    location: 'Colombo 07',
+    description: 'Exclusive reward for returning customers—your next oil change is on us.',
+    expiryDate: 'Valid until Nov 15',
+    image: require('../assets/images/prime_motors_general.jpg'),
+  },
+  {
+    id: 'p3',
+    title: 'Free AC Service',
+    centerName: 'ElectroFix Electrical',
+    location: 'Nugegoda',
+    description: 'Get a free AC gas top-up and filter cleaning with any full service package.',
+    expiryDate: 'Expires Oct 30',
+    image: require('../assets/images/electrofix_electrical.jpg'),
+  },
+  {
+    id: 'p4',
+    title: 'Brake Safety Month',
+    centerName: 'SpeedWorks Performance',
+    location: 'Colombo 03',
+    description: 'Complimentary brake pad inspection and cleaning for all vehicle types.',
+    expiryDate: 'Valid until Nov 30',
+    image: require('../assets/images/speedworks_tuning.jpg'),
+  }
+];
+
 export const MOCK_USER = {
   name: 'Welcome Chanuka',
   profileImage: require('../assets/images/user_profile_chanuka.jpg'),

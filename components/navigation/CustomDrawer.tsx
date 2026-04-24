@@ -26,7 +26,7 @@ export default function CustomDrawer(props: any) {
     if (route === '/(tabs)') {
       router.replace('/(tabs)');
     } else {
-      console.log('Navigating to:', route);
+      router.push(route as any);
     }
     props.navigation.closeDrawer();
   };

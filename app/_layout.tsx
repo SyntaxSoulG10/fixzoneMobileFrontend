@@ -8,6 +8,8 @@ import { View, ActivityIndicator } from "react-native";
 import CustomDrawer from "../components/navigation/CustomDrawer";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { BookingProvider } from "../context/BookingContext";
+
 function RootLayoutNav() {
   const { isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
@@ -55,8 +57,10 @@ function RootLayoutNav() {
 
 export default function Layout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <BookingProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </BookingProvider>
   );
 }

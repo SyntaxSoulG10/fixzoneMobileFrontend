@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
+import { useBookings } from '../../context/BookingContext';
 
 const { width } = Dimensions.get('window');
 
 export default function InitialPaymentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { addBooking } = useBookings();
 
   // Extract data from params
   const { id, packageId, date, time, vehicleId } = params;
@@ -38,8 +40,23 @@ export default function InitialPaymentScreen() {
     // Simulate payment processing
     setTimeout(() => {
       setIsProcessing(false);
-      // Navigate to success screen (to be created)
-      // router.replace('/booking-success');
+      
+      // Add to booking history
+      addBooking({
+        id: Math.random().toString(36).substr(2, 9),
+        status: 'Pending',
+        centerId: center.id,
+        packageId: pkg.id,
+        vehicleId: vehicle.id,
+        date: date as string,
+        month: 'Oct', // Simplified for prototype
+        year: '2026',
+        totalPrice: totalPrice,
+        bookingFee: bookingCharge,
+        paymentMethod: 'Card Payment',
+        invoiceId: `INV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+      });
+
       Alert.alert('Success', 'Payment Successful!', [
         { text: 'OK', onPress: () => router.replace('/(tabs)') }
       ]);
@@ -301,60 +318,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
     flex: 1,
-  },
-  paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  paymentOptionActive: {
-    borderColor: '#E84E0F',
-    backgroundColor: '#FFF7ED',
-  },
-  paymentIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  paymentTextContainer: {
-    flex: 1,
-  },
-  paymentMethodName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#E84E0F',
-  },
-  paymentMethodSub: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E84E0F',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioButtonActive: {
-    borderColor: '#E84E0F',
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E84E0F',
   },
   footer: {
     position: 'absolute',

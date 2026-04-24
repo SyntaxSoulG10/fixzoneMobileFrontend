@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { MOCK_BOOKINGS, MOCK_VEHICLES, MOCK_SERVICE_CENTERS, Booking } from '../../constants/mock_data';
+import { useBookings } from '../../context/BookingContext';
+import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS, Booking } from '../../constants/mock_data';
 
 const { width } = Dimensions.get('window');
 
@@ -10,9 +11,10 @@ type FilterStatus = 'All' | 'Completed' | 'Pending';
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { bookings } = useBookings();
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('All');
 
-  const filteredBookings = MOCK_BOOKINGS.filter(booking => {
+  const filteredBookings = bookings.filter(booking => {
     if (activeFilter === 'All') return true;
     return booking.status === activeFilter;
   });
