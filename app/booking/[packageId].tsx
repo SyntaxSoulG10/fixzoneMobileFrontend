@@ -6,30 +6,41 @@ import { MOCK_SERVICE_CENTERS, MOCK_VEHICLES, ServiceCenter, ServicePackage } fr
 
 const { width } = Dimensions.get('window');
 
-const TIME_SLOTS = [
-  { id: '1', time: '8.00 AM', status: 'Available' },
-  { id: '2', time: '10.00 AM', status: 'Busy' },
-  { id: '3', time: '12.00 PM', status: 'Available' },
-  { id: '4', time: '2.00 PM', status: 'Busy' },
-  { id: '5', time: '4.00 PM', status: 'Available' },
-  { id: '6', time: '6.00 PM', status: 'Available' },
+interface TimeSlot {
+  id: string;
+  time: string;
+  status: 'Available' | 'Busy' | 'Selected';
+}
+
+const MORNING_SLOTS: TimeSlot[] = [
+  { id: 'm1', time: '08:00 AM', status: 'Available' },
+  { id: 'm2', time: '09:00 AM', status: 'Available' },
+  { id: 'm3', time: '10:00 AM', status: 'Busy' },
+  { id: 'm4', time: '11:00 AM', status: 'Available' },
+];
+
+const AFTERNOON_SLOTS: TimeSlot[] = [
+  { id: 'a1', time: '12:00 PM', status: 'Available' },
+  { id: 'a2', time: '02:00 PM', status: 'Busy' },
+  { id: 'a3', time: '04:00 PM', status: 'Available' },
+];
+
+const EVENING_SLOTS: TimeSlot[] = [
+  { id: 'e1', time: '06:00 PM', status: 'Available' },
+  { id: 'e2', time: '07:00 PM', status: 'Available' },
 ];
 
 export default function BookServiceScreen() {
   const { id, packageId } = useLocalSearchParams();
   const router = useRouter();
 
-  // Find center and package
   const center = MOCK_SERVICE_CENTERS.find(c => c.id === id);
   const pkg = center?.packages.find(p => p.id === packageId);
 
-  // States
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(MOCK_VEHICLES[0]?.id || null);
-  const [specialRequest, setSpecialRequest] = useState('');
 
-  // Generate 30 dates starting from today
   const dates = useMemo(() => {
     const arr = [];
     const today = new Date();
@@ -52,25 +63,28 @@ export default function BookServiceScreen() {
   const isReady = selectedDate && selectedTime && selectedVehicle;
 
   const handleProceed = () => {
-    if (isReady) {
-      // Navigate to payment or confirmation
-      console.log('Proceeding with booking:', {
-        centerId: center.id,
-        packageId: pkg.id,
-        date: selectedDate,
-        time: selectedTime,
-        vehicleId: selectedVehicle,
-        notes: specialRequest
+    if (isReady && selectedDate) {
+      const allSlots = [...MORNING_SLOTS, ...AFTERNOON_SLOTS, ...EVENING_SLOTS];
+      const timeStr = allSlots.find(t => t.id === selectedTime)?.time || '';
+      
+      router.push({
+        pathname: '/payment',
+        params: {
+          id: center.id,
+          packageId: pkg.id,
+          date: selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          time: timeStr,
+          vehicleId: selectedVehicle
+        }
       });
-      // router.push('/payment');
     }
   };
 
   const renderDate = (date: Date) => {
     const isSelected = selectedDate?.toDateString() === date.toDateString();
     const day = date.getDate();
-    const month = date.toLocaleString('default', { month: 'short' });
-    const weekDay = date.toLocaleString('default', { weekday: 'short' });
+    const weekDay = date.toLocaleString('default', { weekday: 'narrow' });
+    const isToday = new Date().toDateString() === date.toDateString();
 
     return (
       <TouchableOpacity 
@@ -80,7 +94,35 @@ export default function BookServiceScreen() {
       >
         <Text style={[styles.weekDayText, isSelected && styles.dateTextSelected]}>{weekDay}</Text>
         <Text style={[styles.dateText, isSelected && styles.dateTextSelected]}>{day}</Text>
-        <Text style={[styles.monthText, isSelected && styles.dateTextSelected]}>{month}</Text>
+        {isToday && !isSelected && <Text style={styles.todayLabel}>TODAY</Text>}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderTimeSlot = (slot: TimeSlot) => {
+    const isBusy = slot.status === 'Busy';
+    const isSelected = selectedTime === slot.id;
+    return (
+      <TouchableOpacity
+        key={slot.id}
+        disabled={isBusy}
+        onPress={() => setSelectedTime(isSelected ? null : slot.id)}
+        style={[
+          styles.timeSlot,
+          isBusy && styles.timeSlotBusy,
+          isSelected && styles.timeSlotSelected
+        ]}
+      >
+        <Text style={[styles.timeSlotTime, isSelected && styles.timeSlotTextSelected, isBusy && styles.timeSlotTextBusy]}>
+          {slot.time}
+        </Text>
+        <Text style={[
+          styles.timeSlotStatus, 
+          isBusy ? styles.statusBusy : styles.statusAvailable,
+          isSelected && styles.statusSelected
+        ]}>
+          {isSelected ? 'Selected' : slot.status}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -90,10 +132,13 @@ export default function BookServiceScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#000" />
+          <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Book Service</Text>
-        <View style={{ width: 28 }} />
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Select Schedule</Text>
+          <Text style={styles.headerSubtitle}>{center.name}</Text>
+        </View>
+        <View style={{ width: 24 }} />
       </View>
 
       <KeyboardAvoidingView 
@@ -102,19 +147,6 @@ export default function BookServiceScreen() {
       >
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           
-          {/* Service Center Summary */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Service Center</Text>
-            <View style={styles.centerSummary}>
-              <Image source={center.image} style={styles.centerImage} />
-              <View style={styles.centerInfo}>
-                <Text style={styles.centerName}>{center.name}</Text>
-                <Text style={styles.centerLocation}>{center.location}</Text>
-                <Text style={styles.centerDistance}>{center.distance} away</Text>
-              </View>
-            </View>
-          </View>
-
           {/* Selected Package */}
           <View style={styles.packageSelectedCard}>
             <View style={styles.packageHeader}>
@@ -135,6 +167,7 @@ export default function BookServiceScreen() {
             ))}
           </View>
 
+          {/* Disclaimer */}
           <View style={styles.disclaimerContainer}>
             <Ionicons name="information-circle-outline" size={24} color="#E84E0F" />
             <View style={{ flex: 1 }}>
@@ -147,53 +180,15 @@ export default function BookServiceScreen() {
               </Text>
             </View>
           </View>
-
-          {/* Select Date */}
+          
+          {/* 1. SELECT VEHICLE (Now at top) */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Date</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datePickerScroll}>
-              {dates.map(renderDate)}
-            </ScrollView>
-          </View>
-
-          {/* Select Time */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Select Time</Text>
-              <Text style={styles.slotsOpenText}>4 Slots Open</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>SELECT VEHICLE</Text>
+              <TouchableOpacity>
+                <Text style={styles.addNewText}>+ Add New</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.timeSlotsGrid}>
-              {TIME_SLOTS.map((slot) => {
-                const isBusy = slot.status === 'Busy';
-                const isSelected = selectedTime === slot.id;
-                return (
-                  <TouchableOpacity
-                    key={slot.id}
-                    disabled={isBusy}
-                    onPress={() => setSelectedTime(isSelected ? null : slot.id)}
-                    style={[
-                      styles.timeSlot,
-                      isBusy && styles.timeSlotBusy,
-                      isSelected && styles.timeSlotSelected
-                    ]}
-                  >
-                    <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextSelected]}>{slot.time}</Text>
-                    <Text style={[
-                      styles.timeSlotStatus, 
-                      isBusy ? styles.statusBusy : styles.statusAvailable,
-                      isSelected && styles.statusSelected
-                    ]}>
-                      Line 1-{slot.status}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Select Vehicle */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Vehicle</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.vehicleScroll}>
               {MOCK_VEHICLES.map((vehicle) => {
                 const isSelected = selectedVehicle === vehicle.id;
@@ -201,33 +196,79 @@ export default function BookServiceScreen() {
                   <TouchableOpacity 
                     key={vehicle.id}
                     onPress={() => setSelectedVehicle(isSelected ? null : vehicle.id)}
-                    style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}
+                    style={styles.vehicleItemContainer}
                   >
-                    <Image source={vehicle.image} style={styles.vehicleImage} />
-                    <Text style={[styles.vehiclePlate, isSelected && styles.vehiclePlateSelected]}>{vehicle.plate.split(' ').pop()}</Text>
+                    <View style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}>
+                      <Image source={vehicle.image} style={styles.vehicleImage} />
+                      {isSelected && (
+                        <View style={styles.checkBadge}>
+                          <Ionicons name="checkmark" size={12} color="#fff" />
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.vehicleNameText, isSelected && styles.vehicleNameTextSelected]}>
+                      {vehicle.name}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
-              <TouchableOpacity style={styles.addVehicleCard}>
-                <Ionicons name="add" size={24} color="#6B7280" />
-                <Text style={styles.addVehicleText}>Add</Text>
-              </TouchableOpacity>
             </ScrollView>
           </View>
 
-          {/* Special Request */}
-          <View style={[styles.section, { marginBottom: 120 }]}>
-            <Text style={styles.sectionTitle}>Special Request</Text>
-            <TextInput
-              style={styles.notesInput}
-              placeholder="Describe any specific issues (e.g. 'Strange noise from rear left tire' )...."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={4}
-              value={specialRequest}
-              onChangeText={setSpecialRequest}
-              maxLength={200}
-            />
+          {/* 2. SELECT DATE (Month-style header) */}
+          <View style={styles.section}>
+            <View style={styles.calendarHeader}>
+              <Ionicons name="chevron-back" size={20} color="#E84E0F" />
+              <Text style={styles.calendarMonth}>October 2023</Text>
+              <Ionicons name="chevron-forward" size={20} color="#E84E0F" />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datePickerScroll}>
+              {dates.map(renderDate)}
+            </ScrollView>
+          </View>
+
+          {/* 3. SELECT TIME (Categorized) */}
+          
+          {/* Morning */}
+          <View style={styles.section}>
+            <View style={styles.timeCategoryHeader}>
+              <View style={styles.timeCategoryTitleRow}>
+                <Ionicons name="sunny-outline" size={20} color="#E84E0F" />
+                <Text style={styles.timeCategoryName}>Morning</Text>
+              </View>
+              <Text style={styles.timeRangeText}>08:00 - 11:59</Text>
+            </View>
+            <View style={styles.timeSlotsGrid}>
+              {MORNING_SLOTS.map(renderTimeSlot)}
+            </View>
+          </View>
+
+          {/* Afternoon */}
+          <View style={styles.section}>
+            <View style={styles.timeCategoryHeader}>
+              <View style={styles.timeCategoryTitleRow}>
+                <Ionicons name="sunny" size={20} color="#E84E0F" />
+                <Text style={styles.timeCategoryName}>Afternoon</Text>
+              </View>
+              <Text style={styles.timeRangeText}>12:00 - 16:59</Text>
+            </View>
+            <View style={styles.timeSlotsGrid}>
+              {AFTERNOON_SLOTS.map(renderTimeSlot)}
+            </View>
+          </View>
+
+          {/* Evening */}
+          <View style={styles.section}>
+            <View style={styles.timeCategoryHeader}>
+              <View style={styles.timeCategoryTitleRow}>
+                <Ionicons name="moon-outline" size={20} color="#E84E0F" />
+                <Text style={styles.timeCategoryName}>Evening</Text>
+              </View>
+              <Text style={styles.timeRangeText}>17:00 - 20:00</Text>
+            </View>
+            <View style={styles.timeSlotsGrid}>
+              {EVENING_SLOTS.map(renderTimeSlot)}
+            </View>
           </View>
 
         </ScrollView>
@@ -236,7 +277,7 @@ export default function BookServiceScreen() {
       {/* Sticky Bottom Bar */}
       <View style={styles.bottomBar}>
         <View style={styles.priceContainer}>
-          <Text style={styles.totalLabel}>Total Estimate</Text>
+          <Text style={styles.totalLabel}>ESTIMATED TOTAL</Text>
           <Text style={styles.totalValue}>LKR {pkg.price.toLocaleString()}</Text>
         </View>
         <TouchableOpacity 
@@ -245,7 +286,6 @@ export default function BookServiceScreen() {
           disabled={!isReady}
         >
           <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -264,65 +304,261 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    backgroundColor: '#fff',
   },
   backButton: {
     padding: 4,
+  },
+  headerTitleContainer: {
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#111827',
   },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  infoButton: {
+    padding: 4,
+  },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 120,
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginTop: 24,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  sectionTitleRow: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  centerSummary: {
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#6B7280',
+    letterSpacing: 0.5,
+  },
+  addNewText: {
+    fontSize: 14,
+    color: '#E84E0F',
+    fontWeight: '800',
+  },
+  vehicleScroll: {
     flexDirection: 'row',
-    backgroundColor: '#FFF7ED',
-    borderRadius: 16,
-    padding: 12,
   },
-  centerImage: {
+  vehicleItemContainer: {
+    alignItems: 'center',
+    marginRight: 20,
+    width: 80,
+  },
+  vehicleCard: {
     width: 80,
     height: 80,
-    borderRadius: 12,
-  },
-  centerInfo: {
-    marginLeft: 12,
+    borderRadius: 20,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
   },
-  centerName: {
+  vehicleCardSelected: {
+    borderColor: '#E84E0F',
+    backgroundColor: '#fff',
+  },
+  vehicleImage: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
+  },
+  checkBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E84E0F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  vehicleNameText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  vehicleNameTextSelected: {
+    color: '#E84E0F',
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  calendarMonth: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginHorizontal: 40,
+  },
+  datePickerScroll: {
+    paddingRight: 20,
+  },
+  dateItem: {
+    width: 50,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+    marginRight: 15,
+    backgroundColor: '#fff',
+  },
+  dateItemSelected: {
+    backgroundColor: '#E84E0F',
+    elevation: 8,
+    shadowColor: '#E84E0F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  weekDayText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9CA3AF',
+  },
+  dateText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  todayLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#E84E0F',
+    marginTop: 2,
+  },
+  dateTextSelected: {
+    color: '#fff',
+  },
+  timeCategoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timeCategoryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeCategoryName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#374151',
+    marginLeft: 10,
+  },
+  timeRangeText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '700',
+  },
+  timeSlotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  timeSlot: {
+    width: (width - 55) / 2,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    marginBottom: 15,
+  },
+  timeSlotSelected: {
+    backgroundColor: '#E84E0F',
+    borderColor: '#E84E0F',
+  },
+  timeSlotTime: {
     fontSize: 16,
     fontWeight: '800',
     color: '#111827',
+    marginBottom: 4,
   },
-  centerLocation: {
-    fontSize: 13,
-    color: '#374151',
-    fontWeight: '600',
-  },
-  centerDistance: {
+  timeSlotStatus: {
     fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontWeight: '700',
+  },
+  statusAvailable: {
+    color: '#10B981',
+  },
+  statusBusy: {
+    color: '#EF4444',
+  },
+  statusSelected: {
+    color: 'rgba(255,255,255,0.8)',
+  },
+  timeSlotTextSelected: {
+    color: '#fff',
+  },
+  timeSlotTextBusy: {
+    color: '#9CA3AF',
+  },
+  timeSlotBusy: {
+    backgroundColor: '#F9FAFB',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingBottom: Platform.OS === 'ios' ? 35 : 20,
+  },
+  priceContainer: {
+    flex: 1,
+  },
+  totalLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '800',
+  },
+  totalValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#E84E0F',
+  },
+  proceedButton: {
+    backgroundColor: '#E84E0F',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+  },
+  proceedButtonDisabled: {
+    backgroundColor: '#F3F4F6',
+  },
+  proceedButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
   },
   packageSelectedCard: {
     marginHorizontal: 20,
@@ -394,229 +630,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
     flex: 1,
-  },
-  dateItem: {
-    width: 60,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginRight: 12,
-    backgroundColor: '#fff',
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  calendarMonth: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  daysHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  dayHeaderText: {
-    width: (width - 72) / 7,
-    textAlign: 'center',
-    fontSize: 10,
-    color: '#6B7280',
-    fontWeight: '800',
-  },
-  datesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  dateItemSelected: {
-    backgroundColor: '#E84E0F',
-    borderColor: '#E84E0F',
-  },
-  weekDayText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-  },
-  dateText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#111827',
-    marginVertical: 2,
-  },
-  monthText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-  },
-  dateTextSelected: {
-    color: '#fff',
-  },
-  datePickerScroll: {
-    paddingRight: 20,
-  },
-  slotsOpenText: {
-    fontSize: 12,
-    color: '#E84E0F',
-    fontWeight: '700',
-  },
-  timeSlotsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  timeSlot: {
-    width: (width - 50) / 3,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#374151',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  timeSlotBusy: {
-    borderColor: '#EF4444',
-  },
-  timeSlotSelected: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#E84E0F',
-    borderWidth: 2,
-  },
-  timeSlotText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  timeSlotTextSelected: {
-    color: '#E84E0F',
-  },
-  timeSlotStatus: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  statusAvailable: {
-    color: '#10B981',
-  },
-  statusBusy: {
-    color: '#EF4444',
-  },
-  statusSelected: {
-    color: '#E84E0F',
-  },
-  vehicleScroll: {
-    paddingVertical: 4,
-  },
-  vehicleCard: {
-    width: 100,
-    height: 100,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  vehicleCardSelected: {
-    borderColor: '#E84E0F',
-    backgroundColor: '#FFF7ED',
-  },
-  vehicleImage: {
-    width: '100%',
-    height: 60,
-    resizeMode: 'cover',
-  },
-  vehiclePlate: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#111827',
-    marginTop: 4,
-  },
-  vehiclePlateSelected: {
-    color: '#E84E0F',
-  },
-  addVehicleCard: {
-    width: 60,
-    height: 100,
-    borderRadius: 16,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: '#6B7280',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addVehicleText: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '700',
-  },
-  notesInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#374151',
-    borderRadius: 12,
-    padding: 12,
-    height: 100,
-    textAlignVertical: 'top',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  priceContainer: {
-    flex: 1,
-  },
-  totalLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '700',
-  },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  proceedButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E84E0F',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  proceedButtonDisabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  proceedButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-    marginRight: 8,
   },
 });
