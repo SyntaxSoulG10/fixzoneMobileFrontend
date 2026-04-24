@@ -183,6 +183,8 @@ export default function ServiceCenterDetails() {
 
 function PackageCard({ pkg }: { pkg: ServicePackage }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const router = useRouter();
+  const { id } = useLocalSearchParams();
 
   const displayedFeatures = isExpanded ? pkg.features : pkg.features.slice(0, 3);
 
@@ -228,7 +230,13 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
           )}
         </View>
 
-        <TouchableOpacity style={styles.bookButton}>
+        <TouchableOpacity 
+          style={styles.bookButton} 
+          onPress={() => router.push({
+            pathname: '/booking/[packageId]',
+            params: { packageId: pkg.id, id: id as string }
+          })}
+        >
           <Text style={styles.bookButtonText}>Book Now</Text>
         </TouchableOpacity>
       </View>
