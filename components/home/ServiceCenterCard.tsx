@@ -69,7 +69,7 @@ export default function ServiceCenterCard({
         />
         <View style={styles.compactInfo}>
           <Text style={styles.compactName}>{name} - {location}</Text>
-          <Text style={styles.compactSubtitle}>{type} - {distance}</Text>
+          <Text style={styles.compactSubtitle}>{distance} away</Text>
           <Text style={styles.servedForLabel}>Served for :</Text>
           <View style={styles.compactChipRow}>
             {supportedVehicles.map(renderVehicleChip)}

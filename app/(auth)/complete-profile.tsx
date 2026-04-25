@@ -11,18 +11,7 @@ import { COLORS } from '../../constants/colors';
 import { useUser } from '../../context/UserContext';
 import { useAuth } from '../../context/auth_context';
 
-// Fallback Hardcoded Arrays Setup
-const vehicleTypes = ['Car', 'Bike', 'Three Wheels', 'Van', 'Lorry', 'Others'];
 
-const brandMap: Record<string, string[]> = {
-  'Car': ['Toyota', 'Honda', 'Nissan', 'BMW', 'Suzuki', 'Kia', 'Other'],
-  'Bike': ['Yamaha', 'Honda', 'Suzuki', 'Bajaj', 'TVS', 'Hero', 'Other'],
-  'Three Wheels': ['Bajaj', 'TVS', 'Piaggio', 'Other'],
-  'Van': ['Nissan', 'Toyota', 'Ford', 'Other'],
-  'Lorry': ['Isuzu', 'Mitsubishi', 'Tata', 'Ashok Leyland', 'Other'],
-};
-
-const fuelTypes = ['Petrol', 'Diesel', 'Hybrid', 'EV'];
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
@@ -33,22 +22,7 @@ export default function CompleteProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
-  // Primary toggle
-  const [addVehicle, setAddVehicle] = useState(false);
-
-  // Vehicle state
-  const [vehicleType, setVehicleType] = useState('');
-  const [customType, setCustomType] = useState('');
-  const [brand, setBrand] = useState('');
-  const [customBrand, setCustomBrand] = useState('');
-  const [model, setModel] = useState('');
-  const [fuelType, setFuelType] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [isPrimary, setIsPrimary] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
-
-  const availableBrands = brandMap[vehicleType] || [];
 
   const handleCreateAccount = async () => {
     setIsLoading(true);
@@ -59,19 +33,7 @@ export default function CompleteProfileScreen() {
       mobile: `+94 ${phone}`,
     });
 
-    // 2. Add vehicle if selected
-    if (addVehicle) {
-      saveVehicle({
-        id: Math.random().toString(36).substr(2, 9),
-        name: `${brand === 'Other' ? customBrand : brand} ${model}`,
-        plate: licenseNumber,
-        status: 'Up to date',
-        lastService: new Date().toLocaleDateString(),
-        image: vehicleType === 'Bike' 
-          ? require('../../assets/images/speedworks_tuning.jpg') 
-          : require('../../assets/images/honda_vezel_silver.jpg')
-      });
-    }
+
 
     // 3. Log in (this will trigger redirect to Home via _layout.tsx)
     await login();
@@ -113,95 +75,15 @@ export default function CompleteProfileScreen() {
           leftElement={phonePrefix}
         />
 
-        <View style={styles.toggleCard}>
-          <View style={styles.toggleCardContent}>
-            <Ionicons name="car" size={26} color={COLORS.primary} style={styles.toggleIcon} />
-            <View style={styles.toggleTextWrapper}>
-              <Text style={styles.toggleTitle}>Add vehicle details ?</Text>
-              <Text style={styles.toggleSubtitle}>Save time later by adding it now</Text>
+        <View style={styles.instructionCard}>
+          <View style={styles.instructionContent}>
+            <Ionicons name="information-circle" size={26} color={COLORS.primary} style={styles.instructionIcon} />
+            <View style={styles.instructionTextWrapper}>
+              <Text style={styles.instructionTitle}>Vehicle Details</Text>
+              <Text style={styles.instructionSubtitle}>Please add your vehicles in the dashboard before booking any service.</Text>
             </View>
-            <Switch
-              value={addVehicle}
-              onValueChange={setAddVehicle}
-              trackColor={{ false: '#e5e7eb', true: '#FED7AA' }}
-              thumbColor={addVehicle ? COLORS.primary : '#f4f3f4'}
-            />
           </View>
         </View>
-
-        {addVehicle && (
-          <View style={styles.vehicleForm}>
-            <AppDropdown
-              label="Vehicle Type"
-              placeholder="Select Type"
-              value={vehicleType}
-              options={vehicleTypes}
-              onSelect={(val) => {
-                setVehicleType(val);
-                setBrand(''); // reset brand naturally when type changes
-              }}
-            />
-
-            {vehicleType === 'Others' && (
-              <AppInput
-                label="Specify Vehicle Type"
-                placeholder="e.g. Tractor"
-                value={customType}
-                onChangeText={setCustomType}
-              />
-            )}
-
-            <AppDropdown
-              label="Brand"
-              placeholder="Select Brand"
-              value={brand}
-              options={availableBrands.length > 0 ? availableBrands : ['Other']}
-              onSelect={setBrand}
-            />
-
-            {(brand === 'Other' || vehicleType === 'Others') && (
-              <AppInput
-                label="Specify Brand"
-                placeholder="e.g. Ford"
-                value={customBrand}
-                onChangeText={setCustomBrand}
-              />
-            )}
-
-            <AppInput
-              label="Model"
-              placeholder="Select Model"
-              value={model}
-              onChangeText={setModel}
-            />
-
-            <AppDropdown
-              label="Fuel Type ⚡"
-              placeholder="Select Fuel Type"
-              value={fuelType}
-              options={fuelTypes}
-              onSelect={setFuelType}
-            />
-
-            <AppInput
-              label="License Number"
-              placeholder="e.g. ABC 1234"
-              value={licenseNumber}
-              onChangeText={setLicenseNumber}
-              autoCapitalize="characters"
-            />
-
-            <View style={styles.primaryToggleContainer}>
-              <Text style={styles.primaryToggleText}>Set as Primary Vehicle</Text>
-              <Switch
-                value={isPrimary}
-                onValueChange={setIsPrimary}
-                trackColor={{ false: '#e5e7eb', true: COLORS.primary }}
-                thumbColor={'#fff'}
-              />
-            </View>
-          </View>
-        )}
 
         <AppButton
           label="Sign up"
@@ -251,50 +133,34 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '500',
   },
-  toggleCard: {
+  instructionCard: {
     borderWidth: 1,
     borderColor: COLORS.primary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF7ED', // Light orange background
   },
-  toggleCardContent: {
+  instructionContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  toggleIcon: {
+  instructionIcon: {
     marginRight: 16,
   },
-  toggleTextWrapper: {
+  instructionTextWrapper: {
     flex: 1,
   },
-  toggleTitle: {
+  instructionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#000',
     marginBottom: 4,
   },
-  toggleSubtitle: {
+  instructionSubtitle: {
     fontSize: 13,
     color: COLORS.textSecondary,
-  },
-  vehicleForm: {
-    backgroundColor: '#fffbf5', // Light yellow/orange tint as per design
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  primaryToggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  primaryToggleText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: COLORS.text,
+    lineHeight: 18,
   },
   btn: {
     marginBottom: 16,
