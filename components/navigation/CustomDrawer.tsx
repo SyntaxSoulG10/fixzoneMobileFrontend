@@ -43,7 +43,7 @@ export default function CustomDrawer(props: any) {
             <Ionicons name="person" size={50} color="#6B7280" />
           </View>
         )}
-        <Text style={styles.userName}>{user.name}</Text>
+        <Text style={styles.userName}>{user.name.split(' ')[0]}</Text>
         <Text style={styles.userPhone}>{user.mobile}</Text>
         <TouchableOpacity 
           style={styles.editButton}

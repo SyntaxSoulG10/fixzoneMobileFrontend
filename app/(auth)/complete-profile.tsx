@@ -8,6 +8,8 @@ import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import AppDropdown from '../../components/ui/AppDropdown';
 import { COLORS } from '../../constants/colors';
+import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/auth_context';
 
 // Fallback Hardcoded Arrays Setup
 const vehicleTypes = ['Car', 'Bike', 'Three Wheels', 'Van', 'Lorry', 'Others'];
@@ -24,6 +26,8 @@ const fuelTypes = ['Petrol', 'Diesel', 'Hybrid', 'EV'];
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
+  const { updateUser, addVehicle: saveVehicle } = useUser();
+  const { login } = useAuth();
   
   // Profile state
   const [fullName, setFullName] = useState('');
@@ -46,12 +50,32 @@ export default function CompleteProfileScreen() {
 
   const availableBrands = brandMap[vehicleType] || [];
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      router.replace('/');
-    }, 1500);
+    
+    // 1. Update user profile
+    updateUser({
+      name: fullName,
+      mobile: `+94 ${phone}`,
+    });
+
+    // 2. Add vehicle if selected
+    if (addVehicle) {
+      saveVehicle({
+        id: Math.random().toString(36).substr(2, 9),
+        name: `${brand === 'Other' ? customBrand : brand} ${model}`,
+        plate: licenseNumber,
+        status: 'Up to date',
+        lastService: new Date().toLocaleDateString(),
+        image: vehicleType === 'Bike' 
+          ? require('../../assets/images/speedworks_tuning.jpg') 
+          : require('../../assets/images/honda_vezel_silver.jpg')
+      });
+    }
+
+    // 3. Log in (this will trigger redirect to Home via _layout.tsx)
+    await login();
+    setIsLoading(false);
   };
 
   const phonePrefix = (
@@ -75,124 +99,124 @@ export default function CompleteProfileScreen() {
       >
         <AppInput
           label="Full Name"
-        placeholder="Enter your full name"
-        value={fullName}
-        onChangeText={setFullName}
-      />
+          placeholder="Enter your full name"
+          value={fullName}
+          onChangeText={setFullName}
+        />
 
-      <AppInput
-        label="Phone number"
-        placeholder="7x xxx xxxx"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-        leftElement={phonePrefix}
-      />
+        <AppInput
+          label="Phone number"
+          placeholder="7x xxx xxxx"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          leftElement={phonePrefix}
+        />
 
-      <View style={styles.toggleCard}>
-        <View style={styles.toggleCardContent}>
-          <Ionicons name="car" size={26} color={COLORS.primary} style={styles.toggleIcon} />
-          <View style={styles.toggleTextWrapper}>
-            <Text style={styles.toggleTitle}>Add vehicle details ?</Text>
-            <Text style={styles.toggleSubtitle}>Save time later by adding it now</Text>
-          </View>
-          <Switch
-            value={addVehicle}
-            onValueChange={setAddVehicle}
-            trackColor={{ false: '#e5e7eb', true: '#FED7AA' }}
-            thumbColor={addVehicle ? COLORS.primary : '#f4f3f4'}
-          />
-        </View>
-      </View>
-
-      {addVehicle && (
-        <View style={styles.vehicleForm}>
-          <AppDropdown
-            label="Vehicle Type"
-            placeholder="Select Type"
-            value={vehicleType}
-            options={vehicleTypes}
-            onSelect={(val) => {
-              setVehicleType(val);
-              setBrand(''); // reset brand naturally when type changes
-            }}
-          />
-
-          {vehicleType === 'Others' && (
-            <AppInput
-              label="Specify Vehicle Type"
-              placeholder="e.g. Tractor"
-              value={customType}
-              onChangeText={setCustomType}
-            />
-          )}
-
-          <AppDropdown
-            label="Brand"
-            placeholder="Select Brand"
-            value={brand}
-            options={availableBrands.length > 0 ? availableBrands : ['Other']}
-            onSelect={setBrand}
-          />
-
-          {(brand === 'Other' || vehicleType === 'Others') && (
-            <AppInput
-              label="Specify Brand"
-              placeholder="e.g. Ford"
-              value={customBrand}
-              onChangeText={setCustomBrand}
-            />
-          )}
-
-          <AppInput
-            label="Model"
-            placeholder="Select Model"
-            value={model}
-            onChangeText={setModel}
-          />
-
-          <AppDropdown
-            label="Fuel Type ⚡"
-            placeholder="Select Fuel Type"
-            value={fuelType}
-            options={fuelTypes}
-            onSelect={setFuelType}
-          />
-
-          <AppInput
-            label="License Number"
-            placeholder="e.g. ABC 1234"
-            value={licenseNumber}
-            onChangeText={setLicenseNumber}
-            autoCapitalize="characters"
-          />
-
-          <View style={styles.primaryToggleContainer}>
-            <Text style={styles.primaryToggleText}>Set as Primary Vehicle</Text>
+        <View style={styles.toggleCard}>
+          <View style={styles.toggleCardContent}>
+            <Ionicons name="car" size={26} color={COLORS.primary} style={styles.toggleIcon} />
+            <View style={styles.toggleTextWrapper}>
+              <Text style={styles.toggleTitle}>Add vehicle details ?</Text>
+              <Text style={styles.toggleSubtitle}>Save time later by adding it now</Text>
+            </View>
             <Switch
-              value={isPrimary}
-              onValueChange={setIsPrimary}
-              trackColor={{ false: '#e5e7eb', true: COLORS.primary }}
-              thumbColor={'#fff'}
+              value={addVehicle}
+              onValueChange={setAddVehicle}
+              trackColor={{ false: '#e5e7eb', true: '#FED7AA' }}
+              thumbColor={addVehicle ? COLORS.primary : '#f4f3f4'}
             />
           </View>
         </View>
-      )}
 
-      <AppButton
-        label="Sign up"
-        onPress={handleCreateAccount}
-        style={styles.btn}
-        loading={isLoading}
-        disabled={!fullName || !phone}
-      />
+        {addVehicle && (
+          <View style={styles.vehicleForm}>
+            <AppDropdown
+              label="Vehicle Type"
+              placeholder="Select Type"
+              value={vehicleType}
+              options={vehicleTypes}
+              onSelect={(val) => {
+                setVehicleType(val);
+                setBrand(''); // reset brand naturally when type changes
+              }}
+            />
 
-      <View style={styles.footerLinks}>
-        <Text style={styles.footerText}>
-          By signing up, you agree to our{' '}
-          <Text style={styles.footerTextLink}>Terms of Services & Privacy policy</Text>
-        </Text>
-      </View>
+            {vehicleType === 'Others' && (
+              <AppInput
+                label="Specify Vehicle Type"
+                placeholder="e.g. Tractor"
+                value={customType}
+                onChangeText={setCustomType}
+              />
+            )}
+
+            <AppDropdown
+              label="Brand"
+              placeholder="Select Brand"
+              value={brand}
+              options={availableBrands.length > 0 ? availableBrands : ['Other']}
+              onSelect={setBrand}
+            />
+
+            {(brand === 'Other' || vehicleType === 'Others') && (
+              <AppInput
+                label="Specify Brand"
+                placeholder="e.g. Ford"
+                value={customBrand}
+                onChangeText={setCustomBrand}
+              />
+            )}
+
+            <AppInput
+              label="Model"
+              placeholder="Select Model"
+              value={model}
+              onChangeText={setModel}
+            />
+
+            <AppDropdown
+              label="Fuel Type ⚡"
+              placeholder="Select Fuel Type"
+              value={fuelType}
+              options={fuelTypes}
+              onSelect={setFuelType}
+            />
+
+            <AppInput
+              label="License Number"
+              placeholder="e.g. ABC 1234"
+              value={licenseNumber}
+              onChangeText={setLicenseNumber}
+              autoCapitalize="characters"
+            />
+
+            <View style={styles.primaryToggleContainer}>
+              <Text style={styles.primaryToggleText}>Set as Primary Vehicle</Text>
+              <Switch
+                value={isPrimary}
+                onValueChange={setIsPrimary}
+                trackColor={{ false: '#e5e7eb', true: COLORS.primary }}
+                thumbColor={'#fff'}
+              />
+            </View>
+          </View>
+        )}
+
+        <AppButton
+          label="Sign up"
+          onPress={handleCreateAccount}
+          style={styles.btn}
+          loading={isLoading}
+          disabled={!fullName || !phone}
+        />
+
+        <View style={styles.footerLinks}>
+          <Text style={styles.footerText}>
+            By signing up, you agree to our{' '}
+            <Text style={styles.footerTextLink}>Terms of Services & Privacy policy</Text>
+          </Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );

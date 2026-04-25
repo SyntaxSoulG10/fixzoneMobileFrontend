@@ -23,7 +23,7 @@ export default function HomeHeader() {
         </TouchableOpacity>
         <View>
           <Text className="text-gray-500 text-xs font-medium">Fix Zone</Text>
-          <Text className="text-xl font-bold text-gray-900">Welcome {user.name} !</Text>
+          <Text className="text-xl font-bold text-gray-900">Welcome {user.name.split(' ')[0]} !</Text>
         </View>
       </View>
 
@@ -42,7 +42,7 @@ export default function HomeHeader() {
             )}
           </View>
         </TouchableOpacity>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/notifications')}>
           <Ionicons name="notifications-outline" size={28} color="#000" />
         </TouchableOpacity>
       </View>

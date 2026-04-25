@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import AppInput from '../../components/ui/AppInput';
@@ -9,23 +9,31 @@ import SegmentedToggle from '../../components/ui/SegmentedToggle';
 import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/auth_context';
 
-export default function LoginScreen() {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+export default function AuthScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { login } = useAuth();
+  
+  const [mode, setMode] = useState<'login' | 'signup'>((params.initialMode as 'login' | 'signup') || 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleEmailChange = (text: string) => {
-    setEmail(text);
-    if (emailError) setEmailError('');
-  };
-
-  const handlePasswordChange = (text: string) => {
-    setPassword(text);
-    if (passwordError) setPasswordError('');
+  const handleModeChange = (newMode: 'login' | 'signup') => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setMode(newMode);
+    // Clear errors when switching
+    setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
   };
 
   const handleLogin = async () => {
@@ -48,7 +56,6 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await login();
-      // Redirection is handled by _layout.tsx based on AuthContext state
     } catch (error) {
       console.error('Login failed', error);
     } finally {
@@ -56,42 +63,53 @@ export default function LoginScreen() {
     }
   };
 
-  const handleForgotPassword = () => {
-    router.push('/(auth)/forgot-password');
-  };
+  const handleSignup = () => {
+    let isValid = true;
+    if (!email) {
+      setEmailError('Email is required');
+      isValid = false;
+    }
+    if (!password) {
+      setPasswordError('Password is required');
+      isValid = false;
+    }
+    if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match');
+      isValid = false;
+    }
 
-  const handleRegister = () => {
-    router.push('/(auth)/signup');
+    if (!isValid) return;
+
+    // Navigate to the final profile creation step
+    router.push('/(auth)/complete-profile');
   };
 
   return (
-    <ScreenContainer scrollable={false}>
+    <ScreenContainer scrollable={mode === 'signup'}>
       <View style={styles.header}>
         <Image 
           source={require('../../assets/images/fixzone-logo.png')} 
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.title}>{mode === 'login' ? 'Welcome Back' : 'Welcome'}</Text>
         <Text style={styles.subtitle}>
-          Sign in to manage your vehicle service and maintenance history
+          {mode === 'login' 
+            ? 'Sign in to manage your vehicle service and maintenance history'
+            : 'Sign up to manage your vehicle service and maintenance history'}
         </Text>
       </View>
 
       <SegmentedToggle 
-        active="login" 
-        onChange={(val) => {
-          if (val === 'signup') {
-            router.replace('/(auth)/signup');
-          }
-        }} 
+        active={mode} 
+        onChange={handleModeChange} 
       />
 
       <AppInput
         label="Email Address"
         placeholder="user@example.com"
         value={email}
-        onChangeText={handleEmailChange}
+        onChangeText={(text) => { setEmail(text); setEmailError(''); }}
         error={emailError}
         rightIcon="mail"
         autoCapitalize="none"
@@ -103,41 +121,64 @@ export default function LoginScreen() {
         label="Password"
         placeholder="********"
         value={password}
-        onChangeText={handlePasswordChange}
+        onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
         error={passwordError}
         isPassword
         style={{ marginBottom: 4 }}
       />
 
-      <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotContainer}>
-        <Text style={styles.forgotText}>Forgot Password ?</Text>
-      </TouchableOpacity>
+      {mode === 'signup' && (
+        <AppInput
+          label="Confirm Password"
+          placeholder="********"
+          value={confirmPassword}
+          onChangeText={(text) => { setConfirmPassword(text); setConfirmPasswordError(''); }}
+          error={confirmPasswordError}
+          isPassword
+          style={{ marginBottom: 4 }}
+        />
+      )}
+
+      {mode === 'login' && (
+        <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgotContainer}>
+          <Text style={styles.forgotText}>Forgot Password ?</Text>
+        </TouchableOpacity>
+      )}
 
       <AppButton
-        label="Login"
-        onPress={handleLogin}
+        label={mode === 'login' ? 'Login' : 'Create Account'}
+        onPress={mode === 'login' ? handleLogin : handleSignup}
         style={styles.btn}
-        rightIcon="log-in-outline"
+        rightIcon={mode === 'login' ? "log-in-outline" : undefined}
         loading={isSubmitting}
         disabled={isSubmitting}
       />
 
       <View style={styles.dividerContainer}>
         <View style={styles.line} />
-        <Text style={styles.orText}>or login with</Text>
+        <Text style={styles.orText}>{mode === 'login' ? 'or login with' : 'or continue with'}</Text>
         <View style={styles.line} />
       </View>
 
-      <View style={styles.socialContainer}>
-        <TouchableOpacity style={styles.socialBtn}>
-          <Ionicons name="person-circle-outline" size={32} color="#000" />
+      {mode === 'login' ? (
+        <View style={styles.socialContainer}>
+          <TouchableOpacity style={styles.socialBtn}>
+            <Ionicons name="finger-print" size={32} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.googleBtn}>
+          <Ionicons name="logo-google" size={24} color="#EA4335" />
+          <Text style={styles.googleBtnText}>Sign Up with Google</Text>
         </TouchableOpacity>
-      </View>
+      )}
 
-      <View style={styles.registerContainer}>
-        <Text style={styles.registerText}>Don't have an account ? </Text>
-        <TouchableOpacity onPress={handleRegister}>
-          <Text style={styles.registerLink}>Register</Text>
+      <View style={styles.bottomContainer}>
+        <Text style={styles.bottomText}>
+          {mode === 'login' ? "Don't have an account ? " : "Already have an account ? "}
+        </Text>
+        <TouchableOpacity onPress={() => handleModeChange(mode === 'login' ? 'signup' : 'login')}>
+          <Text style={styles.bottomLink}>{mode === 'login' ? 'Register' : 'Log In'}</Text>
         </TouchableOpacity>
       </View>
     </ScreenContainer>
@@ -184,7 +225,7 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   line: {
     flex: 1,
@@ -199,25 +240,47 @@ const styles = StyleSheet.create({
   },
   socialContainer: {
     alignItems: 'center',
-    marginBottom: 'auto',
+    marginBottom: 20,
   },
   socialBtn: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  registerContainer: {
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 30,
+    height: 44,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 20,
+  },
+  googleBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000',
+    marginLeft: 8,
+  },
+  bottomContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 90,
-    paddingBottom: 20,
+    paddingVertical: 20,
+    marginTop: 'auto',
   },
-  registerText: {
+  bottomText: {
     fontSize: 14,
     color: COLORS.text,
     fontWeight: '500',
   },
-  registerLink: {
+  bottomLink: {
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '500',

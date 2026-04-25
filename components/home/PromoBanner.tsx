@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { COLORS } from '../../constants/colors';
-import { Booking, MOCK_SERVICE_CENTERS, MOCK_VEHICLES } from '../../constants/mock_data';
+import { Booking, MOCK_SERVICE_CENTERS, MOCK_VEHICLES, MOCK_PROMOTIONS, Promotion } from '../../constants/mock_data';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -19,8 +19,11 @@ export default function PromoBanner({ pendingBookings = [] }: PromoBannerProps) 
   const [isPaused, setIsPaused] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(1);
   
-  // Base banners: Pending bookings + 1 Default Promo
-  const baseBanners = [...pendingBookings.map(b => ({ type: 'pending', data: b })), { type: 'promo' }];
+  // Base banners: Pending bookings + Mock Promotions
+  const baseBanners = [
+    ...pendingBookings.map(b => ({ type: 'pending', data: b })),
+    ...MOCK_PROMOTIONS.map(p => ({ type: 'promo', data: p }))
+  ];
   
   // Create circular list: [Last, ...Originals, First]
   const allBanners = [
@@ -87,21 +90,22 @@ export default function PromoBanner({ pendingBookings = [] }: PromoBannerProps) 
 
   const renderBanner = (item: any, index: number) => {
     if (item.type === 'promo') {
+      const promo: Promotion = item.data;
       return (
         <View key={`promo-${index}`} style={[styles.bannerContainer, { backgroundColor: COLORS.primary }]}>
           <View style={styles.content}>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>INSTANT BOOKING</Text>
+              <Text style={styles.tagText}>{promo.expiryDate.toUpperCase()}</Text>
             </View>
-            <Text style={styles.title}>Quick Service</Text>
-            <Text style={styles.subtitle}>
-              Expert vehicle maintenance at your doorstep in minutes
+            <Text style={styles.title} numberOfLines={1}>{promo.title}</Text>
+            <Text style={styles.subtitle} numberOfLines={2}>
+              {promo.description}
             </Text>
             <TouchableOpacity 
               style={styles.button}
-              onPress={() => router.push('/(tabs)/book')}
+              onPress={() => router.push('/promotions')}
             >
-              <Text style={[styles.buttonText, { color: COLORS.primary }]}>Book Now</Text>
+              <Text style={[styles.buttonText, { color: COLORS.primary }]}>View Offer</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.abstractShape} />

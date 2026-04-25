@@ -117,10 +117,13 @@ export default function NotificationsScreen() {
                 </View>
                 
                 <View style={styles.notifContent}>
-                  <View style={styles.notifHeader}>
-                    <Text style={[styles.notifTitle, !notif.read && styles.unreadTitle]}>{notif.title}</Text>
-                    <Text style={styles.notifTime}>{notif.time}</Text>
-                  </View>
+                  <Text 
+                    style={[styles.notifTitle, !notif.read && styles.unreadTitle]} 
+                    numberOfLines={1}
+                  >
+                    {notif.title}
+                  </Text>
+                  
                   <Text 
                     style={styles.notifMessage}
                     numberOfLines={expandedIds.includes(notif.id) ? undefined : 2}
@@ -128,11 +131,14 @@ export default function NotificationsScreen() {
                     {notif.message}
                   </Text>
                   
-                  {notif.message.length > 60 && (
-                    <Text style={styles.seeMoreText}>
-                      {expandedIds.includes(notif.id) ? 'See Less' : 'See More'}
-                    </Text>
-                  )}
+                  <View style={styles.notifFooter}>
+                    {notif.message.length > 60 && (
+                      <Text style={styles.seeMoreText}>
+                        {expandedIds.includes(notif.id) ? 'See Less' : 'See More'}
+                      </Text>
+                    )}
+                    <Text style={styles.notifTime}>{notif.time}</Text>
+                  </View>
                 </View>
 
                 {!notif.read && <View style={styles.unreadDot} />}
@@ -189,7 +195,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F3F4F6',
     position: 'relative',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
   unreadCard: {
     backgroundColor: '#FFF7ED',
@@ -206,27 +217,27 @@ const styles = StyleSheet.create({
   notifContent: {
     flex: 1,
   },
-  notifHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
   notifTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#374151',
-    flex: 1,
-    marginRight: 8,
+    marginBottom: 6,
   },
   unreadTitle: {
     color: '#111827',
     fontWeight: '800',
   },
+  notifFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   notifTime: {
     fontSize: 11,
     color: '#9CA3AF',
     fontWeight: '600',
+    marginLeft: 'auto', // Pushes to right if no see more text
   },
   notifMessage: {
     fontSize: 13,
@@ -246,6 +257,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: COLORS.primary,
     marginLeft: 10,
+    marginTop: 6,
   },
   emptyContainer: {
     flex: 1,
