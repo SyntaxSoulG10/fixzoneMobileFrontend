@@ -89,7 +89,7 @@ export default function ProfileScreen() {
             placeholder="Your Name"
             value={name}
             onChangeText={setName}
-            icon="person-outline"
+            leftIcon="person-outline"
           />
           <AppInput
             label="Mobile Number"
@@ -97,7 +97,7 @@ export default function ProfileScreen() {
             value={mobile}
             onChangeText={setMobile}
             keyboardType="phone-pad"
-            icon="call-outline"
+            leftIcon="call-outline"
           />
           <AppInput
             label="Email Address"
@@ -106,7 +106,7 @@ export default function ProfileScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            icon="mail-outline"
+            leftIcon="mail-outline"
           />
         </View>
 

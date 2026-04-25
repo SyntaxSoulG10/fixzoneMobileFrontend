@@ -49,6 +49,7 @@ export default function InitialPaymentScreen() {
         packageId: pkg.id,
         vehicleId: vehicle.id,
         date: date as string,
+        time: time as string,
         month: 'Oct', // Simplified for prototype
         year: '2026',
         totalPrice: totalPrice,

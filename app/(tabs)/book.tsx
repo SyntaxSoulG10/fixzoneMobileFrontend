@@ -10,6 +10,7 @@ import { COLORS } from '../../constants/colors';
 const FILTERS = ['Near me', 'Top Rated', 'Open Now', 'Premium', 'Fastest'];
 
 export default function BookScreen() {
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Near me');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -37,7 +38,11 @@ export default function BookScreen() {
     <View style={styles.container}>
       {/* Fixed Header and Search */}
       <HomeHeader />
-      <SearchBar onFilterPress={() => setIsFilterVisible(true)} />
+      <SearchBar 
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onFilterPress={() => setIsFilterVisible(true)} 
+      />
 
       {/* Horizontal Chip Filters */}
       <View style={styles.chipsContainer}>

@@ -18,6 +18,11 @@ export default function ServiceCenterDetails() {
     center?.supportedVehicles[0] || 'car'
   );
 
+  const filteredPackages = useMemo(() => {
+    if (!center) return [];
+    return center.packages.filter(pkg => pkg.vehicleType === selectedVehicleType);
+  }, [center, selectedVehicleType]);
+
   if (!center) {
     return (
       <View style={styles.container}>
@@ -25,10 +30,6 @@ export default function ServiceCenterDetails() {
       </View>
     );
   }
-
-  const filteredPackages = useMemo(() => {
-    return center.packages.filter(pkg => pkg.vehicleType === selectedVehicleType);
-  }, [center.packages, selectedVehicleType]);
 
   const handleCall = () => {
     Linking.openURL('tel:0112345678');

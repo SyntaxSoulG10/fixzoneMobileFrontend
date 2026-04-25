@@ -151,7 +151,7 @@ export default function NotificationsScreen() {
               <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
             </View>
             <Text style={styles.emptyTitle}>All caught up!</Text>
-            <Text style={styles.emptySubtitle}>You don't have any notifications right now.</Text>
+            <Text style={styles.emptySubtitle}>You don&apos;t have any notifications right now.</Text>
           </View>
         )}
       </ScrollView>

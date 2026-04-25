@@ -16,9 +16,9 @@ export default function NoResults({ query, onReset }: NoResultsProps) {
         <View style={styles.slash} />
       </View>
       
-      <Text style={styles.title}>No results for "{query}"</Text>
+      <Text style={styles.title}>No results for &quot;{query}&quot;</Text>
       <Text style={styles.subtitle}>
-        We couldn't find any service centers matching your search. Try checking the spelling or using more general terms.
+        We couldn&apos;t find any service centers matching your search. Try checking the spelling or using more general terms.
       </Text>
 
       <TouchableOpacity style={styles.resetBtn} onPress={onReset}>
