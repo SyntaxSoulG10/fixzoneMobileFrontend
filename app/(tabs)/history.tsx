@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useBookings } from '../../context/BookingContext';
@@ -7,11 +7,11 @@ import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS, Booking } from '../../constants/mo
 
 const { width } = Dimensions.get('window');
 
-type FilterStatus = 'All' | 'Completed' | 'Pending';
+type FilterStatus = 'All' | 'Completed' | 'Pending' | 'Cancelled';
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { bookings } = useBookings();
+  const { bookings, cancelBooking } = useBookings();
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('All');
 
   const filteredBookings = bookings.filter(booking => {
@@ -27,12 +27,65 @@ export default function HistoryScreen() {
     return acc;
   }, {} as Record<string, Booking[]>);
 
+  const getDaysRemaining = (booking: Booking) => {
+    const monthNames: Record<string, number> = { 'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11 };
+    const bookingDate = new Date(parseInt(booking.year), monthNames[booking.month], parseInt(booking.date));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = bookingDate.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const handleReschedule = (booking: Booking) => {
+    const daysRemaining = getDaysRemaining(booking);
+    if (daysRemaining >= 3) {
+      router.push({
+        pathname: '/booking/reschedule',
+        params: { bookingId: booking.id }
+      });
+    } else {
+      Alert.alert(
+        'Cannot Reschedule',
+        'Rescheduling is only allowed at least 3 days before the scheduled date.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleCancel = (booking: Booking) => {
+    const daysRemaining = getDaysRemaining(booking);
+    const penalty = daysRemaining < 3 ? booking.totalPrice * 0.05 : 0;
+    const penaltyMsg = penalty > 0 
+      ? `\n\nNote: A 5% penalty (LKR ${penalty.toLocaleString()}) will be applied as the cancellation is within 3 days.`
+      : '';
+
+    Alert.alert(
+      'Confirm Cancellation',
+      `Are you sure you want to cancel this booking?${penaltyMsg}`,
+      [
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes, Cancel', 
+          style: 'destructive',
+          onPress: () => {
+            cancelBooking(booking.id);
+            const msg = penalty > 0 
+              ? `Booking cancelled. A penalty of LKR ${penalty.toLocaleString()} has been applied.`
+              : 'Booking cancelled successfully.';
+            Alert.alert('Cancelled', msg);
+          }
+        }
+      ]
+    );
+  };
+
   const renderBookingCard = (booking: Booking) => {
     const center = MOCK_SERVICE_CENTERS.find(c => c.id === booking.centerId);
     const vehicle = MOCK_VEHICLES.find(v => v.id === booking.vehicleId);
     const pkg = center?.packages.find(p => p.id === booking.packageId);
 
     const isPending = booking.status === 'Pending';
+    const isCancelled = booking.status === 'Cancelled';
 
     return (
       <TouchableOpacity 
@@ -43,8 +96,8 @@ export default function HistoryScreen() {
         <View style={styles.cardMainContent}>
           <View style={styles.cardTextContent}>
             <View style={styles.statusRow}>
-              <View style={[styles.statusBadge, isPending ? styles.pendingBadge : styles.completedBadge]}>
-                <Text style={[styles.statusText, isPending ? styles.pendingText : styles.completedText]}>
+              <View style={[styles.statusBadge, isPending ? styles.pendingBadge : (isCancelled ? styles.cancelledBadge : styles.completedBadge)]}>
+                <Text style={[styles.statusText, isPending ? styles.pendingText : (isCancelled ? styles.cancelledText : styles.completedText)]}>
                   {booking.status}
                 </Text>
               </View>
@@ -61,25 +114,23 @@ export default function HistoryScreen() {
             <View style={styles.actionRow}>
               {isPending ? (
                 <>
-                  <TouchableOpacity style={styles.actionButton}>
+                  <TouchableOpacity style={styles.actionButton} onPress={() => handleReschedule(booking)}>
                     <Text style={styles.actionButtonText}>Reschedule</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionButton, { marginLeft: 12 }]}>
+                  <TouchableOpacity style={[styles.actionButton, { marginLeft: 12, backgroundColor: '#6B7280' }]} onPress={() => handleCancel(booking)}>
                     <Text style={styles.actionButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 </>
-              ) : (
+              ) : !isCancelled ? (
                 <>
                   <TouchableOpacity style={[styles.actionButton, styles.rebookButton]}>
                     <Text style={styles.actionButtonText}>Rebook</Text>
                   </TouchableOpacity>
-                  <View 
-                    style={styles.invoiceIconBtn}
-                  >
+                  <View style={styles.invoiceIconBtn}>
                     <Ionicons name="document-text" size={24} color="#9CA3AF" />
                   </View>
                 </>
-              )}
+              ) : null}
             </View>
           </View>
 
@@ -104,28 +155,34 @@ export default function HistoryScreen() {
       </View>
 
       {/* Filters */}
-      <View style={styles.filterContainer}>
-        {(['All', 'Completed', 'Pending'] as FilterStatus[]).map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            onPress={() => setActiveFilter(filter)}
-            style={[
-              styles.filterTab,
-              activeFilter === filter && styles.activeFilterTab
-            ]}
-          >
-            <Text style={[
-              styles.filterTabText,
-              activeFilter === filter && styles.activeFilterTabText
-            ]}>
-              {filter === 'All' ? 'All Services' : filter}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {(['All', 'Completed', 'Pending', 'Cancelled'] as FilterStatus[]).map((filter) => (
+            <TouchableOpacity
+              key={filter}
+              onPress={() => setActiveFilter(filter)}
+              style={[
+                styles.filterTab,
+                activeFilter === filter && styles.activeFilterTab
+              ]}
+            >
+              <Text style={[
+                styles.filterTabText,
+                activeFilter === filter && styles.activeFilterTabText
+              ]}>
+                {filter === 'All' ? 'All Services' : filter}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {Object.keys(groupedBookings).map(monthYear => (
+        {Object.keys(groupedBookings).sort((a,b) => b.localeCompare(a)).map(monthYear => (
           <View key={monthYear} style={styles.monthSection}>
             <View style={styles.monthHeaderRow}>
               <Text style={styles.monthTitle}>{monthYear}</Text>
@@ -168,20 +225,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111827',
   },
-  filterContainer: {
-    flexDirection: 'row',
+  filterScrollContent: {
     paddingHorizontal: 20,
     paddingVertical: 15,
-    justifyContent: 'space-between',
+    flexDirection: 'row',
   },
   filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E84E0F',
-    minWidth: 100,
+    marginRight: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
   },
   activeFilterTab: {
     backgroundColor: '#E84E0F',
@@ -263,6 +321,12 @@ const styles = StyleSheet.create({
   },
   completedText: {
     color: '#10B981',
+  },
+  cancelledBadge: {
+    backgroundColor: '#E5E7EB',
+  },
+  cancelledText: {
+    color: '#6B7280',
   },
   dateText: {
     fontSize: 12,

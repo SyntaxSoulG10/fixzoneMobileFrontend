@@ -4,6 +4,8 @@ import { MOCK_BOOKINGS, Booking } from '../constants/mock_data';
 interface BookingContextType {
   bookings: Booking[];
   addBooking: (booking: Booking) => void;
+  cancelBooking: (bookingId: string) => void;
+  rescheduleBooking: (bookingId: string, newDate: string, newMonth: string, newYear: string, newTime: string) => void;
   pendingBookings: Booking[];
 }
 
@@ -16,10 +18,22 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     setBookings(prev => [newBooking, ...prev]);
   };
 
+  const cancelBooking = (bookingId: string) => {
+    setBookings(prev => prev.map(b => 
+      b.id === bookingId ? { ...b, status: 'Cancelled' } : b
+    ));
+  };
+
+  const rescheduleBooking = (bookingId: string, newDate: string, newMonth: string, newYear: string, newTime: string) => {
+    setBookings(prev => prev.map(b => 
+      b.id === bookingId ? { ...b, date: newDate, month: newMonth, year: newYear, time: newTime } : b
+    ));
+  };
+
   const pendingBookings = bookings.filter(b => b.status === 'Pending');
 
   return (
-    <BookingContext.Provider value={{ bookings, addBooking, pendingBookings }}>
+    <BookingContext.Provider value={{ bookings, addBooking, cancelBooking, rescheduleBooking, pendingBookings }}>
       {children}
     </BookingContext.Provider>
   );
