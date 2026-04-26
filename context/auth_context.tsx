@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authService, LoginRequest, LoginResponse } from '../services/authService';
+import { authService, LoginRequest, LoginResponse, RegisterRequest } from '../services/authService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: LoginResponse | null;
   login: (credentials: LoginRequest) => Promise<void>;
+  signup: (data: RegisterRequest) => Promise<void>;
+  updateAuthUser: (newData: Partial<LoginResponse>) => void;
   logout: () => Promise<void>;
   error: string | null;
 }
@@ -54,6 +56,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signup = async (data: RegisterRequest) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authService.registerCustomer(data);
+      await AsyncStorage.setItem('user', JSON.stringify(response));
+      await AsyncStorage.setItem('token', response.token);
+      setUser(response);
+      setIsAuthenticated(true);
+    } catch (e: any) {
+      setError(e.message || 'Signup failed');
+      throw e;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateAuthUser = (newData: Partial<LoginResponse>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...newData };
+      AsyncStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const logout = async () => {
     setIsLoading(true);
     try {
@@ -69,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, user, login, logout, error }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, user, login, signup, updateAuthUser, logout, error }}>
       {children}
     </AuthContext.Provider>
   );

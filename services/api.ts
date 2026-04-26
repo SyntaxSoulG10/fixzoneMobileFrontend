@@ -1,22 +1,36 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export const BASE_URL = 'http://192.168.100.119:8080/api';
 
 export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
   
-  const headers = {
+  const token = await AsyncStorage.getItem('token');
+  
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...((options.headers as Record<string, string>) || {}),
   };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, {
     ...options,
     headers,
   });
 
-  const data = await response.json();
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    data = { message: text };
+  }
 
   if (!response.ok) {
-    throw new Error(data.message || 'Something went wrong');
+    throw new Error(data.message || data.error || `Server error: ${response.status}`);
   }
 
   return data as T;

@@ -8,8 +8,12 @@ import { useUser } from '../../context/UserContext';
 export default function CustomDrawer(props: any) {
   const router = useRouter();
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user: authUser } = useAuth();
   const { user } = useUser();
+  
+  const displayName = authUser?.fullName?.split(' ')[0] || user.name.split(' ')[0];
+  const displayPhone = authUser?.phone || user.mobile;
+  const displayImage = authUser?.profilePictureUrl || user.profileImage;
 
   const menuItems = [
     { label: 'Dash Board', icon: 'grid-outline', route: '/(tabs)' },
@@ -36,15 +40,15 @@ export default function CustomDrawer(props: any) {
     <View style={styles.container}>
       {/* Profile Section */}
       <View style={styles.profileSection}>
-        {user.profileImage ? (
-          <Image source={{ uri: user.profileImage }} style={styles.avatar} />
+        {displayImage ? (
+          <Image source={{ uri: displayImage }} style={styles.avatar} />
         ) : (
           <View style={[styles.avatar, { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }]}>
             <Ionicons name="person" size={50} color="#6B7280" />
           </View>
         )}
-        <Text style={styles.userName}>{user.name.split(' ')[0]}</Text>
-        <Text style={styles.userPhone}>{user.mobile}</Text>
+        <Text style={styles.userName}>{displayName}</Text>
+        <Text style={styles.userPhone}>{displayPhone}</Text>
         <TouchableOpacity 
           style={styles.editButton}
           onPress={() => navigateTo('/profile')}

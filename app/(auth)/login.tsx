@@ -81,7 +81,10 @@ export default function AuthScreen() {
     if (!isValid) return;
 
     // Navigate to the final profile creation step
-    router.push('/(auth)/complete-profile');
+    router.push({
+      pathname: '/(auth)/complete-profile',
+      params: { email, password }
+    });
   };
 
   return (

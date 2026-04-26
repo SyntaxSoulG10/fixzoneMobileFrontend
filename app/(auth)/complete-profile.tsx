@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Switch, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import BackButton from '../../components/ui/BackButton';
@@ -15,8 +15,9 @@ import { useAuth } from '../../context/auth_context';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { updateUser, addVehicle: saveVehicle } = useUser();
-  const { login } = useAuth();
+  const { signup, error: authError } = useAuth();
   
   // Profile state
   const [fullName, setFullName] = useState('');
@@ -25,19 +26,28 @@ export default function CompleteProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateAccount = async () => {
+    if (!fullName || !phone) return;
     setIsLoading(true);
-    
-    // 1. Update user profile
-    updateUser({
-      name: fullName,
-      mobile: `+94 ${phone}`,
-    });
+    try {
+      const email = params.email as string;
+      const password = params.password as string;
 
+      await signup({
+        fullName,
+        email,
+        password,
+        phone: `+94 ${phone}`
+      });
 
-
-    // 3. Log in (this will trigger redirect to Home via _layout.tsx)
-    await login();
-    setIsLoading(false);
+      updateUser({
+        name: fullName,
+        mobile: `+94 ${phone}`,
+      });
+    } catch (error) {
+      console.error('Signup failed', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const phonePrefix = (
@@ -90,8 +100,15 @@ export default function CompleteProfileScreen() {
           onPress={handleCreateAccount}
           style={styles.btn}
           loading={isLoading}
-          disabled={!fullName || !phone}
+          disabled={!fullName || !phone || isLoading}
         />
+
+        {authError && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={20} color="#FF3B30" />
+            <Text style={styles.errorText}>{authError}</Text>
+          </View>
+        )}
 
         <View style={styles.footerLinks}>
           <Text style={styles.footerText}>
@@ -179,5 +196,20 @@ const styles = StyleSheet.create({
   },
   footerTextLink: {
     color: COLORS.primary,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE5E5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });

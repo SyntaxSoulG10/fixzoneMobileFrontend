@@ -7,12 +7,24 @@ import { COLORS } from '../../constants/colors';
 
 const { width } = Dimensions.get('window');
 
+const getDaysSinceService = (dateString: string) => {
+  if (!dateString) return 0;
+  const parts = dateString.split('/');
+  if (parts.length !== 3) return 0;
+  const serviceDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  const today = new Date();
+  const diffTime = today.getTime() - serviceDate.getTime();
+  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+};
+
 export default function VehicleDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
   const vehicle = MOCK_VEHICLES.find(v => v.id === id);
   const vehicleHistory = MOCK_BOOKINGS.filter(b => b.vehicleId === id);
+  
+  const daysSince = vehicle ? getDaysSinceService(vehicle.lastService) : 0;
 
   if (!vehicle) {
     return (
@@ -37,8 +49,9 @@ export default function VehicleDetailsScreen() {
         {/* Vehicle Identity */}
         <View style={styles.imageContainer}>
           <Image source={vehicle.image} style={styles.vehicleImage} />
-          <View style={[styles.statusBadge, vehicle.status === 'Service Due' ? styles.dueBadge : styles.okBadge]}>
-            <Text style={styles.statusText}>{vehicle.status}</Text>
+          <View style={styles.daysBadge}>
+            <Text style={styles.daysBadgeText}>{daysSince} days</Text>
+            <Text style={styles.daysBadgeTitle}>since service</Text>
           </View>
         </View>
 
@@ -146,25 +159,28 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
-  statusBadge: {
+  daysBadge: {
     position: 'absolute',
     bottom: 20,
     right: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    elevation: 4,
+    alignItems: 'flex-end',
   },
-  dueBadge: {
-    backgroundColor: '#FEE2E2',
+  daysBadgeText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#EA580C',
+    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  okBadge: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusText: {
-    fontSize: 14,
+  daysBadgeTitle: {
+    fontSize: 12,
+    color: '#1F2937',
     fontWeight: '800',
-    color: '#000',
+    marginTop: 2,
+    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   infoSection: {
     padding: 20,

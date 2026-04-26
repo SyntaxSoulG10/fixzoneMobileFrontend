@@ -3,23 +3,35 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Dim
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { File, Paths } from 'expo-file-system';
 import ScreenContainer from '../components/ui/ScreenContainer';
 import AppInput from '../components/ui/AppInput';
 import AppButton from '../components/ui/AppButton';
 import { COLORS } from '../constants/colors';
 import { useUser } from '../context/UserContext';
+import { useAuth } from '../context/auth_context';
+import { authService } from '../services/authService';
 
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, updateUser } = useUser();
+  const { user: localUser, updateUser } = useUser();
+  const { user: authUser, updateAuthUser, logout } = useAuth();
 
   // Form State
-  const [name, setName] = useState(user.name);
-  const [mobile, setMobile] = useState(user.mobile);
-  const [email, setEmail] = useState(user.email);
-  const [profileImage, setProfileImage] = useState(user.profileImage);
+  const [name, setName] = useState(authUser?.fullName || localUser.name);
+  const [mobile, setMobile] = useState(authUser?.phone || localUser.mobile);
+  const [email, setEmail] = useState(authUser?.email || localUser.email);
+  const [profileImage, setProfileImage] = useState(authUser?.profilePictureUrl || localUser.profileImage);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -37,19 +49,79 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
+      try {
+        const sourceUri = result.assets[0].uri;
+        const filename = `profile_${Date.now()}.jpg`;
+        
+        // Use the new Expo FileSystem API (SDK 54+)
+        const sourceFile = new File(sourceUri);
+        const destinationFile = new File(Paths.document, filename);
+        
+        sourceFile.copy(destinationFile);
+        
+        setProfileImage(destinationFile.uri);
+      } catch (error: any) {
+        console.error('Error saving image:', error);
+        Alert.alert('Save Failed', `Details: ${error.message || 'Unknown error'}`);
+        setProfileImage(result.assets[0].uri);
+      }
     }
   };
 
-  const handleSave = () => {
-    if (!name || !mobile || !email) {
-      Alert.alert('Error', 'Please fill all fields');
+  const handleSave = async () => {
+    if (!name.trim() || !mobile.trim()) {
+      Alert.alert('Required Fields', 'Name and Mobile Number cannot be empty.');
       return;
     }
     
-    updateUser({ name, mobile, email, profileImage });
-    Alert.alert('Success', 'Profile updated successfully!');
-    router.back();
+    setIsSaving(true);
+    try {
+      // 1. Update Profile (Name and Phone)
+      if (authUser?.userId) {
+        await authService.updateProfile(authUser.userId, name, mobile);
+        
+        // 2. Update backend if image changed
+        if (profileImage !== authUser.profilePictureUrl) {
+          await authService.updateProfileImage(authUser.userId, profileImage || '');
+        }
+
+        // 3. Sync with AuthContext
+        updateAuthUser({ 
+          fullName: name, 
+          phone: mobile, 
+          profilePictureUrl: profileImage || authUser.profilePictureUrl 
+        });
+      }
+
+      // 4. Update local UserContext
+      updateUser({ name, mobile, email, profileImage });
+      
+      Alert.alert('Success', 'Profile updated successfully!');
+      router.back();
+    } catch (error: any) {
+      console.error('Profile Update Error:', error);
+      Alert.alert('Update Failed', `Details: ${error.message || 'Check your connection or backend logs'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout from your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/(auth)/login');
+          }
+        },
+      ]
+    );
   };
 
   return (
@@ -78,8 +150,8 @@ export default function ProfileScreen() {
               <Ionicons name="camera" size={18} color="#fff" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userRole}>Premium Member</Text>
+          <Text style={styles.userName}>{name}</Text>
+          <Text style={styles.userRole}>{getGreeting()} !</Text>
         </View>
 
         {/* Details Section */}
@@ -107,6 +179,7 @@ export default function ProfileScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             leftIcon="mail-outline"
+            editable={false} // Email is not updatable
           />
         </View>
 
@@ -115,9 +188,11 @@ export default function ProfileScreen() {
             label="Save Changes"
             onPress={handleSave}
             style={styles.saveBtn}
+            loading={isSaving}
+            disabled={isSaving}
           />
           
-          <TouchableOpacity style={styles.logoutBtn}>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             <Text style={styles.logoutText}>Logout from Account</Text>
           </TouchableOpacity>
