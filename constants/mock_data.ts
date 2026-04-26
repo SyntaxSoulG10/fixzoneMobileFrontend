@@ -147,7 +147,7 @@ const VAN_PACKAGES: ServicePackage[] = [
 export const MOCK_SERVICE_CENTERS: ServiceCenter[] = [
   {
     id: '1',
-    name: 'Auto Expert Premium Garage',
+    name: 'Auto Expert Service Garage',
     location: 'Colombo 07',
     type: 'Hybrid Specialist',
     distance: '2.4 km',
@@ -251,7 +251,7 @@ export const MOCK_SERVICE_CENTERS: ServiceCenter[] = [
     id: '7',
     name: 'Elite Auto Care',
     location: 'Battaramulla',
-    type: 'Premium Detailing',
+    type: 'Service Detailing',
     distance: '8.5 km',
     image: require('../assets/images/elite_auto_detailing.jpg'),
     rating: 4.9,

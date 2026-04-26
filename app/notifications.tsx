@@ -44,7 +44,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: '4',
     title: 'New Service Center',
-    message: 'FixAuto Professionals is now open in Colombo 07. Check out their premium services.',
+    message: 'FixAuto Professionals is now open in Colombo 07. Check out their services.',
     time: '2 days ago',
     type: 'promo',
     read: true,

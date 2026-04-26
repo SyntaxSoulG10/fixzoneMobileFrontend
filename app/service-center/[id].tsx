@@ -1,62 +1,74 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MOCK_SERVICE_CENTERS, ServicePackage, VehicleType } from '../../constants/mock_data';
+import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../../services/serviceCenterService';
 
 const { width } = Dimensions.get('window');
 
-export default function ServiceCenterDetails() {
-  const { id } = useLocalSearchParams();
-  const router = useRouter();
-  
-  const center = MOCK_SERVICE_CENTERS.find(c => c.id === id);
+type VehicleType = 'bike' | 'car' | 'van' | 'lorry';
 
-  // Initialize selectedVehicleType with the first supported vehicle type
-  const [selectedVehicleType, setSelectedVehicleType] = useState<VehicleType>(
-    center?.supportedVehicles[0] || 'car'
-  );
+export default function ServiceCenterDetails() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+
+  const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedVehicleType, setSelectedVehicleType] = useState<VehicleType>('car');
+
+  useEffect(() => {
+    if (id) {
+      loadCenter(id);
+    }
+  }, [id]);
+
+  const loadCenter = async (centerId: string) => {
+    try {
+      setIsLoading(true);
+      const data = await serviceCenterService.getServiceCenterById(centerId);
+      setCenter(data);
+      // Set default tab to first supported vehicle type
+      if (data.supportedVehicleBrands && data.supportedVehicleBrands.length > 0) {
+        setSelectedVehicleType(data.supportedVehicleBrands[0] as VehicleType);
+      }
+    } catch (err) {
+      console.error('Failed to load service center:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredPackages = useMemo(() => {
-    if (!center) return [];
-    return center.packages.filter(pkg => pkg.vehicleType === selectedVehicleType);
+    if (!center?.servicePackages) return [];
+    return center.servicePackages.filter(pkg => pkg.vehicleType === selectedVehicleType);
   }, [center, selectedVehicleType]);
 
-  if (!center) {
-    return (
-      <View style={styles.container}>
-        <Text>Service Center not found</Text>
-      </View>
-    );
-  }
+  const isOpen = () => {
+    if (!center?.openingHours) return false;
+    try {
+      const parts = center.openingHours.split('-').map(s => s.trim());
+      if (parts.length < 2) return false;
+      const [openH, openM] = parts[0].split(':').map(Number);
+      const [closeH, closeM] = parts[1].split(':').map(Number);
+      const now = new Date();
+      const current = now.getHours() * 60 + now.getMinutes();
+      return current >= (openH * 60 + openM) && current <= (closeH * 60 + closeM);
+    } catch {
+      return false;
+    }
+  };
 
   const handleCall = () => {
-    Linking.openURL('tel:0112345678');
+    if (center?.contactPhone) Linking.openURL(`tel:${center.contactPhone}`);
   };
 
   const handleDirection = () => {
-    const lat = 6.9271;
-    const lng = 79.8612;
     const url = Platform.select({
-      ios: `maps:0,0?q=${center.name}@${lat},${lng}`,
-      android: `geo:0,0?q=${lat},${lng}(${center.name})`,
+      ios: `maps:0,0?q=${center?.name}@6.9271,79.8612`,
+      android: `geo:0,0?q=6.9271,79.8612(${center?.name})`,
     });
     if (url) Linking.openURL(url);
-  };
-
-  const handleShare = () => {
-    console.log('Sharing center:', center.name);
-  };
-
-  const isOpen = () => {
-    const now = new Date();
-    const [openH, openM] = center.openingTime.split(':').map(Number);
-    const [closeH, closeM] = center.closingTime.split(':').map(Number);
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const openTime = openH * 60 + openM;
-    const closeTime = closeH * 60 + closeM;
-    return currentTime >= openTime && currentTime <= closeTime;
   };
 
   const renderVehicleTab = (type: VehicleType) => {
@@ -64,7 +76,7 @@ export default function ServiceCenterDetails() {
     let iconName: keyof typeof Ionicons.glyphMap = 'car-outline';
     if (type === 'bike') iconName = 'bicycle-outline';
     if (type === 'van') iconName = 'bus-outline';
-    if (type === 'lorry') iconName = 'car-outline'; // fallback for truck
+    if (type === 'lorry') iconName = 'car-sport-outline';
 
     return (
       <TouchableOpacity
@@ -80,165 +92,158 @@ export default function ServiceCenterDetails() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#F97316" />
+        <Text style={{ color: '#9CA3AF', marginTop: 12 }}>Loading service center...</Text>
+      </View>
+    );
+  }
+
+  if (!center) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+        <Text style={{ color: '#9CA3AF', marginTop: 12 }}>Service Center not found</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
+          <Text style={{ color: '#F97316' }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const openStatus = isOpen();
+  const supportedVehicles = (center.supportedVehicleBrands || []) as VehicleType[];
+
   return (
     <View style={styles.container}>
-      {/* Header Navigation */}
-      <View style={styles.navHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.navIcon}>
-          <Ionicons name="chevron-back" size={28} color="#374151" />
+      {/* Header Image */}
+      <View style={styles.imageContainer}>
+        {center.imageUrl ? (
+          <Image source={{ uri: center.imageUrl }} style={styles.headerImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.headerImage, { backgroundColor: '#1F2937', justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="car-sport-outline" size={64} color="#374151" />
+          </View>
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(10,10,20,0.9)']}
+          style={styles.imageGradient}
+        />
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <View style={styles.navTitleContainer}>
-          <Text style={styles.navTitle}>{center.name}</Text>
-          <Text style={styles.navSubtitle}>Select Service Package</Text>
+        <View style={styles.headerOverlay}>
+          <Text style={styles.centerName}>{center.name}</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={14} color="#9CA3AF" />
+            <Text style={styles.locationText}>{center.address}</Text>
+          </View>
+          <View style={styles.statusRow}>
+            <View style={[styles.statusBadge, { backgroundColor: openStatus ? '#065F46' : '#7F1D1D' }]}>
+              <View style={[styles.statusDot, { backgroundColor: openStatus ? '#34D399' : '#EF4444' }]} />
+              <Text style={[styles.statusText, { color: openStatus ? '#34D399' : '#EF4444' }]}>
+                {openStatus ? 'Open Now' : 'Closed'}
+              </Text>
+            </View>
+            {center.openingHours && (
+              <Text style={styles.hoursText}>{center.openingHours}</Text>
+            )}
+          </View>
         </View>
-        <TouchableOpacity style={styles.navIcon}>
-          <Ionicons name="heart-outline" size={28} color="#374151" />
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionBtn} onPress={handleCall}>
+          <Ionicons name="call-outline" size={20} color="#F97316" />
+          <Text style={styles.actionBtnText}>Call</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionBtn} onPress={handleDirection}>
+          <Ionicons name="navigate-outline" size={20} color="#F97316" />
+          <Text style={styles.actionBtnText}>Directions</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => Linking.openURL(`tel:${center.contactPhone}`)}>
+          <Ionicons name="share-social-outline" size={20} color="#F97316" />
+          <Text style={styles.actionBtnText}>Share</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Main Hero Section */}
-        <View style={styles.heroContainer}>
-          <Image 
-            source={typeof center.image === 'string' ? { uri: center.image } : center.image} 
-            style={styles.heroImage} 
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)']}
-            style={styles.heroOverlay}
-          />
-          <View style={styles.heroInfo}>
-            <Text style={styles.heroName}>{center.name}</Text>
-            <View style={styles.heroLocationRow}>
-              <Ionicons name="location-sharp" size={14} color="#fff" />
-              <Text style={styles.heroLocationText}>{center.location} • {center.distance} away</Text>
-            </View>
-            <View style={styles.heroStatusRow}>
-              <Ionicons name="star" size={16} color="#F59E0B" />
-              <Text style={styles.heroRatingText}>{center.rating}({center.ratingCount})</Text>
-              <Text style={styles.heroStatusDivider}> • </Text>
-              {isOpen() ? (
-                <Text style={styles.heroStatusOpen}>Open until {center.openUntil}</Text>
-              ) : (
-                <Text style={styles.heroStatusClosed}>Closed • Opens at {center.openingTime}</Text>
-              )}
-            </View>
-          </View>
-          <TouchableOpacity style={styles.shareButton}>
-            <Ionicons name="share-social-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
+      {/* Vehicle Type Tabs */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContainer}>
+        {supportedVehicles.map(v => renderVehicleTab(v))}
+      </ScrollView>
 
-        {/* Quick Actions */}
-        <View style={styles.actionsContainer}>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="call" size={24} color="#E84E0F" />
-              </View>
-              <Text style={styles.actionText}>Call</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleDirection}>
-              <View style={styles.actionIconContainerPrimary}>
-                <Ionicons name="navigate" size={24} color="#E84E0F" />
-              </View>
-              <Text style={[styles.actionText, styles.actionTextPrimary]}>Direction</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="share-social" size={24} color="#E84E0F" />
-              </View>
-              <Text style={styles.actionText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Vehicle Type Selection Tabs */}
-        <View style={styles.tabsContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
-            {center.supportedVehicles.map(renderVehicleTab)}
-          </ScrollView>
-        </View>
-
-        {/* Packages Section */}
-        <View style={styles.packagesHeader}>
-          <Text style={styles.packagesTitle}>Available Packages</Text>
-        </View>
-
+      {/* Packages List */}
+      <ScrollView style={styles.packagesList} showsVerticalScrollIndicator={false}>
         {filteredPackages.length > 0 ? (
-          filteredPackages.map((pkg) => (
-            <PackageCard key={pkg.id} pkg={pkg} />
-          ))
+          filteredPackages.map(pkg => <PackageCard key={pkg.id || pkg.name} pkg={pkg} centerId={center.centerId} />)
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No packages available for this vehicle type.</Text>
+            <Ionicons name="cube-outline" size={40} color="#374151" />
+            <Text style={styles.emptyStateText}>No packages for this vehicle type.</Text>
           </View>
         )}
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
-function PackageCard({ pkg }: { pkg: ServicePackage }) {
-  const [isExpanded, setIsExpanded] = React.useState(false);
+function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: string }) {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  const displayedFeatures = isExpanded ? pkg.features : pkg.features.slice(0, 3);
+  const price = typeof pkg.price === 'number' ? pkg.price : Number(pkg.price) || 0;
+  const duration = pkg.duration || (pkg as any).estimatedDurationMins
+    ? `${(pkg as any).estimatedDurationMins || pkg.duration} mins`
+    : '';
 
   return (
     <View style={styles.pkgCard}>
-      <View style={styles.pkgImageContainer}>
-        <Image source={pkg.image} style={styles.pkgImage} resizeMode="cover" />
-        {pkg.isRecommended && (
-          <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedText}>RECOMMENDED</Text>
-          </View>
-        )}
-      </View>
-      
       <View style={styles.pkgInfo}>
         <View style={styles.pkgTitleRow}>
-          <Text style={styles.pkgTitle}>{pkg.name}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pkgTitle}>{pkg.name}</Text>
+            {duration ? (
+              <View style={styles.durationRow}>
+                <Ionicons name="time-outline" size={12} color="#6B7280" />
+                <Text style={styles.durationText}>{duration}</Text>
+              </View>
+            ) : null}
+          </View>
           <View style={styles.pkgPriceCol}>
-            <Text style={styles.pkgPrice}>LKR {pkg.price.toLocaleString()}</Text>
+            <Text style={styles.pkgPrice}>LKR {price.toLocaleString()}</Text>
             <Text style={styles.pkgPriceSub}>Estimated</Text>
           </View>
         </View>
 
-        <Text style={styles.pkgDuration}>⏱ {pkg.duration}</Text>
+        {pkg.features && pkg.features.length > 0 ? (
+          <>
+            {(isExpanded ? pkg.features : pkg.features.slice(0, 2)).map((f, i) => (
+              <View key={i} style={styles.featureRow}>
+                <Ionicons name="checkmark-circle" size={14} color="#34D399" />
+                <Text style={styles.featureText}>{f}</Text>
+              </View>
+            ))}
+            {pkg.features.length > 2 && (
+              <TouchableOpacity onPress={() => setIsExpanded(!isExpanded)}>
+                <Text style={styles.showMore}>{isExpanded ? 'Show Less' : `+${pkg.features.length - 2} more`}</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          pkg.description ? (
+            <Text style={styles.pkgDescription}>{pkg.description}</Text>
+          ) : null
+        )}
 
-        <View style={styles.featuresList}>
-          {displayedFeatures.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={18} color="#000" />
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
-          
-          {pkg.features.length > 3 && (
-            <TouchableOpacity 
-              onPress={() => setIsExpanded(!isExpanded)}
-              style={styles.expandButton}
-            >
-              <Text style={styles.moreFeatures}>
-                {isExpanded ? 'Show less' : `+${pkg.features.length - 3} more`}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <TouchableOpacity 
-          style={styles.bookButton} 
-          onPress={() => router.push({
-            pathname: '/booking/[packageId]',
-            params: { packageId: pkg.id, id: id as string }
-          })}
+        <TouchableOpacity
+          style={styles.bookBtn}
+          onPress={() => router.push({ pathname: '/booking/create', params: { centerId, packageId: pkg.id || '', packageName: pkg.name } })}
         >
-          <Text style={styles.bookButtonText}>Book Now</Text>
+          <Text style={styles.bookBtnText}>Book Now</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -246,328 +251,63 @@ function PackageCard({ pkg }: { pkg: ServicePackage }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
+  container: { flex: 1, backgroundColor: '#0A0A14' },
+  imageContainer: { height: 280, position: 'relative' },
+  headerImage: { width: '100%', height: '100%' },
+  imageGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160 },
+  backButton: {
+    position: 'absolute', top: 48, left: 16,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center',
   },
-  navHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
+  headerOverlay: { position: 'absolute', bottom: 16, left: 16, right: 16 },
+  centerName: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  locationText: { fontSize: 13, color: '#9CA3AF' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  hoursText: { fontSize: 12, color: '#6B7280' },
+  actionRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#1A1A2E', borderRadius: 12, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#2D2D44',
   },
-  navIcon: {
-    padding: 4,
-  },
-  navTitleContainer: {
-    alignItems: 'center',
-  },
-  navTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  navSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  heroContainer: {
-    marginHorizontal: 20,
-    height: 220,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginTop: 10,
-    position: 'relative',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '60%',
-  },
-  heroInfo: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-  },
-  heroName: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  heroLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  heroLocationText: {
-    color: '#fff',
-    fontSize: 13,
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  heroRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heroRatingText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  shareButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionsContainer: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  actionButton: {
-    alignItems: 'center',
-    width: width / 4,
-  },
-  actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  actionIconContainerPrimary: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: '#FFEDD5',
-    shadowColor: '#E84E0F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  actionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  actionTextPrimary: {
-    color: '#000',
-  },
-  heroStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heroStatusDivider: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-  },
-  heroStatusOpen: {
-    color: '#10B981',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  heroStatusClosed: {
-    color: '#EF4444',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  tabsContainer: {
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  tabsScroll: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
+  actionBtnText: { color: '#F97316', fontSize: 13, fontWeight: '600' },
+  tabScroll: { maxHeight: 72 },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, alignItems: 'center' },
   tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: '#1A1A2E', borderWidth: 1, borderColor: '#2D2D44',
   },
-  tabSelected: {
-    backgroundColor: '#E84E0F',
-    borderColor: '#E84E0F',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#6B7280',
-    marginLeft: 8,
-  },
-  tabTextSelected: {
-    color: '#fff',
-  },
-  packagesHeader: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  packagesTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-  },
+  tabSelected: { backgroundColor: '#F97316', borderColor: '#F97316' },
+  tabText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  tabTextSelected: { color: '#fff' },
+  packagesList: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  emptyState: { alignItems: 'center', paddingTop: 48, gap: 12 },
+  emptyStateText: { color: '#6B7280', fontSize: 14 },
   pkgCard: {
-    marginHorizontal: 20,
-    backgroundColor: '#FFF7ED',
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#FFEDD5',
+    backgroundColor: '#1A1A2E', borderRadius: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: '#2D2D44', overflow: 'hidden',
   },
-  pkgImageContainer: {
-    width: '100%',
-    height: 180,
-    position: 'relative',
+  pkgInfo: { padding: 16 },
+  pkgTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  pkgTitle: { fontSize: 15, fontWeight: '700', color: '#fff', flex: 1, marginRight: 8 },
+  durationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  durationText: { fontSize: 11, color: '#6B7280' },
+  pkgPriceCol: { alignItems: 'flex-end' },
+  pkgPrice: { fontSize: 15, fontWeight: '700', color: '#F97316' },
+  pkgPriceSub: { fontSize: 10, color: '#6B7280', marginTop: 2 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  featureText: { fontSize: 13, color: '#D1D5DB' },
+  showMore: { color: '#F97316', fontSize: 12, marginTop: 4 },
+  pkgDescription: { fontSize: 13, color: '#9CA3AF', lineHeight: 20, marginBottom: 8 },
+  bookBtn: {
+    marginTop: 14, backgroundColor: '#F97316', borderRadius: 10,
+    paddingVertical: 12, alignItems: 'center',
   },
-  pkgImage: {
-    width: '100%',
-    height: '100%',
-  },
-  recommendedBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  recommendedText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  pkgInfo: {
-    padding: 16,
-  },
-  pkgTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  pkgTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-    flex: 1,
-  },
-  pkgPriceCol: {
-    alignItems: 'flex-end',
-  },
-  pkgPrice: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#E84E0F',
-  },
-  pkgPriceSub: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
-  pkgDuration: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  featuresList: {
-    marginBottom: 20,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  featureText: {
-    fontSize: 13,
-    color: '#374151',
-    marginLeft: 8,
-    fontWeight: '600',
-    flex: 1,
-  },
-  moreFeatures: {
-    fontSize: 12,
-    color: '#E84E0F',
-    fontWeight: '800',
-  },
-  expandButton: {
-    paddingVertical: 8,
-    marginLeft: 26,
-    alignSelf: 'flex-start',
-  },
-  bookButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E84E0F',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#E84E0F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  bookButtonText: {
-    color: '#111827',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  emptyState: {
-    paddingHorizontal: 40,
-    paddingVertical: 60,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    textAlign: 'center',
-    color: '#9CA3AF',
-    fontSize: 16,
-    fontWeight: '600',
-  }
+  bookBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

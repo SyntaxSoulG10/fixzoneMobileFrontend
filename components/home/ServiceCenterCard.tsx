@@ -13,9 +13,6 @@ interface ServiceCenterCardProps {
   name: string;
   location: string;
   type: string;
-  distance: string;
-  rating?: number;
-  ratingCount?: number;
   priceFrom?: number;
   openUntil?: string;
   isVerified?: boolean;
@@ -29,9 +26,6 @@ export default function ServiceCenterCard({
   name,
   location,
   type,
-  distance,
-  rating = 0,
-  ratingCount = 0,
   priceFrom = 0,
   openUntil = '',
   isVerified = false,
@@ -69,7 +63,6 @@ export default function ServiceCenterCard({
         />
         <View style={styles.compactInfo}>
           <Text style={styles.compactName}>{name} - {location}</Text>
-          <Text style={styles.compactSubtitle}>{distance} away</Text>
           <Text style={styles.servedForLabel}>Served for :</Text>
           <View style={styles.compactChipRow}>
             {supportedVehicles.map(renderVehicleChip)}
@@ -97,12 +90,20 @@ export default function ServiceCenterCard({
       <View style={styles.premiumInfoContainer}>
         <Text style={styles.premiumName}>{name}</Text>
 
-        <View style={styles.premiumLocationRow}>
-          <Ionicons name="location-sharp" size={14} color="#6B7280" />
-          <Text style={styles.premiumLocationText}>{location}    {distance} away</Text>
+        <View style={styles.premiumMiddleRow}>
+          <View style={styles.premiumMiddleLeft}>
+            <View style={styles.premiumLocationRow}>
+              <Ionicons name="location-sharp" size={14} color="#6B7280" />
+              <Text style={styles.premiumLocationText}>{location}</Text>
+            </View>
+            <Text style={styles.premiumStatusText}>Open until {openUntil}</Text>
+          </View>
+          
+          <View style={styles.premiumMiddleRight}>
+            <Text style={styles.premiumPriceLabel}>STARTING FROM</Text>
+            <Text style={styles.premiumPriceValue}>LKR {priceFrom.toLocaleString()}</Text>
+          </View>
         </View>
-
-        <Text style={styles.premiumStatusText}>Open until {openUntil}</Text>
 
         <View style={styles.premiumBottomRow}>
           <View style={styles.premiumVehiclesAndPrice}>
@@ -110,15 +111,9 @@ export default function ServiceCenterCard({
             <View style={styles.premiumVehicleChips}>
               {supportedVehicles.map(renderVehicleChip)}
             </View>
-            <Text style={styles.premiumPriceLabel}>STARTING FROM</Text>
-            <Text style={styles.premiumPriceValue}>LKR {priceFrom.toLocaleString()}</Text>
           </View>
 
           <View style={styles.premiumRatingAndAction}>
-            <View style={styles.premiumRatingContainer}>
-              <Ionicons name="star" size={16} color="#F59E0B" />
-              <Text style={styles.premiumRatingText}>{rating}({ratingCount})</Text>
-            </View>
             <TouchableOpacity style={styles.detailsButton} onPress={handlePress}>
               <Text style={styles.detailsButtonText}>View Details</Text>
             </TouchableOpacity>
@@ -206,6 +201,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  premiumMiddleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  premiumMiddleLeft: {
+    flex: 1,
+  },
+  premiumMiddleRight: {
+    alignItems: 'flex-end',
+  },
   premiumLocationText: {
     fontSize: 13,
     color: '#6B7280',
@@ -216,12 +222,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#10B981',
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   premiumBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    marginTop: -5,
   },
   premiumVehiclesAndPrice: {
     flex: 1,
@@ -231,7 +238,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     marginBottom: 4,
-    marginTop: 4,
+    marginTop: 10,
   },
   vehicleChip: {
     backgroundColor: '#FFF7ED',
@@ -262,6 +269,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#6B7280',
     fontWeight: '700',
+    textAlign: 'right',
+    marginTop: 10,
   },
   premiumPriceValue: {
     fontSize: 18,
@@ -287,6 +296,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
+    marginBottom: 15
+  
   },
   detailsButtonText: {
     color: '#fff',

@@ -1,18 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
 import HomeHeader from '../../components/home/HomeHeader';
 import SearchBar from '../../components/home/SearchBar';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
 import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
-import { MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 import { COLORS } from '../../constants/colors';
-
-const FILTERS = ['Near me', 'Top Rated', 'Open Now', 'Premium', 'Fastest'];
+import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
 
 export default function BookScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('Near me');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
+  const [serviceCenters, setServiceCenters] = useState<ServiceCenterDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
     vehicleType: '',
@@ -34,6 +33,50 @@ export default function BookScreen() {
     });
   };
 
+  useEffect(() => {
+    fetchCenters();
+  }, []);
+
+  const fetchCenters = async () => {
+    try {
+      setIsLoading(true);
+      const data = await serviceCenterService.getAllServiceCenters();
+      setServiceCenters(data);
+    } catch (error) {
+      console.error('Failed to fetch centers:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderServiceCenter = ({ item }: { item: ServiceCenterDTO }) => {
+    // Map DTO to Card Props
+    const priceFrom = item.servicePackages && item.servicePackages.length > 0 
+      ? Math.min(...item.servicePackages.map(p => p.price)) 
+      : 2500;
+      
+    const openUntil = item.openingHours && item.openingHours.includes('-') 
+      ? item.openingHours.split('-')[1].trim() 
+      : '18:00';
+
+    return (
+      <View style={styles.cardWrapper}>
+        <ServiceCenterCard 
+          id={item.centerId}
+          name={item.name}
+          location={item.address}
+          type="General Service" // Default type
+          image={item.imageUrl}
+          priceFrom={priceFrom}
+          openUntil={openUntil}
+          isVerified={item.isActive}
+          supportedVehicles={(item.supportedVehicleBrands as any) || ['car', 'van']} 
+          variant="premium"
+        />
+      </View>
+    );
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
@@ -45,51 +88,29 @@ export default function BookScreen() {
           onFilterPress={() => setIsFilterVisible(true)} 
         />
 
-        {/* Horizontal Chip Filters */}
-        <View style={styles.chipsContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-            {FILTERS.map((filter) => (
-              <TouchableOpacity
-                key={filter}
-                onPress={() => setSelectedFilter(filter)}
-                style={[
-                  styles.chip,
-                  selectedFilter === filter ? styles.chipSelected : styles.chipUnselected,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    selectedFilter === filter ? styles.chipTextSelected : styles.chipTextUnselected,
-                  ]}
-                >
-                  {filter}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
 
         {/* Service Centers List */}
-        <FlatList
-          data={MOCK_SERVICE_CENTERS}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.cardWrapper}>
-              <ServiceCenterCard {...item} variant="premium" />
-            </View>
-          )}
+        {isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={serviceCenters}
+            keyExtractor={(item) => item.centerId}
+            renderItem={renderServiceCenter}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionTitle}>Premium Centers</Text>
+                <Text style={styles.sectionTitle}>Service Centers</Text>
                 <Text style={styles.sectionSubtitle}>Handpicked for Quality assurance</Text>
               </View>
             </View>
           }
           showsVerticalScrollIndicator={false}
         />
+        )}
 
         <FilterBottomSheet
           visible={isFilterVisible}
@@ -108,37 +129,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  chipsContainer: {
-    paddingVertical: 12,
-  },
-  chipsScroll: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  chip: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  chipSelected: {
-    backgroundColor: '#E84E0F',
-    borderColor: '#E84E0F',
-  },
-  chipUnselected: {
-    backgroundColor: '#fff',
-    borderColor: '#E5E7EB',
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  chipTextSelected: {
-    color: '#fff',
-  },
-  chipTextUnselected: {
-    color: '#6B7280',
-  },
+
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
