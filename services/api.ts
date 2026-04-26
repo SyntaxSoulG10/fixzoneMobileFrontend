@@ -30,7 +30,9 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   }
 
   if (!response.ok) {
-    throw new Error(data.message || data.error || `Server error: ${response.status}`);
+    const errorMsg = data.message || data.error || `Server error: ${response.status}`;
+    const details = data.details ? ` — ${data.details}` : '';
+    throw new Error(`${errorMsg}${details}`);
   }
 
   return data as T;

@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, Alert, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as ImagePicker from "expo-image-picker";
+import { useRouter, useGlobalSearchParams, router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { File, Paths } from 'expo-file-system';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import AppDropdown from '../../components/ui/AppDropdown';
 import { COLORS } from '../../constants/colors';
-import { MOCK_VEHICLES, Vehicle } from '../../constants/mock_data';
+import { useAuth } from '../../context/auth_context';
+import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 
 const { width } = Dimensions.get('window');
 
@@ -27,16 +29,39 @@ const DEFAULT_VEHICLE_IMAGE = require('../../assets/images/honda_civic_red.jpg')
 
 export default function VehiclesScreen() {
   const router = useRouter();
-  const { add } = useLocalSearchParams();
-  const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
+  const { add } = useGlobalSearchParams();
+  const { user: authUser } = useAuth();
+  const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [editingVehicle, setEditingVehicle] = useState<VehicleResponse | null>(null);
 
   useEffect(() => {
     if (add === 'true') {
       openModal();
+      // Clear the param so it doesn't reopen if they close and revisit
+      router.setParams({ add: undefined });
     }
   }, [add]);
+
+  const fetchVehicles = async () => {
+    if (!authUser?.userId) return;
+    try {
+      setIsLoading(true);
+      const data = await vehicleService.getVehiclesByUser(authUser.userId);
+      setVehicles(data);
+    } catch (e) {
+      console.error('Failed to fetch vehicles', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, [authUser?.userId]);
+
 
   // Form State
   const [vType, setVType] = useState('');
@@ -68,18 +93,17 @@ export default function VehiclesScreen() {
     }
   };
 
-  const openModal = (vehicle?: Vehicle) => {
+  const openModal = (vehicle?: VehicleResponse) => {
     if (vehicle) {
       setEditingVehicle(vehicle);
-      // In a real app we'd have full data, here we parse or use defaults
-      setVType('Car'); 
-      setBrand(vehicle.name.split(' ')[0]);
+      setVType(vehicle.vehicleType || 'Car'); 
+      setBrand(vehicle.brand || '');
       setCustomBrand('');
       setCustomVType('');
-      setModel(vehicle.name.split(' ').slice(1).join(' '));
-      setPlate(vehicle.plate);
+      setModel(vehicle.model || '');
+      setPlate(vehicle.plateNumber || '');
       setFuel('Petrol');
-      setVehicleImage(typeof vehicle.image === 'object' ? vehicle.image.uri : null);
+      setVehicleImage(vehicle.imageUrl || null);
     } else {
       setEditingVehicle(null);
       setVType('');
@@ -94,7 +118,7 @@ export default function VehiclesScreen() {
     setIsModalVisible(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const finalVType = vType === 'Others' ? customVType : vType;
     const finalBrand = brand === 'Other' ? customBrand : brand;
 
@@ -103,25 +127,57 @@ export default function VehiclesScreen() {
       return;
     }
 
-    if (editingVehicle) {
-      setVehicles(prev => prev.map(v => v.id === editingVehicle.id ? {
-        ...v,
-        name: `${finalBrand} ${model}`,
-        plate: plate,
-        image: vehicleImage ? { uri: vehicleImage } : (v.image || DEFAULT_VEHICLE_IMAGE),
-      } : v));
-    } else {
-      const newVehicle: Vehicle = {
-        id: Math.random().toString(),
-        name: `${finalBrand} ${model}`,
-        plate: plate,
-        status: 'Up to date',
-        lastService: 'New',
-        image: vehicleImage ? { uri: vehicleImage } : DEFAULT_VEHICLE_IMAGE,
-      };
-      setVehicles(prev => [...prev, newVehicle]);
+    if (!authUser?.userId) {
+      Alert.alert('Error', 'User not authenticated');
+      return;
     }
-    setIsModalVisible(false);
+
+    setIsSaving(true);
+    try {
+      // Save image to device storage first (like profile image)
+      let savedImageUri: string | undefined = undefined;
+      if (vehicleImage && !vehicleImage.startsWith('http')) {
+        try {
+          const filename = `vehicle_${Date.now()}.jpg`;
+          const sourceFile = new File(vehicleImage);
+          const destinationFile = new File(Paths.document, filename);
+          sourceFile.copy(destinationFile);
+          savedImageUri = destinationFile.uri;
+        } catch (imgErr) {
+          console.warn('Image save failed, continuing without it', imgErr);
+          savedImageUri = vehicleImage;
+        }
+      } else if (vehicleImage) {
+        savedImageUri = vehicleImage; // already a persisted URL
+      }
+
+      if (editingVehicle) {
+        await vehicleService.updateVehicle(editingVehicle.id, {
+          brand: finalBrand,
+          model,
+          vehicleType: finalVType,
+          plateNumber: plate,
+          imageUrl: savedImageUri,
+        });
+        Alert.alert('Success', 'Vehicle updated!');
+      } else {
+        await vehicleService.createVehicle({
+          customerId: authUser.userId,
+          brand: finalBrand,
+          model,
+          vehicleType: finalVType,
+          plateNumber: plate,
+          imageUrl: savedImageUri,
+        });
+        Alert.alert('Success', 'Vehicle added!');
+      }
+      setIsModalVisible(false);
+      fetchVehicles();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save vehicle');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -133,7 +189,14 @@ export default function VehiclesScreen() {
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: () => setVehicles(prev => prev.filter(v => v.id !== id))
+          onPress: async () => {
+            try {
+              await vehicleService.deleteVehicle(id);
+              fetchVehicles();
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Failed to delete vehicle');
+            }
+          }
         }
       ]
     );
@@ -157,32 +220,72 @@ export default function VehiclesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {vehicles.map((vehicle) => (
-          <View key={vehicle.id} style={styles.vehicleCard}>
+        {!isLoading && vehicles.length === 0 ? (
+          <View style={{ alignItems: 'center', width: '100%', paddingVertical: 16 }}>
+            <TouchableOpacity 
+              onPress={() => openModal()}
+              style={{
+                width: 256,
+                height: 210,
+                backgroundColor: 'rgba(255, 237, 213, 0.5)',
+                borderRadius: 24,
+                borderWidth: 2,
+                borderColor: '#FDBA74',
+                borderStyle: 'dashed',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 16
+              }}
+            >
+              <View style={{
+                width: 64,
+                height: 64,
+                backgroundColor: '#FFEDD5',
+                borderRadius: 32,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+                shadowColor: '#FED7AA',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.2,
+                shadowRadius: 1,
+                elevation: 1
+              }}>
+                <Ionicons name="add" size={32} color="#E84E0F" />
+              </View>
+              <Text style={{ color: '#7C2D12', fontWeight: 'bold', fontSize: 16, marginBottom: 4 }}>Add New Vehicle</Text>
+              <Text style={{ color: 'rgba(234, 88, 12, 0.8)', fontSize: 12, textAlign: 'center', fontWeight: '500', lineHeight: 18, paddingHorizontal: 8 }}>
+                Add your vehicle here for smooth bookings
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          vehicles.map((vehicle) => (
+            <View key={vehicle.id} style={styles.vehicleCard}>
             <View style={styles.cardMain}>
-              <Image source={vehicle.image} style={styles.vehicleImage} />
+              <Image source={{ uri: vehicle.imageUrl || 'https://via.placeholder.com/250' }} style={styles.vehicleImage} />
               <View style={styles.vehicleInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.name}</Text>
+                  <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.brand} {vehicle.model}</Text>
                   <View style={[
                     styles.statusBadge, 
-                    { backgroundColor: vehicle.status === 'Up to date' ? '#ECFDF5' : '#FEF2F2' }
+                    { backgroundColor: '#ECFDF5' }
                   ]}>
                     <View style={[
                       styles.statusDot, 
-                      { backgroundColor: vehicle.status === 'Up to date' ? '#10B981' : '#EF4444' }
+                      { backgroundColor: '#10B981' }
                     ]} />
                     <Text style={[
                       styles.statusText, 
-                      { color: vehicle.status === 'Up to date' ? '#059669' : '#DC2626' }
-                    ]}>{vehicle.status}</Text>
+                      { color: '#059669' }
+                    ]}>Up to date</Text>
                   </View>
                 </View>
-                <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>
+                <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
                 
                 <View style={styles.serviceInfoRow}>
                   <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                  <Text style={styles.lastServiceText}>Last: {vehicle.lastService}</Text>
+                  <Text style={styles.lastServiceText}>Last: {vehicle.lastServiceDate || 'N/A'}</Text>
                 </View>
               </View>
             </View>
@@ -206,7 +309,7 @@ export default function VehiclesScreen() {
               </View>
             </View>
           </View>
-        ))}
+        )))}
       </ScrollView>
 
       {/* FAB */}
@@ -304,7 +407,7 @@ export default function VehiclesScreen() {
             </TouchableOpacity>
 
             <AppButton
-              label={editingVehicle ? "Update Vehicle" : "Add Vehicle"}
+              label={isSaving ? 'Saving...' : (editingVehicle ? 'Update Vehicle' : 'Add Vehicle')}
               onPress={handleSave}
               style={styles.saveBtn}
             />

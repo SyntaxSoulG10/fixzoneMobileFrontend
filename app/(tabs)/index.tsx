@@ -10,13 +10,16 @@ import ServiceCenterCard from '../../components/home/ServiceCenterCard';
 import NoResults from '../../components/home/NoResults';
 import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
 import { useBookings } from '../../context/BookingContext';
-import { useUser } from '../../context/UserContext';
-import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS, ServiceCenter } from '../../constants/mock_data';
+import { useAuth } from '../../context/auth_context';
+import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { MOCK_SERVICE_CENTERS, ServiceCenter } from '../../constants/mock_data';
 import { filterServiceCenters, mockAiSearch, AiFilters } from '../../utils/search_utils';
 
 export default function HomeScreen() {
-  const { user } = useUser();
+  const { user: authUser } = useAuth();
   const { pendingBookings } = useBookings();
+  const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
@@ -31,6 +34,21 @@ export default function HomeScreen() {
   const [searchResults, setSearchResults] = useState<ServiceCenter[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      if (!authUser?.userId) return;
+      try {
+        const data = await vehicleService.getVehiclesByUser(authUser.userId);
+        setVehicles(data);
+      } catch (e) {
+        console.error('Failed to fetch vehicles', e);
+      } finally {
+        setIsLoadingVehicles(false);
+      }
+    };
+    fetchVehicles();
+  }, [authUser?.userId]);
 
   const router = useRouter();
 
@@ -123,32 +141,54 @@ export default function HomeScreen() {
               <View className="px-5 mt-4">
                 <View className="flex-row justify-between items-center mb-4">
                   <Text className="text-xl font-bold text-gray-900">My Vehicles</Text>
-                  <TouchableOpacity 
-                    className="flex-row items-center"
-                    onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
-                  >
-                    <Text className="text-orange-500 font-bold mr-2">Add New</Text>
-                    <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
-                      <Ionicons name="add" size={18} color="white" />
-                    </View>
-                  </TouchableOpacity>
+                  {!isLoadingVehicles && vehicles.length > 0 && (
+                    <TouchableOpacity 
+                      className="flex-row items-center"
+                      onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+                    >
+                      <Text className="text-orange-500 font-bold mr-2">Add New</Text>
+                      <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
+                        <Ionicons name="add" size={18} color="white" />
+                      </View>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 
-                <FlatList
-                  data={user.vehicles}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <VehicleCard 
-                      image={item.image}
-                      name={item.name}
-                      plate={item.plate}
-                      status={item.status}
-                      lastService={item.lastService}
-                    />
-                  )}
-                />
+                {isLoadingVehicles ? (
+                  <ActivityIndicator color="#E84E0F" />
+                ) : vehicles.length > 0 ? (
+                  <FlatList
+                    data={vehicles}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity onPress={() => router.push(`/vehicle-details/${item.id}`)}>
+                        <VehicleCard 
+                          image={item.imageUrl || 'https://via.placeholder.com/250'}
+                          name={`${item.brand || ''} ${item.model || ''}`}
+                          plate={item.plateNumber}
+                          lastService={item.lastServiceDate || '01/01/2026'}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  />
+                ) : (
+                  <View className="items-center w-full py-4">
+                    <TouchableOpacity 
+                      onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+                      className="w-64 h-[210px] bg-orange-50/50 rounded-3xl border-2 border-dashed border-orange-300 items-center justify-center p-4"
+                    >
+                      <View className="w-16 h-16 bg-orange-100 rounded-full items-center justify-center mb-3 shadow-sm shadow-orange-200">
+                        <Ionicons name="add" size={32} color="#E84E0F" />
+                      </View>
+                      <Text className="text-orange-900 font-bold text-base mb-1">Add New Vehicle</Text>
+                      <Text className="text-orange-600/80 text-xs text-center font-medium leading-relaxed px-2">
+                        Add your vehicle here for smooth bookings
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
 
               <View className="px-5 mt-8">

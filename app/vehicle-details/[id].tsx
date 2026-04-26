@@ -2,8 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { MOCK_VEHICLES, MOCK_BOOKINGS } from '../../constants/mock_data';
+import { MOCK_BOOKINGS } from '../../constants/mock_data';
 import { COLORS } from '../../constants/colors';
+import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { useAuth } from '../../context/auth_context';
 
 const { width } = Dimensions.get('window');
 
@@ -20,11 +22,38 @@ const getDaysSinceService = (dateString: string) => {
 export default function VehicleDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { user: authUser } = useAuth();
+  
+  const [vehicle, setVehicle] = React.useState<VehicleResponse | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const vehicle = MOCK_VEHICLES.find(v => v.id === id);
+  React.useEffect(() => {
+    const fetchVehicle = async () => {
+      if (!authUser?.userId || !id) return;
+      try {
+        const data = await vehicleService.getVehiclesByUser(authUser.userId);
+        const found = data.find(v => v.id === id);
+        if (found) setVehicle(found);
+      } catch (e) {
+        console.error('Error fetching vehicle details', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchVehicle();
+  }, [id, authUser?.userId]);
+
   const vehicleHistory = MOCK_BOOKINGS.filter(b => b.vehicleId === id);
   
-  const daysSince = vehicle ? getDaysSinceService(vehicle.lastService) : 0;
+  const daysSince = vehicle ? getDaysSinceService(vehicle.lastServiceDate || '') : 0;
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text>Loading vehicle details...</Text>
+      </View>
+    );
+  }
 
   if (!vehicle) {
     return (
@@ -48,7 +77,7 @@ export default function VehicleDetailsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Vehicle Identity */}
         <View style={styles.imageContainer}>
-          <Image source={vehicle.image} style={styles.vehicleImage} />
+          <Image source={{ uri: vehicle.imageUrl || 'https://via.placeholder.com/250' }} style={styles.vehicleImage} />
           <View style={styles.daysBadge}>
             <Text style={styles.daysBadgeText}>{daysSince} days</Text>
             <Text style={styles.daysBadgeTitle}>since service</Text>
@@ -56,8 +85,8 @@ export default function VehicleDetailsScreen() {
         </View>
 
         <View style={styles.infoSection}>
-          <Text style={styles.vehicleName}>{vehicle.name}</Text>
-          <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>
+          <Text style={styles.vehicleName}>{vehicle.brand} {vehicle.model}</Text>
+          <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
           
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
@@ -68,7 +97,7 @@ export default function VehicleDetailsScreen() {
             <View style={styles.statCard}>
               <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
               <Text style={styles.statLabel}>Last Service</Text>
-              <Text style={styles.statValue}>{vehicle.lastService}</Text>
+              <Text style={styles.statValue}>{vehicle.lastServiceDate || 'N/A'}</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="construct-outline" size={20} color={COLORS.primary} />
