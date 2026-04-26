@@ -1,10 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService, LoginRequest, LoginResponse } from '../services/authService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: () => Promise<void>;
+  user: LoginResponse | null;
+  login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -12,14 +16,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<LoginResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate checking for a stored token
     const checkAuth = async () => {
       try {
-        // In a real app, you'd check AsyncStorage/SecureStore here
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsAuthenticated(false); // Default to false for now
+        const storedUser = await AsyncStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+          setIsAuthenticated(true);
+        }
       } catch (e) {
         console.error('Failed to load auth state', e);
       } finally {
@@ -30,24 +37,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async () => {
+  const login = async (credentials: LoginRequest) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsAuthenticated(true);
-    setIsLoading(false);
+    setError(null);
+    try {
+      const response = await authService.login(credentials);
+      await AsyncStorage.setItem('user', JSON.stringify(response));
+      await AsyncStorage.setItem('token', response.token);
+      setUser(response);
+      setIsAuthenticated(true);
+    } catch (e: any) {
+      setError(e.message || 'Login failed');
+      throw e;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = async () => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsAuthenticated(false);
-    setIsLoading(false);
+    try {
+      await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('token');
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (e) {
+      console.error('Logout failed', e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, user, login, logout, error }}>
       {children}
     </AuthContext.Provider>
   );

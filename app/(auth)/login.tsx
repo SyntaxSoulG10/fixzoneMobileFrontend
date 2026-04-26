@@ -16,7 +16,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function AuthScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { login } = useAuth();
+  const { login, error: authError } = useAuth();
   
   const [mode, setMode] = useState<'login' | 'signup'>((params.initialMode as 'login' | 'signup') || 'login');
   const [email, setEmail] = useState('');
@@ -55,9 +55,9 @@ export default function AuthScreen() {
 
     setIsSubmitting(true);
     try {
-      await login();
+      await login({ email, password });
     } catch (error) {
-      console.error('Login failed', error);
+      // Error is handled in context and exposed via authError
     } finally {
       setIsSubmitting(false);
     }
@@ -137,6 +137,13 @@ export default function AuthScreen() {
           isPassword
           style={{ marginBottom: 4 }}
         />
+      )}
+
+      {authError && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={20} color={COLORS.error || '#FF3B30'} />
+          <Text style={styles.errorText}>{authError}</Text>
+        </View>
       )}
 
       {mode === 'login' && (
@@ -283,6 +290,20 @@ const styles = StyleSheet.create({
   bottomLink: {
     fontSize: 14,
     color: COLORS.primary,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE5E5',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    marginLeft: 8,
     fontWeight: '500',
   },
 });

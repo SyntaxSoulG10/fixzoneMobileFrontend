@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import HomeHeader from '../../components/home/HomeHeader';
 import SearchBar from '../../components/home/SearchBar';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
@@ -35,69 +35,71 @@ export default function BookScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Fixed Header and Search */}
-      <HomeHeader />
-      <SearchBar 
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        onFilterPress={() => setIsFilterVisible(true)} 
-      />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        {/* Fixed Header and Search */}
+        <HomeHeader />
+        <SearchBar 
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onFilterPress={() => setIsFilterVisible(true)} 
+        />
 
-      {/* Horizontal Chip Filters */}
-      <View style={styles.chipsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-          {FILTERS.map((filter) => (
-            <TouchableOpacity
-              key={filter}
-              onPress={() => setSelectedFilter(filter)}
-              style={[
-                styles.chip,
-                selectedFilter === filter ? styles.chipSelected : styles.chipUnselected,
-              ]}
-            >
-              <Text
+        {/* Horizontal Chip Filters */}
+        <View style={styles.chipsContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+            {FILTERS.map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                onPress={() => setSelectedFilter(filter)}
                 style={[
-                  styles.chipText,
-                  selectedFilter === filter ? styles.chipTextSelected : styles.chipTextUnselected,
+                  styles.chip,
+                  selectedFilter === filter ? styles.chipSelected : styles.chipUnselected,
                 ]}
               >
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedFilter === filter ? styles.chipTextSelected : styles.chipTextUnselected,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
-      {/* Service Centers List */}
-      <FlatList
-        data={MOCK_SERVICE_CENTERS}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.cardWrapper}>
-            <ServiceCenterCard {...item} variant="premium" />
-          </View>
-        )}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Premium Centers</Text>
-              <Text style={styles.sectionSubtitle}>Handpicked for Quality assurance</Text>
+        {/* Service Centers List */}
+        <FlatList
+          data={MOCK_SERVICE_CENTERS}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.cardWrapper}>
+              <ServiceCenterCard {...item} variant="premium" />
             </View>
-          </View>
-        }
-        showsVerticalScrollIndicator={false}
-      />
+          )}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Premium Centers</Text>
+                <Text style={styles.sectionSubtitle}>Handpicked for Quality assurance</Text>
+              </View>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
 
-      <FilterBottomSheet
-        visible={isFilterVisible}
-        onClose={() => setIsFilterVisible(false)}
-        onApply={handleApplyFilters}
-        onReset={handleResetFilters}
-        initialFilters={filters}
-      />
-    </View>
+        <FilterBottomSheet
+          visible={isFilterVisible}
+          onClose={() => setIsFilterVisible(false)}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          initialFilters={filters}
+        />
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

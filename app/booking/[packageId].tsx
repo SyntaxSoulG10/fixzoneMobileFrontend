@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Dimensions, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MOCK_SERVICE_CENTERS, MOCK_VEHICLES, ServiceCenter, ServicePackage } from '../../constants/mock_data';
@@ -145,133 +145,137 @@ export default function BookServiceScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          
-          {/* Selected Package */}
-          <View style={styles.packageSelectedCard}>
-            <View style={styles.packageHeader}>
-              <Text style={styles.packageName}>{pkg.name}</Text>
-              <View style={styles.selectedBadge}>
-                <Text style={styles.selectedBadgeText}>Selected</Text>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={{ flex: 1 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+              
+              {/* Selected Package */}
+              <View style={styles.packageSelectedCard}>
+                <View style={styles.packageHeader}>
+                  <Text style={styles.packageName}>{pkg.name}</Text>
+                  <View style={styles.selectedBadge}>
+                    <Text style={styles.selectedBadgeText}>Selected</Text>
+                  </View>
+                </View>
+                <View style={styles.packagePriceRow}>
+                  <Text style={styles.packagePriceLabel}>Estimated time & price</Text>
+                  <Text style={styles.packagePriceValue}>LKR {pkg.price.toLocaleString()}</Text>
+                </View>
+                {pkg.features.slice(0, 3).map((f, i) => (
+                  <View key={i} style={styles.featureItem}>
+                    <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                    <Text style={styles.featureText}>{f}</Text>
+                  </View>
+                ))}
               </View>
-            </View>
-            <View style={styles.packagePriceRow}>
-              <Text style={styles.packagePriceLabel}>Estimated time & price</Text>
-              <Text style={styles.packagePriceValue}>LKR {pkg.price.toLocaleString()}</Text>
-            </View>
-            {pkg.features.slice(0, 3).map((f, i) => (
-              <View key={i} style={styles.featureItem}>
-                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                <Text style={styles.featureText}>{f}</Text>
-              </View>
-            ))}
-          </View>
 
-          {/* Disclaimer */}
-          <View style={styles.disclaimerContainer}>
-            <Ionicons name="information-circle-outline" size={24} color="#E84E0F" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.disclaimerText}>
-                Disclaimer: Prices are estimates. Final cost may change after inspection. 
-                Customer approval required for extra work.
-              </Text>
-              <Text style={[styles.disclaimerText, { marginTop: 4 }]}>
-                Note: You have to pay 10% for booking. When completion you can handover the rest.
-              </Text>
-            </View>
-          </View>
-          
-          {/* 1. SELECT VEHICLE (Now at top) */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>SELECT VEHICLE</Text>
-              <TouchableOpacity>
-                <Text style={styles.addNewText}>+ Add New</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.vehicleScroll}>
-              {MOCK_VEHICLES.map((vehicle) => {
-                const isSelected = selectedVehicle === vehicle.id;
-                return (
-                  <TouchableOpacity 
-                    key={vehicle.id}
-                    onPress={() => setSelectedVehicle(isSelected ? null : vehicle.id)}
-                    style={styles.vehicleItemContainer}
-                  >
-                    <View style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}>
-                      <Image source={vehicle.image} style={styles.vehicleImage} />
-                      {isSelected && (
-                        <View style={styles.checkBadge}>
-                          <Ionicons name="checkmark" size={12} color="#fff" />
-                        </View>
-                      )}
-                    </View>
-                    <Text style={[styles.vehicleNameText, isSelected && styles.vehicleNameTextSelected]}>
-                      {vehicle.name}
-                    </Text>
+              {/* Disclaimer */}
+              <View style={styles.disclaimerContainer}>
+                <Ionicons name="information-circle-outline" size={24} color="#E84E0F" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.disclaimerText}>
+                    Disclaimer: Prices are estimates. Final cost may change after inspection. 
+                    Customer approval required for extra work.
+                  </Text>
+                  <Text style={[styles.disclaimerText, { marginTop: 4 }]}>
+                    Note: You have to pay 10% for booking. When completion you can handover the rest.
+                  </Text>
+                </View>
+              </View>
+              
+              {/* 1. SELECT VEHICLE (Now at top) */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>SELECT VEHICLE</Text>
+                  <TouchableOpacity>
+                    <Text style={styles.addNewText}>+ Add New</Text>
                   </TouchableOpacity>
-                );
-              })}
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.vehicleScroll}>
+                  {MOCK_VEHICLES.map((vehicle) => {
+                    const isSelected = selectedVehicle === vehicle.id;
+                    return (
+                      <TouchableOpacity 
+                        key={vehicle.id}
+                        onPress={() => setSelectedVehicle(isSelected ? null : vehicle.id)}
+                        style={styles.vehicleItemContainer}
+                      >
+                        <View style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}>
+                          <Image source={vehicle.image} style={styles.vehicleImage} />
+                          {isSelected && (
+                            <View style={styles.checkBadge}>
+                              <Ionicons name="checkmark" size={12} color="#fff" />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.vehicleNameText, isSelected && styles.vehicleNameTextSelected]}>
+                          {vehicle.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* 2. SELECT DATE (Month-style header) */}
+              <View style={styles.section}>
+                <View style={styles.calendarHeader}>
+                  <Ionicons name="chevron-back" size={20} color="#E84E0F" />
+                  <Text style={styles.calendarMonth}>October 2023</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#E84E0F" />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datePickerScroll}>
+                  {dates.map(renderDate)}
+                </ScrollView>
+              </View>
+
+              {/* 3. SELECT TIME (Categorized) */}
+              
+              {/* Morning */}
+              <View style={styles.section}>
+                <View style={styles.timeCategoryHeader}>
+                  <View style={styles.timeCategoryTitleRow}>
+                    <Ionicons name="sunny-outline" size={20} color="#E84E0F" />
+                    <Text style={styles.timeCategoryName}>Morning</Text>
+                  </View>
+                  <Text style={styles.timeRangeText}>08:00 - 11:59</Text>
+                </View>
+                <View style={styles.timeSlotsGrid}>
+                  {MORNING_SLOTS.map(renderTimeSlot)}
+                </View>
+              </View>
+
+              {/* Afternoon */}
+              <View style={styles.section}>
+                <View style={styles.timeCategoryHeader}>
+                  <View style={styles.timeCategoryTitleRow}>
+                    <Ionicons name="sunny" size={20} color="#E84E0F" />
+                    <Text style={styles.timeCategoryName}>Afternoon</Text>
+                  </View>
+                  <Text style={styles.timeRangeText}>12:00 - 16:59</Text>
+                </View>
+                <View style={styles.timeSlotsGrid}>
+                  {AFTERNOON_SLOTS.map(renderTimeSlot)}
+                </View>
+              </View>
+
+              {/* Evening */}
+              <View style={styles.section}>
+                <View style={styles.timeCategoryHeader}>
+                  <View style={styles.timeCategoryTitleRow}>
+                    <Ionicons name="moon-outline" size={20} color="#E84E0F" />
+                    <Text style={styles.timeCategoryName}>Evening</Text>
+                  </View>
+                  <Text style={styles.timeRangeText}>17:00 - 20:00</Text>
+                </View>
+                <View style={styles.timeSlotsGrid}>
+                  {EVENING_SLOTS.map(renderTimeSlot)}
+                </View>
+              </View>
+
             </ScrollView>
           </View>
-
-          {/* 2. SELECT DATE (Month-style header) */}
-          <View style={styles.section}>
-            <View style={styles.calendarHeader}>
-              <Ionicons name="chevron-back" size={20} color="#E84E0F" />
-              <Text style={styles.calendarMonth}>October 2023</Text>
-              <Ionicons name="chevron-forward" size={20} color="#E84E0F" />
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datePickerScroll}>
-              {dates.map(renderDate)}
-            </ScrollView>
-          </View>
-
-          {/* 3. SELECT TIME (Categorized) */}
-          
-          {/* Morning */}
-          <View style={styles.section}>
-            <View style={styles.timeCategoryHeader}>
-              <View style={styles.timeCategoryTitleRow}>
-                <Ionicons name="sunny-outline" size={20} color="#E84E0F" />
-                <Text style={styles.timeCategoryName}>Morning</Text>
-              </View>
-              <Text style={styles.timeRangeText}>08:00 - 11:59</Text>
-            </View>
-            <View style={styles.timeSlotsGrid}>
-              {MORNING_SLOTS.map(renderTimeSlot)}
-            </View>
-          </View>
-
-          {/* Afternoon */}
-          <View style={styles.section}>
-            <View style={styles.timeCategoryHeader}>
-              <View style={styles.timeCategoryTitleRow}>
-                <Ionicons name="sunny" size={20} color="#E84E0F" />
-                <Text style={styles.timeCategoryName}>Afternoon</Text>
-              </View>
-              <Text style={styles.timeRangeText}>12:00 - 16:59</Text>
-            </View>
-            <View style={styles.timeSlotsGrid}>
-              {AFTERNOON_SLOTS.map(renderTimeSlot)}
-            </View>
-          </View>
-
-          {/* Evening */}
-          <View style={styles.section}>
-            <View style={styles.timeCategoryHeader}>
-              <View style={styles.timeCategoryTitleRow}>
-                <Ionicons name="moon-outline" size={20} color="#E84E0F" />
-                <Text style={styles.timeCategoryName}>Evening</Text>
-              </View>
-              <Text style={styles.timeRangeText}>17:00 - 20:00</Text>
-            </View>
-            <View style={styles.timeSlotsGrid}>
-              {EVENING_SLOTS.map(renderTimeSlot)}
-            </View>
-          </View>
-
-        </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
       {/* Sticky Bottom Bar */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HomeHeader from '../../components/home/HomeHeader';
@@ -85,113 +85,115 @@ export default function HomeScreen() {
   }, [debouncedQuery]);
 
   return (
-    <View className="flex-1 bg-white">
-      <HomeHeader />
-      <SearchBar 
-        onFilterPress={() => setIsFilterVisible(true)} 
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {isSearching ? (
-          <View className="px-5 py-4">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold text-gray-900">
-                {isAiProcessing ? 'AI is analyzing...' : `Results for "${debouncedQuery}"`}
-              </Text>
-              {isAiProcessing && <ActivityIndicator color="#E84E0F" size="small" />}
-            </View>
-
-            {searchResults.length > 0 ? (
-              searchResults.map(center => (
-                <ServiceCenterCard 
-                  key={`search-${center.id}`}
-                  {...center}
-                  variant="compact"
-                />
-              ))
-            ) : !isAiProcessing ? (
-              <NoResults query={debouncedQuery} onReset={() => setSearchQuery('')} />
-            ) : null}
-          </View>
-        ) : (
-          <>
-            <PromoBanner pendingBookings={pendingBookings} />
-
-            {/* My Vehicles Section */}
-            <View className="px-5 mt-4">
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View className="flex-1 bg-white">
+        <HomeHeader />
+        <SearchBar 
+          onFilterPress={() => setIsFilterVisible(true)} 
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {isSearching ? (
+            <View className="px-5 py-4">
               <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xl font-bold text-gray-900">My Vehicles</Text>
-                <TouchableOpacity 
-                  className="flex-row items-center"
-                  onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
-                >
-                  <Text className="text-orange-500 font-bold mr-2">Add New</Text>
-                  <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
-                    <Ionicons name="add" size={18} color="white" />
-                  </View>
-                </TouchableOpacity>
+                <Text className="text-xl font-bold text-gray-900">
+                  {isAiProcessing ? 'AI is analyzing...' : `Results for "${debouncedQuery}"`}
+                </Text>
+                {isAiProcessing && <ActivityIndicator color="#E84E0F" size="small" />}
               </View>
-              
-              <FlatList
-                data={user.vehicles}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <VehicleCard 
-                    image={item.image}
-                    name={item.name}
-                    plate={item.plate}
-                    status={item.status}
-                    lastService={item.lastService}
+
+              {searchResults.length > 0 ? (
+                searchResults.map(center => (
+                  <ServiceCenterCard 
+                    key={`search-${center.id}`}
+                    {...center}
+                    variant="compact"
                   />
-                )}
-              />
+                ))
+              ) : !isAiProcessing ? (
+                <NoResults query={debouncedQuery} onReset={() => setSearchQuery('')} />
+              ) : null}
             </View>
+          ) : (
+            <>
+              <PromoBanner pendingBookings={pendingBookings} />
 
-            <View className="px-5 mt-8">
-              <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xl font-bold text-gray-900">Trusted Service Centers</Text>
-              </View>
-              
-              {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
-                <ServiceCenterCard 
-                  key={center.id}
-                  {...center}
-                  variant="compact"
+              {/* My Vehicles Section */}
+              <View className="px-5 mt-4">
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text className="text-xl font-bold text-gray-900">My Vehicles</Text>
+                  <TouchableOpacity 
+                    className="flex-row items-center"
+                    onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+                  >
+                    <Text className="text-orange-500 font-bold mr-2">Add New</Text>
+                    <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
+                      <Ionicons name="add" size={18} color="white" />
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                
+                <FlatList
+                  data={user.vehicles}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <VehicleCard 
+                      image={item.image}
+                      name={item.name}
+                      plate={item.plate}
+                      status={item.status}
+                      lastService={item.lastService}
+                    />
+                  )}
                 />
-              ))}
-            </View>
-
-            {/* Nearby Service Centers Section */}
-            <View className="px-5 mt-4 mb-8">
-              <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xl font-bold text-gray-900">Nearby Service Centers</Text>
-                <TouchableOpacity onPress={() => router.push('/book')}>
-                  <Text className="text-orange-500 font-bold">View All</Text>
-                </TouchableOpacity>
               </View>
-              
-              {MOCK_SERVICE_CENTERS.slice(2).map(center => (
-                <ServiceCenterCard 
-                  key={`nearby-${center.id}`}
-                  {...center}
-                  variant="compact"
-                />
-              ))}
-            </View>
-          </>
-        )}
-      </ScrollView>
 
-      <FilterBottomSheet
-        visible={isFilterVisible}
-        onClose={() => setIsFilterVisible(false)}
-        onApply={handleApplyFilters}
-        onReset={handleResetFilters}
-        initialFilters={filters}
-      />
-    </View>
+              <View className="px-5 mt-8">
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text className="text-xl font-bold text-gray-900">Trusted Service Centers</Text>
+                </View>
+                
+                {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
+                  <ServiceCenterCard 
+                    key={center.id}
+                    {...center}
+                    variant="compact"
+                  />
+                ))}
+              </View>
+
+              {/* Nearby Service Centers Section */}
+              <View className="px-5 mt-4 mb-8">
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text className="text-xl font-bold text-gray-900">Nearby Service Centers</Text>
+                  <TouchableOpacity onPress={() => router.push('/book')}>
+                    <Text className="text-orange-500 font-bold">View All</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {MOCK_SERVICE_CENTERS.slice(2).map(center => (
+                  <ServiceCenterCard 
+                    key={`nearby-${center.id}`}
+                    {...center}
+                    variant="compact"
+                  />
+                ))}
+              </View>
+            </>
+          )}
+        </ScrollView>
+
+        <FilterBottomSheet
+          visible={isFilterVisible}
+          onClose={() => setIsFilterVisible(false)}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          initialFilters={filters}
+        />
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
