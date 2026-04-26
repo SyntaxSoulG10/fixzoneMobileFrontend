@@ -52,8 +52,8 @@ export default function BookScreen() {
   const renderServiceCenter = ({ item }: { item: ServiceCenterDTO }) => {
     // Map DTO to Card Props
     const priceFrom = item.servicePackages && item.servicePackages.length > 0 
-      ? Math.min(...item.servicePackages.map(p => p.price)) 
-      : 2500;
+      ? Math.min(...item.servicePackages.map(p => p.price || p.basePrice || 0).filter(p => p > 0)) 
+      : 0;
       
     const openUntil = item.openingHours && item.openingHours.includes('-') 
       ? item.openingHours.split('-')[1].trim() 

@@ -51,6 +51,8 @@ export default function ServiceCenterCard({
     );
   };
 
+  const defaultImage = { uri: 'https://images.unsplash.com/photo-1625047509168-a7026f36de04?q=80&w=400&auto=format&fit=crop' };
+
   if (variant === 'compact') {
     return (
       <TouchableOpacity
@@ -58,7 +60,7 @@ export default function ServiceCenterCard({
         style={styles.compactCard}
       >
         <Image
-          source={typeof image === 'string' ? { uri: image } : image}
+          source={image ? (typeof image === 'string' ? { uri: image } : image) : defaultImage}
           style={styles.compactImage}
         />
         <View style={styles.compactInfo}>
@@ -81,7 +83,7 @@ export default function ServiceCenterCard({
     >
       <View style={styles.premiumImageContainer}>
         <Image
-          source={typeof image === 'string' ? { uri: image } : image}
+          source={image ? (typeof image === 'string' ? { uri: image } : image) : defaultImage}
           style={styles.premiumImage}
           resizeMode="cover"
         />
@@ -100,8 +102,8 @@ export default function ServiceCenterCard({
           </View>
           
           <View style={styles.premiumMiddleRight}>
-            <Text style={styles.premiumPriceLabel}>STARTING FROM</Text>
-            <Text style={styles.premiumPriceValue}>LKR {priceFrom.toLocaleString()}</Text>
+            <Text style={styles.premiumPriceLabel}>Starting from</Text>
+            <Text style={styles.premiumPriceValue}>LKR {priceFrom > 0 ? priceFrom.toLocaleString() : 'N/A'}</Text>
           </View>
         </View>
 

@@ -123,7 +123,17 @@ export default function HistoryScreen() {
                 </>
               ) : !isCancelled ? (
                 <>
-                  <TouchableOpacity style={[styles.actionButton, styles.rebookButton]}>
+                  <TouchableOpacity 
+                    style={[styles.actionButton, styles.rebookButton]}
+                    onPress={() => router.push({
+                      pathname: '/booking/create',
+                      params: { 
+                        centerId: booking.centerId, 
+                        packageId: booking.packageId,
+                        packageName: pkg?.name
+                      }
+                    })}
+                  >
                     <Text style={styles.actionButtonText}>Rebook</Text>
                   </TouchableOpacity>
                   <View style={styles.invoiceIconBtn}>

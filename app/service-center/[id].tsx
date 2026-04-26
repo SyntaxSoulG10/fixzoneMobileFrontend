@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform, ActivityIndicator, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import Constants from 'expo-constants';
 import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../../services/serviceCenterService';
 
 const { width } = Dimensions.get('window');
@@ -15,7 +16,8 @@ export default function ServiceCenterDetails() {
 
   const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedVehicleType, setSelectedVehicleType] = useState<VehicleType>('car');
+  const [selectedVehicleType, setSelectedVehicleType] = useState<VehicleType>('bike'); // Default to bike based on screenshot
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -28,9 +30,11 @@ export default function ServiceCenterDetails() {
       setIsLoading(true);
       const data = await serviceCenterService.getServiceCenterById(centerId);
       setCenter(data);
-      // Set default tab to first supported vehicle type
       if (data.supportedVehicleBrands && data.supportedVehicleBrands.length > 0) {
-        setSelectedVehicleType(data.supportedVehicleBrands[0] as VehicleType);
+        // Find if screenshot type exists, else default to first
+        const types = data.supportedVehicleBrands as VehicleType[];
+        if (types.includes('bike')) setSelectedVehicleType('bike');
+        else setSelectedVehicleType(types[0]);
       }
     } catch (err) {
       console.error('Failed to load service center:', err);
@@ -43,33 +47,6 @@ export default function ServiceCenterDetails() {
     if (!center?.servicePackages) return [];
     return center.servicePackages.filter(pkg => pkg.vehicleType === selectedVehicleType);
   }, [center, selectedVehicleType]);
-
-  const isOpen = () => {
-    if (!center?.openingHours) return false;
-    try {
-      const parts = center.openingHours.split('-').map(s => s.trim());
-      if (parts.length < 2) return false;
-      const [openH, openM] = parts[0].split(':').map(Number);
-      const [closeH, closeM] = parts[1].split(':').map(Number);
-      const now = new Date();
-      const current = now.getHours() * 60 + now.getMinutes();
-      return current >= (openH * 60 + openM) && current <= (closeH * 60 + closeM);
-    } catch {
-      return false;
-    }
-  };
-
-  const handleCall = () => {
-    if (center?.contactPhone) Linking.openURL(`tel:${center.contactPhone}`);
-  };
-
-  const handleDirection = () => {
-    const url = Platform.select({
-      ios: `maps:0,0?q=${center?.name}@6.9271,79.8612`,
-      android: `geo:0,0?q=6.9271,79.8612(${center?.name})`,
-    });
-    if (url) Linking.openURL(url);
-  };
 
   const renderVehicleTab = (type: VehicleType) => {
     const isSelected = selectedVehicleType === type;
@@ -84,7 +61,7 @@ export default function ServiceCenterDetails() {
         onPress={() => setSelectedVehicleType(type)}
         style={[styles.tab, isSelected && styles.tabSelected]}
       >
-        <Ionicons name={iconName} size={24} color={isSelected ? '#fff' : '#6B7280'} />
+        <Ionicons name={iconName} size={22} color={isSelected ? '#fff' : '#6B7280'} />
         <Text style={[styles.tabText, isSelected && styles.tabTextSelected]}>
           {type.charAt(0).toUpperCase() + type.slice(1)}
         </Text>
@@ -96,7 +73,6 @@ export default function ServiceCenterDetails() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color="#F97316" />
-        <Text style={{ color: '#9CA3AF', marginTop: 12 }}>Loading service center...</Text>
       </View>
     );
   }
@@ -104,144 +80,119 @@ export default function ServiceCenterDetails() {
   if (!center) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-        <Text style={{ color: '#9CA3AF', marginTop: 12 }}>Service Center not found</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
-          <Text style={{ color: '#F97316' }}>Go Back</Text>
-        </TouchableOpacity>
+        <Text style={{ color: '#6B7280' }}>Service Center not found</Text>
       </View>
     );
   }
 
-  const openStatus = isOpen();
   const supportedVehicles = (center.supportedVehicleBrands || []) as VehicleType[];
 
   return (
-    <View style={styles.container}>
-      {/* Header Image */}
-      <View style={styles.imageContainer}>
-        {center.imageUrl ? (
-          <Image source={{ uri: center.imageUrl }} style={styles.headerImage} resizeMode="cover" />
-        ) : (
-          <View style={[styles.headerImage, { backgroundColor: '#1F2937', justifyContent: 'center', alignItems: 'center' }]}>
-            <Ionicons name="car-sport-outline" size={64} color="#374151" />
-          </View>
-        )}
-        <LinearGradient
-          colors={['transparent', 'rgba(10,10,20,0.9)']}
-          style={styles.imageGradient}
-        />
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      {/* Custom Top Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
+          <Ionicons name="chevron-back" size={28} color="#1F2937" />
         </TouchableOpacity>
-        <View style={styles.headerOverlay}>
-          <Text style={styles.centerName}>{center.name}</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color="#9CA3AF" />
-            <Text style={styles.locationText}>{center.address}</Text>
-          </View>
-          <View style={styles.statusRow}>
-            <View style={[styles.statusBadge, { backgroundColor: openStatus ? '#065F46' : '#7F1D1D' }]}>
-              <View style={[styles.statusDot, { backgroundColor: openStatus ? '#34D399' : '#EF4444' }]} />
-              <Text style={[styles.statusText, { color: openStatus ? '#34D399' : '#EF4444' }]}>
-                {openStatus ? 'Open Now' : 'Closed'}
-              </Text>
-            </View>
-            {center.openingHours && (
-              <Text style={styles.hoursText}>{center.openingHours}</Text>
-            )}
-          </View>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{center.name}</Text>
+          <Text style={styles.headerSubtitle}>Select Service Package</Text>
         </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.actionBtn} onPress={handleCall}>
-          <Ionicons name="call-outline" size={20} color="#F97316" />
-          <Text style={styles.actionBtnText}>Call</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={handleDirection}>
-          <Ionicons name="navigate-outline" size={20} color="#F97316" />
-          <Text style={styles.actionBtnText}>Directions</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => Linking.openURL(`tel:${center.contactPhone}`)}>
-          <Ionicons name="share-social-outline" size={20} color="#F97316" />
-          <Text style={styles.actionBtnText}>Share</Text>
+        <TouchableOpacity onPress={() => setIsFavorite(!isFavorite)} style={styles.headerIcon}>
+          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={28} color={isFavorite ? "#EF4444" : "#1F2937"} />
         </TouchableOpacity>
       </View>
 
-      {/* Vehicle Type Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContainer}>
-        {supportedVehicles.map(v => renderVehicleTab(v))}
-      </ScrollView>
+      <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
+        {/* Vehicle Tabs */}
+        <View style={styles.tabsWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
+            {supportedVehicles.map(v => renderVehicleTab(v))}
+          </ScrollView>
+        </View>
 
-      {/* Packages List */}
-      <ScrollView style={styles.packagesList} showsVerticalScrollIndicator={false}>
-        {filteredPackages.length > 0 ? (
-          filteredPackages.map(pkg => <PackageCard key={pkg.id || pkg.name} pkg={pkg} centerId={center.centerId} />)
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="cube-outline" size={40} color="#374151" />
-            <Text style={styles.emptyStateText}>No packages for this vehicle type.</Text>
-          </View>
-        )}
-        <View style={{ height: 40 }} />
+        {/* Section Title */}
+        <View style={styles.sectionTitleContainer}>
+          <Text style={styles.sectionTitle}>Available Packages</Text>
+        </View>
+
+        {/* Packages List */}
+        <View style={styles.packagesList}>
+          {filteredPackages.length > 0 ? (
+            filteredPackages.map(pkg => <PackageCard key={pkg.packageId || pkg.name} pkg={pkg} centerId={center.centerId} />)
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No packages for this vehicle type.</Text>
+            </View>
+          )}
+          <View style={{ height: 40 }} />
+        </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: string }) {
   const router = useRouter();
-  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const price = typeof pkg.price === 'number' ? pkg.price : Number(pkg.basePrice || pkg.price) || 0;
+  const durationInMins = (pkg as any).estimatedDurationMins || 60;
+  const durationHours = Math.floor(durationInMins / 60);
+  const durationText = durationHours > 0 ? `${durationHours} hrs` : `${durationInMins} mins`;
 
-  const price = typeof pkg.price === 'number' ? pkg.price : Number(pkg.price) || 0;
-  const duration = pkg.duration || (pkg as any).estimatedDurationMins
-    ? `${(pkg as any).estimatedDurationMins || pkg.duration} mins`
-    : '';
+  // Default features: split description by comma if features array is empty
+  const features = useMemo(() => {
+    if (pkg.features && pkg.features.length > 0) return pkg.features;
+    if (pkg.description) {
+      return pkg.description.split(',').map(item => item.trim()).filter(item => item.length > 0);
+    }
+    return ['Quality Service Inspection'];
+  }, [pkg.features, pkg.description]);
 
   return (
     <View style={styles.pkgCard}>
-      <View style={styles.pkgInfo}>
-        <View style={styles.pkgTitleRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.pkgTitle}>{pkg.name}</Text>
-            {duration ? (
-              <View style={styles.durationRow}>
-                <Ionicons name="time-outline" size={12} color="#6B7280" />
-                <Text style={styles.durationText}>{duration}</Text>
-              </View>
-            ) : null}
-          </View>
-          <View style={styles.pkgPriceCol}>
+      {/* Package Image */}
+      <Image 
+        source={{ uri: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1000&auto=format&fit=crop' }} 
+        style={styles.pkgImage} 
+      />
+      
+      <View style={styles.pkgBody}>
+        {/* Title and Price */}
+        <View style={styles.pkgHeaderRow}>
+          <Text style={styles.pkgName}>{pkg.name}</Text>
+          <View style={styles.priceContainer}>
             <Text style={styles.pkgPrice}>LKR {price.toLocaleString()}</Text>
-            <Text style={styles.pkgPriceSub}>Estimated</Text>
+            <Text style={styles.estimatedText}>Estimated</Text>
           </View>
         </View>
 
-        {pkg.features && pkg.features.length > 0 ? (
-          <>
-            {(isExpanded ? pkg.features : pkg.features.slice(0, 2)).map((f, i) => (
-              <View key={i} style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={14} color="#34D399" />
-                <Text style={styles.featureText}>{f}</Text>
-              </View>
-            ))}
-            {pkg.features.length > 2 && (
-              <TouchableOpacity onPress={() => setIsExpanded(!isExpanded)}>
-                <Text style={styles.showMore}>{isExpanded ? 'Show Less' : `+${pkg.features.length - 2} more`}</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        ) : (
-          pkg.description ? (
-            <Text style={styles.pkgDescription}>{pkg.description}</Text>
-          ) : null
-        )}
+        {/* Duration */}
+        <View style={styles.durationRow}>
+          <Ionicons name="time-outline" size={16} color="#4B5563" />
+          <Text style={styles.durationText}>{durationText}</Text>
+        </View>
 
-        <TouchableOpacity
+        {/* Features */}
+        <View style={styles.featuresList}>
+          {features.slice(0, 3).map((f, i) => (
+            <View key={i} style={styles.featureItem}>
+              <View style={styles.checkIcon}>
+                <Ionicons name="checkmark" size={12} color="#fff" />
+              </View>
+              <Text style={styles.featureText}>{f}</Text>
+            </View>
+          ))}
+          {features.length > 3 && (
+            <Text style={styles.moreText}>+{features.length - 3} more</Text>
+          )}
+        </View>
+
+        {/* Book Button */}
+        <TouchableOpacity 
           style={styles.bookBtn}
-          onPress={() => router.push({ pathname: '/booking/create', params: { centerId, packageId: pkg.id || '', packageName: pkg.name } })}
+          onPress={() => router.push({ pathname: '/booking/create', params: { centerId, packageId: pkg.packageId || '', packageName: pkg.name } })}
         >
           <Text style={styles.bookBtnText}>Book Now</Text>
         </TouchableOpacity>
@@ -251,63 +202,179 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A14' },
-  imageContainer: { height: 280, position: 'relative' },
-  headerImage: { width: '100%', height: '100%' },
-  imageGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160 },
-  backButton: {
-    position: 'absolute', top: 48, left: 16,
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center',
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    marginTop: Platform.OS === 'android' ? Constants.statusBarHeight : 0, // Dynamic top margin for Android status bar
   },
-  headerOverlay: { position: 'absolute', bottom: 16, left: 16, right: 16 },
-  centerName: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
-  locationText: { fontSize: 13, color: '#9CA3AF' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 12, fontWeight: '600' },
-  hoursText: { fontSize: 12, color: '#6B7280' },
-  actionRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
-  actionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: '#1A1A2E', borderRadius: 12, paddingVertical: 10,
-    borderWidth: 1, borderColor: '#2D2D44',
+  headerIcon: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  actionBtnText: { color: '#F97316', fontSize: 13, fontWeight: '600' },
-  tabScroll: { maxHeight: 72 },
-  tabContainer: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, alignItems: 'center' },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  tabsWrapper: {
+    backgroundColor: '#fff',
+    paddingVertical: 16,
+  },
+  tabContainer: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
   tab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: '#1A1A2E', borderWidth: 1, borderColor: '#2D2D44',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    minWidth: 100,
   },
-  tabSelected: { backgroundColor: '#F97316', borderColor: '#F97316' },
-  tabText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
-  tabTextSelected: { color: '#fff' },
-  packagesList: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
-  emptyState: { alignItems: 'center', paddingTop: 48, gap: 12 },
-  emptyStateText: { color: '#6B7280', fontSize: 14 },
+  tabSelected: {
+    backgroundColor: '#F97316',
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  tabTextSelected: {
+    color: '#fff',
+  },
+  sectionTitleContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  packagesList: {
+    paddingHorizontal: 16,
+  },
   pkgCard: {
-    backgroundColor: '#1A1A2E', borderRadius: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: '#2D2D44', overflow: 'hidden',
+    backgroundColor: '#FFF5F0', // Cream background
+    borderRadius: 24,
+    marginBottom: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#FFE4D6',
   },
-  pkgInfo: { padding: 16 },
-  pkgTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
-  pkgTitle: { fontSize: 15, fontWeight: '700', color: '#fff', flex: 1, marginRight: 8 },
-  durationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  durationText: { fontSize: 11, color: '#6B7280' },
-  pkgPriceCol: { alignItems: 'flex-end' },
-  pkgPrice: { fontSize: 15, fontWeight: '700', color: '#F97316' },
-  pkgPriceSub: { fontSize: 10, color: '#6B7280', marginTop: 2 },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  featureText: { fontSize: 13, color: '#D1D5DB' },
-  showMore: { color: '#F97316', fontSize: 12, marginTop: 4 },
-  pkgDescription: { fontSize: 13, color: '#9CA3AF', lineHeight: 20, marginBottom: 8 },
+  pkgImage: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#E5E7EB',
+  },
+  pkgBody: {
+    padding: 20,
+  },
+  pkgHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  pkgName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+    flex: 1,
+    marginRight: 12,
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  pkgPrice: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F97316',
+  },
+  estimatedText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  durationText: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  featuresList: {
+    marginTop: 16,
+    gap: 10,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  checkIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  featureText: {
+    fontSize: 15,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  moreText: {
+    fontSize: 14,
+    color: '#F97316',
+    fontWeight: '700',
+    marginLeft: 28,
+    marginTop: 2,
+  },
   bookBtn: {
-    marginTop: 14, backgroundColor: '#F97316', borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center',
+    marginTop: 24,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#F97316',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
   },
-  bookBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  bookBtnText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  },
 });

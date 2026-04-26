@@ -13,20 +13,34 @@ export default function InitialPaymentScreen() {
   const { addBooking } = useBookings();
 
   // Extract data from params
-  const { id, packageId, date, time, vehicleId } = params;
+  const { id, packageId, date, time, vehicleId, centerName, packageName, price: priceParam } = params;
 
   // Find objects
-  const center = MOCK_SERVICE_CENTERS.find(c => c.id === id);
-  const pkg = center?.packages.find(p => p.id === packageId);
-  const vehicle = MOCK_VEHICLES.find(v => v.id === vehicleId);
+  // Find objects or use fallbacks
+  const center = MOCK_SERVICE_CENTERS.find(c => c.id === id) || { 
+    name: centerName as string || 'Service Center', 
+    location: 'Selected Center' 
+  };
+  
+  const mockPkg = (center as any).packages?.find((p: any) => p.id === packageId);
+  const pkg = mockPkg || { 
+    name: packageName as string || 'Service Package', 
+    price: parseFloat(priceParam as string) || 0 
+  };
+  
+  const vehicle = MOCK_VEHICLES.find(v => v.id === vehicleId) || { 
+    name: 'Your Vehicle', 
+    plate: '', 
+    image: require('../../assets/images/honda_vezel_silver.jpg') 
+  };
 
   // States
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!center || !pkg || !vehicle) {
+  if (!center.name || !pkg.name || !vehicle.name) {
     return (
       <View style={styles.container}>
-        <Text>Missing booking information</Text>
+        <Text style={{ textAlign: 'center', marginTop: 100 }}>Missing booking information</Text>
       </View>
     );
   }
@@ -58,9 +72,16 @@ export default function InitialPaymentScreen() {
         invoiceId: `INV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
       });
 
-      Alert.alert('Success', 'Payment Successful!', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
-      ]);
+      router.replace({
+        pathname: '/booking/success',
+        params: {
+          centerName: center.name,
+          vehicleName: vehicle.name,
+          date: date as string,
+          time: time as string,
+          price: pkg.price.toLocaleString()
+        }
+      });
     }, 2000);
   };
 
@@ -80,7 +101,7 @@ export default function InitialPaymentScreen() {
         {/* Vehicle & Schedule Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.vehicleInfoSection}>
-            <Image source={vehicle.image} style={styles.vehicleHeroImage} />
+            <Image source={vehicle.image || require('../../assets/images/honda_vezel_silver.jpg')} style={styles.vehicleHeroImage} />
             <View style={styles.vehicleOverlay}>
               <Text style={styles.vehicleName}>{vehicle.name}</Text>
               <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>

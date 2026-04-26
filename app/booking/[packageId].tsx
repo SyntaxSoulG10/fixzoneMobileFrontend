@@ -37,9 +37,9 @@ export default function BookServiceScreen() {
   const center = MOCK_SERVICE_CENTERS.find(c => c.id === id);
   const pkg = center?.packages.find(p => p.id === packageId);
 
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(MOCK_VEHICLES[0]?.id || null);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
 
   const dates = useMemo(() => {
     const arr = [];

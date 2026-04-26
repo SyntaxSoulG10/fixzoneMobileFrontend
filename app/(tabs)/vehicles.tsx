@@ -29,7 +29,7 @@ const DEFAULT_VEHICLE_IMAGE = require('../../assets/images/honda_civic_red.jpg')
 
 export default function VehiclesScreen() {
   const router = useRouter();
-  const { add } = useGlobalSearchParams();
+  const { add, backOnSave } = useGlobalSearchParams<{ add?: string; backOnSave?: string }>();
   const { user: authUser } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,7 +172,11 @@ export default function VehiclesScreen() {
         Alert.alert('Success', 'Vehicle added!');
       }
       setIsModalVisible(false);
-      fetchVehicles();
+      await fetchVehicles();
+      
+      if (backOnSave === 'true') {
+        router.back();
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save vehicle');
     } finally {

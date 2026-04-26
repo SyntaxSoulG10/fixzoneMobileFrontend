@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HomeHeader from '../../components/home/HomeHeader';
@@ -35,20 +36,23 @@ export default function HomeScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  useEffect(() => {
-    const fetchVehicles = async () => {
-      if (!authUser?.userId) return;
-      try {
-        const data = await vehicleService.getVehiclesByUser(authUser.userId);
-        setVehicles(data);
-      } catch (e) {
-        console.error('Failed to fetch vehicles', e);
-      } finally {
-        setIsLoadingVehicles(false);
-      }
-    };
-    fetchVehicles();
+  const fetchVehicles = useCallback(async () => {
+    if (!authUser?.userId) return;
+    try {
+      const data = await vehicleService.getVehiclesByUser(authUser.userId);
+      setVehicles(data);
+    } catch (e) {
+      console.error('Failed to fetch vehicles', e);
+    } finally {
+      setIsLoadingVehicles(false);
+    }
   }, [authUser?.userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchVehicles();
+    }, [fetchVehicles])
+  );
 
   const router = useRouter();
 
