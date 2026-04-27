@@ -173,6 +173,7 @@ export default function HomeScreen() {
                           name={`${item.brand || ''} ${item.model || ''}`}
                           plate={item.plateNumber}
                           lastService={item.lastServiceDate || '01/01/2026'}
+                          daysSinceService={item.daysSinceService}
                         />
                       </TouchableOpacity>
                     )}

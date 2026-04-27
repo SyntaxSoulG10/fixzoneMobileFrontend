@@ -7,6 +7,7 @@ interface VehicleCardProps {
   name: string;
   plate: string;
   lastService: string;
+  daysSinceService?: number;
 }
 
 const getDaysSinceService = (dateString: string) => {
@@ -19,8 +20,8 @@ const getDaysSinceService = (dateString: string) => {
   return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
 };
 
-export default function VehicleCard({ image, name, plate, lastService }: VehicleCardProps) {
-  const daysSince = getDaysSinceService(lastService);
+export default function VehicleCard({ image, name, plate, lastService, daysSinceService }: VehicleCardProps) {
+  const daysSince = daysSinceService !== undefined ? daysSinceService : getDaysSinceService(lastService);
 
   return (
     <TouchableOpacity 

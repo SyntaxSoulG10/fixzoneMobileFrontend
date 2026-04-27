@@ -9,6 +9,7 @@ export interface VehicleResponse {
   plateNumber: string;
   imageUrl: string;
   lastServiceDate: string;
+  daysSinceService?: number;
 }
 
 export interface VehicleCreateRequest {

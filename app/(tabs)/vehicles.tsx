@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, Alert, Dimensions, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -45,7 +46,7 @@ export default function VehiclesScreen() {
     }
   }, [add]);
 
-  const fetchVehicles = async () => {
+  const fetchVehicles = useCallback(async () => {
     if (!authUser?.userId) return;
     try {
       setIsLoading(true);
@@ -56,11 +57,13 @@ export default function VehiclesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchVehicles();
   }, [authUser?.userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchVehicles();
+    }, [fetchVehicles])
+  );
 
 
   // Form State
