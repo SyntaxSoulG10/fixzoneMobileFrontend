@@ -13,6 +13,7 @@ import { COLORS } from '../../constants/colors';
 interface AppInputProps extends TextInputProps {
   label?: string;
   leftElement?: React.ReactNode;
+  leftIcon?: keyof typeof Ionicons.glyphMap;
   rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
   error?: string;
@@ -22,6 +23,7 @@ interface AppInputProps extends TextInputProps {
 const AppInput: React.FC<AppInputProps> = ({
   label,
   leftElement,
+  leftIcon,
   rightIcon,
   onRightIconPress,
   error,
@@ -46,6 +48,10 @@ const AppInput: React.FC<AppInputProps> = ({
         ]}
       >
         {leftElement}
+        
+        {leftIcon && (
+          <Ionicons name={leftIcon} size={20} color="#9CA3AF" style={{ marginRight: 10 }} />
+        )}
 
         <TextInput
           style={[styles.input, style]}

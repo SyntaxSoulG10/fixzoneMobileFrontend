@@ -25,7 +25,7 @@ export default function ForgotPasswordScreen() {
 
   const handleSendCode = () => {
     // In a real app we would call an API here
-    router.push('/auth/verify-otp');
+    router.push('/(auth)/verify-otp');
   };
 
   return (
@@ -36,7 +36,7 @@ export default function ForgotPasswordScreen() {
         <IconCircle iconName="lock-closed" size={72} iconSize={32} />
         <Text style={styles.title}>Forgot Password ?</Text>
         <Text style={styles.subtitle}>
-          Don't worry ! It happens. Please enter the email or phone number associated with your account
+          Don&apos;t worry ! It happens. Please enter the email or phone number associated with your account
         </Text>
       </View>
 
@@ -60,7 +60,7 @@ export default function ForgotPasswordScreen() {
 
       <View style={styles.loginContainer}>
         <Text style={styles.loginText}>Remember Password ? </Text>
-        <TouchableOpacity onPress={() => router.push('/auth/login' as any)}>
+        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
           <Text style={styles.loginLink}>Login</Text>
         </TouchableOpacity>
       </View>

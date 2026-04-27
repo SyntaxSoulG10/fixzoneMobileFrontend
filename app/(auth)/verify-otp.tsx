@@ -13,7 +13,7 @@ export default function VerifyOtpScreen() {
 
   const handleVerify = () => {
     // In a real app we verify code here
-    router.push('/auth/set-new-password');
+    router.push('/(auth)/set-new-password');
   };
 
   return (
@@ -24,7 +24,7 @@ export default function VerifyOtpScreen() {
         <IconCircle iconName="mail" size={72} iconSize={32} />
         <Text style={styles.title}>Enter Verification Code</Text>
         <Text style={styles.subtitle}>
-          We've sent a code to your registered email or phone number.Please enter it below to verify your identity.
+          We&apos;ve sent a code to your registered email or phone number.Please enter it below to verify your identity.
         </Text>
       </View>
 
@@ -50,7 +50,7 @@ export default function VerifyOtpScreen() {
       />
 
       <View style={styles.resendContainer}>
-        <Text style={styles.resendText}>Didn't receive the code ? </Text>
+        <Text style={styles.resendText}>Didn&apos;t receive the code ? </Text>
         <TouchableOpacity>
           <Text style={styles.resendLink}>Resend</Text>
         </TouchableOpacity>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Switch, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import BackButton from '../../components/ui/BackButton';
@@ -8,50 +8,46 @@ import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import AppDropdown from '../../components/ui/AppDropdown';
 import { COLORS } from '../../constants/colors';
+import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/auth_context';
 
-// Fallback Hardcoded Arrays Setup
-const vehicleTypes = ['Car', 'Bike', 'Three Wheels', 'Van', 'Lorry', 'Others'];
 
-const brandMap: Record<string, string[]> = {
-  'Car': ['Toyota', 'Honda', 'Nissan', 'BMW', 'Suzuki', 'Kia', 'Other'],
-  'Bike': ['Yamaha', 'Honda', 'Suzuki', 'Bajaj', 'TVS', 'Hero', 'Other'],
-  'Three Wheels': ['Bajaj', 'TVS', 'Piaggio', 'Other'],
-  'Van': ['Nissan', 'Toyota', 'Ford', 'Other'],
-  'Lorry': ['Isuzu', 'Mitsubishi', 'Tata', 'Ashok Leyland', 'Other'],
-};
-
-const fuelTypes = ['Petrol', 'Diesel', 'Hybrid', 'EV'];
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const { updateUser, addVehicle: saveVehicle } = useUser();
+  const { signup, error: authError } = useAuth();
   
   // Profile state
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
-  // Primary toggle
-  const [addVehicle, setAddVehicle] = useState(false);
-
-  // Vehicle state
-  const [vehicleType, setVehicleType] = useState('');
-  const [customType, setCustomType] = useState('');
-  const [brand, setBrand] = useState('');
-  const [customBrand, setCustomBrand] = useState('');
-  const [model, setModel] = useState('');
-  const [fuelType, setFuelType] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [isPrimary, setIsPrimary] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
 
-  const availableBrands = brandMap[vehicleType] || [];
-
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
+    if (!fullName || !phone) return;
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const email = params.email as string;
+      const password = params.password as string;
+
+      await signup({
+        fullName,
+        email,
+        password,
+        phone: `+94 ${phone}`
+      });
+
+      updateUser({
+        name: fullName,
+        mobile: `+94 ${phone}`,
+      });
+    } catch (error) {
+      console.error('Signup failed', error);
+    } finally {
       setIsLoading(false);
-      router.replace('/');
-    }, 1500);
+    }
   };
 
   const phonePrefix = (
@@ -75,124 +71,51 @@ export default function CompleteProfileScreen() {
       >
         <AppInput
           label="Full Name"
-        placeholder="Enter your full name"
-        value={fullName}
-        onChangeText={setFullName}
-      />
+          placeholder="Enter your full name"
+          value={fullName}
+          onChangeText={setFullName}
+        />
 
-      <AppInput
-        label="Phone number"
-        placeholder="7x xxx xxxx"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-        leftElement={phonePrefix}
-      />
+        <AppInput
+          label="Phone number"
+          placeholder="7x xxx xxxx"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          leftElement={phonePrefix}
+        />
 
-      <View style={styles.toggleCard}>
-        <View style={styles.toggleCardContent}>
-          <Ionicons name="car" size={26} color={COLORS.primary} style={styles.toggleIcon} />
-          <View style={styles.toggleTextWrapper}>
-            <Text style={styles.toggleTitle}>Add vehicle details ?</Text>
-            <Text style={styles.toggleSubtitle}>Save time later by adding it now</Text>
-          </View>
-          <Switch
-            value={addVehicle}
-            onValueChange={setAddVehicle}
-            trackColor={{ false: '#e5e7eb', true: '#FED7AA' }}
-            thumbColor={addVehicle ? COLORS.primary : '#f4f3f4'}
-          />
-        </View>
-      </View>
-
-      {addVehicle && (
-        <View style={styles.vehicleForm}>
-          <AppDropdown
-            label="Vehicle Type"
-            placeholder="Select Type"
-            value={vehicleType}
-            options={vehicleTypes}
-            onSelect={(val) => {
-              setVehicleType(val);
-              setBrand(''); // reset brand naturally when type changes
-            }}
-          />
-
-          {vehicleType === 'Others' && (
-            <AppInput
-              label="Specify Vehicle Type"
-              placeholder="e.g. Tractor"
-              value={customType}
-              onChangeText={setCustomType}
-            />
-          )}
-
-          <AppDropdown
-            label="Brand"
-            placeholder="Select Brand"
-            value={brand}
-            options={availableBrands.length > 0 ? availableBrands : ['Other']}
-            onSelect={setBrand}
-          />
-
-          {(brand === 'Other' || vehicleType === 'Others') && (
-            <AppInput
-              label="Specify Brand"
-              placeholder="e.g. Ford"
-              value={customBrand}
-              onChangeText={setCustomBrand}
-            />
-          )}
-
-          <AppInput
-            label="Model"
-            placeholder="Select Model"
-            value={model}
-            onChangeText={setModel}
-          />
-
-          <AppDropdown
-            label="Fuel Type ⚡"
-            placeholder="Select Fuel Type"
-            value={fuelType}
-            options={fuelTypes}
-            onSelect={setFuelType}
-          />
-
-          <AppInput
-            label="License Number"
-            placeholder="e.g. ABC 1234"
-            value={licenseNumber}
-            onChangeText={setLicenseNumber}
-            autoCapitalize="characters"
-          />
-
-          <View style={styles.primaryToggleContainer}>
-            <Text style={styles.primaryToggleText}>Set as Primary Vehicle</Text>
-            <Switch
-              value={isPrimary}
-              onValueChange={setIsPrimary}
-              trackColor={{ false: '#e5e7eb', true: COLORS.primary }}
-              thumbColor={'#fff'}
-            />
+        <View style={styles.instructionCard}>
+          <View style={styles.instructionContent}>
+            <Ionicons name="information-circle" size={26} color={COLORS.primary} style={styles.instructionIcon} />
+            <View style={styles.instructionTextWrapper}>
+              <Text style={styles.instructionTitle}>Vehicle Details</Text>
+              <Text style={styles.instructionSubtitle}>Please add your vehicles in the dashboard before booking any service.</Text>
+            </View>
           </View>
         </View>
-      )}
 
-      <AppButton
-        label="Sign up"
-        onPress={handleCreateAccount}
-        style={styles.btn}
-        loading={isLoading}
-        disabled={!fullName || !phone}
-      />
+        <AppButton
+          label="Sign up"
+          onPress={handleCreateAccount}
+          style={styles.btn}
+          loading={isLoading}
+          disabled={!fullName || !phone || isLoading}
+        />
 
-      <View style={styles.footerLinks}>
-        <Text style={styles.footerText}>
-          By signing up, you agree to our{' '}
-          <Text style={styles.footerTextLink}>Terms of Services & Privacy policy</Text>
-        </Text>
-      </View>
+        {authError && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={20} color="#FF3B30" />
+            <Text style={styles.errorText}>{authError}</Text>
+          </View>
+        )}
+
+        <View style={styles.footerLinks}>
+          <Text style={styles.footerText}>
+            By signing up, you agree to our{' '}
+            <Text style={styles.footerTextLink}>Terms of Services & Privacy policy</Text>
+          </Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
@@ -227,50 +150,34 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '500',
   },
-  toggleCard: {
+  instructionCard: {
     borderWidth: 1,
     borderColor: COLORS.primary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF7ED', // Light orange background
   },
-  toggleCardContent: {
+  instructionContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  toggleIcon: {
+  instructionIcon: {
     marginRight: 16,
   },
-  toggleTextWrapper: {
+  instructionTextWrapper: {
     flex: 1,
   },
-  toggleTitle: {
+  instructionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#000',
     marginBottom: 4,
   },
-  toggleSubtitle: {
+  instructionSubtitle: {
     fontSize: 13,
     color: COLORS.textSecondary,
-  },
-  vehicleForm: {
-    backgroundColor: '#fffbf5', // Light yellow/orange tint as per design
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  primaryToggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  primaryToggleText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: COLORS.text,
+    lineHeight: 18,
   },
   btn: {
     marginBottom: 16,
@@ -289,5 +196,20 @@ const styles = StyleSheet.create({
   },
   footerTextLink: {
     color: COLORS.primary,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE5E5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });

@@ -5,9 +5,11 @@ import { COLORS } from '../../constants/colors';
 
 interface SearchBarProps {
   onFilterPress?: () => void;
+  value: string;
+  onChangeText: (text: string) => void;
 }
 
-export default function SearchBar({ onFilterPress }: SearchBarProps) {
+export default function SearchBar({ onFilterPress, value, onChangeText }: SearchBarProps) {
   return (
     <View className="px-5 py-2">
       <View 
@@ -19,7 +21,14 @@ export default function SearchBar({ onFilterPress }: SearchBarProps) {
           placeholder="Search Service Station ..."
           className="flex-1 ml-2 text-base text-gray-700"
           placeholderTextColor="#9CA3AF"
+          value={value}
+          onChangeText={onChangeText}
         />
+        {value.length > 0 && (
+          <TouchableOpacity onPress={() => onChangeText('')} className="mr-2">
+            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity className="ml-2" onPress={onFilterPress}>
           <Ionicons name="options-outline" size={24} color={COLORS.primary} />
         </TouchableOpacity>

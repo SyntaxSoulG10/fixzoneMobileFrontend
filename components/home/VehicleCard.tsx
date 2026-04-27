@@ -6,11 +6,23 @@ interface VehicleCardProps {
   image: string;
   name: string;
   plate: string;
-  status: string;
   lastService: string;
+  daysSinceService?: number;
 }
 
-export default function VehicleCard({ image, name, plate, status, lastService }: VehicleCardProps) {
+const getDaysSinceService = (dateString: string) => {
+  if (!dateString) return 0;
+  const parts = dateString.split('/');
+  if (parts.length !== 3) return 0;
+  const serviceDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  const today = new Date();
+  const diffTime = today.getTime() - serviceDate.getTime();
+  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+};
+
+export default function VehicleCard({ image, name, plate, lastService, daysSinceService }: VehicleCardProps) {
+  const daysSince = daysSinceService !== undefined ? daysSinceService : getDaysSinceService(lastService);
+
   return (
     <TouchableOpacity 
       className="bg-gray-100 rounded-3xl overflow-hidden mr-4 w-64 border border-gray-200 shadow-sm"
@@ -29,12 +41,17 @@ export default function VehicleCard({ image, name, plate, status, lastService }:
       />
       <View className="p-4 bg-gray-200/50">
         <View className="flex-row justify-between items-start mb-2">
-          <View>
-            <Text className="text-lg font-bold text-gray-900">{name}</Text>
+          <View className="flex-1 mr-2">
+            <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>{name}</Text>
             <Text className="text-gray-500 text-xs font-medium">{plate}</Text>
           </View>
-          <View className="bg-red-400 px-2 py-1 rounded-md">
-            <Text className="text-white text-[10px] font-bold">{status}</Text>
+          <View className="items-end justify-center">
+            <Text className="text-[12px] text-orange-600 font-bold">
+              {daysSince} days
+            </Text>
+            <Text className="text-[9px] text-gray-600 font-medium mt-0.5">
+              since service
+            </Text>
           </View>
         </View>
         

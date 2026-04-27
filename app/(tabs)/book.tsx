@@ -1,14 +1,157 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import ScreenContainer from '../../components/ui/ScreenContainer';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
+import HomeHeader from '../../components/home/HomeHeader';
+import SearchBar from '../../components/home/SearchBar';
+import ServiceCenterCard from '../../components/home/ServiceCenterCard';
+import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
+import { COLORS } from '../../constants/colors';
+import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
 
 export default function BookScreen() {
-  return (
-    <ScreenContainer>
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Booking Screen</Text>
-        <Text style={{ color: 'gray', marginTop: 10 }}>Coming Soon!</Text>
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterVisible, setIsFilterVisible] = useState(false);
+  const [serviceCenters, setServiceCenters] = useState<ServiceCenterDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({
+    distance: '',
+    vehicleType: '',
+    serviceType: '',
+    availability: '',
+  });
+
+  const handleApplyFilters = (newFilters: FilterState) => {
+    setFilters(newFilters);
+    setIsFilterVisible(false);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      distance: '',
+      vehicleType: '',
+      serviceType: '',
+      availability: '',
+    });
+  };
+
+  useEffect(() => {
+    fetchCenters();
+  }, []);
+
+  const fetchCenters = async () => {
+    try {
+      setIsLoading(true);
+      const data = await serviceCenterService.getAllServiceCenters();
+      setServiceCenters(data);
+    } catch (error) {
+      console.error('Failed to fetch centers:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderServiceCenter = ({ item }: { item: ServiceCenterDTO }) => {
+    // Map DTO to Card Props
+    const priceFrom = item.servicePackages && item.servicePackages.length > 0 
+      ? Math.min(...item.servicePackages.map(p => p.price || p.basePrice || 0).filter(p => p > 0)) 
+      : 0;
+      
+    const openUntil = item.openingHours && item.openingHours.includes('-') 
+      ? item.openingHours.split('-')[1].trim() 
+      : '18:00';
+
+    return (
+      <View style={styles.cardWrapper}>
+        <ServiceCenterCard 
+          id={item.centerId}
+          name={item.name}
+          location={item.address}
+          type="General Service" // Default type
+          image={item.imageUrl}
+          priceFrom={priceFrom}
+          openUntil={openUntil}
+          isVerified={item.isActive}
+          supportedVehicles={(item.supportedVehicleBrands as any) || ['car', 'van']} 
+          variant="premium"
+        />
       </View>
-    </ScreenContainer>
+    );
+  };
+
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        {/* Fixed Header and Search */}
+        <HomeHeader />
+        <SearchBar 
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onFilterPress={() => setIsFilterVisible(true)} 
+        />
+
+
+        {/* Service Centers List */}
+        {isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={serviceCenters}
+            keyExtractor={(item) => item.centerId}
+            renderItem={renderServiceCenter}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Service Centers</Text>
+                <Text style={styles.sectionSubtitle}>Handpicked for Quality assurance</Text>
+              </View>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+        )}
+
+        <FilterBottomSheet
+          visible={isFilterVisible}
+          onClose={() => setIsFilterVisible(false)}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          initialFilters={filters}
+        />
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  cardWrapper: {
+    marginBottom: 0,
+  },
+});

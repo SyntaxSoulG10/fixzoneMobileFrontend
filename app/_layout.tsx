@@ -1,8 +1,14 @@
 import "../global.css";
-import { Stack, useRouter, useSegments } from "expo-router";
+import "react-native-gesture-handler";
+import { useRouter, useSegments } from "expo-router";
+import { Drawer } from "expo-router/drawer";
 import { AuthProvider, useAuth } from "../context/auth_context";
 import { useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
+import CustomDrawer from "../components/navigation/CustomDrawer";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+import { BookingProvider } from "../context/BookingContext";
 
 function RootLayoutNav() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -15,10 +21,8 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === "(auth)";
 
     if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to the login page if the user is not authenticated
       router.replace("/(auth)/login");
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to the tabs group if the user is authenticated
       router.replace("/(tabs)");
     }
   }, [isAuthenticated, segments, isLoading]);
@@ -32,18 +36,35 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-    </Stack>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        drawerContent={(props) => <CustomDrawer {...props} />}
+        screenOptions={{
+          headerShown: false,
+          drawerStyle: {
+            width: '80%',
+          },
+        }}
+      >
+        <Drawer.Screen name="(tabs)" options={{ drawerLabel: 'Home' }} />
+        <Drawer.Screen name="(auth)" options={{ drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="service-center/[id]" options={{ drawerItemStyle: { display: 'none' } }} />
+      </Drawer>
+    </GestureHandlerRootView>
   );
 }
 
+import { UserProvider } from "../context/UserContext";
+
 export default function Layout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <UserProvider>
+      <BookingProvider>
+        <AuthProvider>
+          <RootLayoutNav />
+        </AuthProvider>
+      </BookingProvider>
+    </UserProvider>
   );
 }
