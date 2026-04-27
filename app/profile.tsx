@@ -68,11 +68,33 @@ export default function ProfileScreen() {
     }
   };
 
+  const [mobileError, setMobileError] = useState('');
+
+  const validatePhone = (num: string) => {
+    // Sri Lankan mobile numbers are typically 9 digits starting with 7, 
+    // or 10 digits starting with 0, or 12 digits starting with +947
+    const cleaned = num.replace(/\s/g, '');
+    const regex = /^(\+94|0)?7[0-9]{8}$/;
+    return regex.test(cleaned);
+  };
+
   const handleSave = async () => {
-    if (!name.trim() || !mobile.trim()) {
-      Alert.alert('Required Fields', 'Name and Mobile Number cannot be empty.');
+    if (!name.trim()) {
+      Alert.alert('Required Field', 'Name cannot be empty.');
       return;
     }
+
+    if (!mobile.trim()) {
+      setMobileError('Mobile number is required');
+      return;
+    }
+
+    if (!validatePhone(mobile)) {
+      setMobileError('Please enter a valid Sri Lankan mobile number (e.g. 0771234567 or 771234567)');
+      return;
+    }
+
+    setMobileError('');
     
     setIsSaving(true);
     try {
@@ -167,7 +189,8 @@ export default function ProfileScreen() {
             label="Mobile Number"
             placeholder="Your Mobile"
             value={mobile}
-            onChangeText={setMobile}
+            onChangeText={(text) => { setMobile(text); setMobileError(''); }}
+            error={mobileError}
             keyboardType="phone-pad"
             leftIcon="call-outline"
           />
