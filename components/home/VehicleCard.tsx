@@ -1,6 +1,6 @@
-import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { COLORS } from '../../constants/colors';
+import { getDaysSinceService } from '../../utils/date_utils';
 
 interface VehicleCardProps {
   image: string;
@@ -10,15 +10,6 @@ interface VehicleCardProps {
   daysSinceService?: number;
 }
 
-const getDaysSinceService = (dateString: string) => {
-  if (!dateString) return 0;
-  const parts = dateString.split('/');
-  if (parts.length !== 3) return 0;
-  const serviceDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-  const today = new Date();
-  const diffTime = today.getTime() - serviceDate.getTime();
-  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-};
 
 export default function VehicleCard({ image, name, plate, lastService, daysSinceService }: VehicleCardProps) {
   const daysSince = daysSinceService !== undefined ? daysSinceService : getDaysSinceService(lastService);

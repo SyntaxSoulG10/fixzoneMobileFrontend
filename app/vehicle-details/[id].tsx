@@ -5,19 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { MOCK_BOOKINGS } from '../../constants/mock_data';
 import { COLORS } from '../../constants/colors';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { bookingService, BookingResponseDTO } from '../../services/bookingService';
 import { useAuth } from '../../context/auth_context';
+import { getDaysSinceService } from '../../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
-const getDaysSinceService = (dateString: string) => {
-  if (!dateString) return 0;
-  const parts = dateString.split('/');
-  if (parts.length !== 3) return 0;
-  const serviceDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-  const today = new Date();
-  const diffTime = today.getTime() - serviceDate.getTime();
-  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-};
 
 export default function VehicleDetailsScreen() {
   const { id } = useLocalSearchParams();
@@ -25,27 +18,46 @@ export default function VehicleDetailsScreen() {
   const { user: authUser } = useAuth();
   
   const [vehicle, setVehicle] = React.useState<VehicleResponse | null>(null);
+  const [vehicleHistory, setVehicleHistory] = React.useState<BookingResponseDTO[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchVehicle = async () => {
+    const fetchData = async () => {
       if (!authUser?.userId || !id) return;
       try {
-        const data = await vehicleService.getVehiclesByUser(authUser.userId);
-        const found = data.find(v => v.id === id);
+        setIsLoading(true);
+        // Fetch vehicle
+        const vehicles = await vehicleService.getVehiclesByUser(authUser.userId);
+        const found = vehicles.find(v => v.id === id);
         if (found) setVehicle(found);
+
+        // Fetch bookings
+        const bookings = await bookingService.getBookingsByCustomer(authUser.userId);
+        const vehicleBookings = bookings.filter(b => b.vehicleId === id);
+        setVehicleHistory(vehicleBookings);
       } catch (e) {
         console.error('Error fetching vehicle details', e);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchVehicle();
+    fetchData();
   }, [id, authUser?.userId]);
 
-  const vehicleHistory = MOCK_BOOKINGS.filter(b => b.vehicleId === id);
+  const lastServiceDate = React.useMemo(() => {
+    if (vehicleHistory.length > 0) {
+      const completed = vehicleHistory
+        .filter(b => b.status === 'COMPLETED')
+        .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
+      
+      if (completed.length > 0) {
+        return completed[0].bookingDate;
+      }
+    }
+    return vehicle?.lastServiceDate || '';
+  }, [vehicleHistory, vehicle]);
   
-  const daysSince = vehicle ? getDaysSinceService(vehicle.lastServiceDate || '') : 0;
+  const daysSince = getDaysSinceService(lastServiceDate);
 
   if (isLoading) {
     return (
@@ -118,15 +130,23 @@ export default function VehicleDetailsScreen() {
 
           {vehicleHistory.length > 0 ? (
             vehicleHistory.map((item, index) => (
-              <View key={item.id} style={styles.historyItem}>
+              <View key={item.bookingId} style={styles.historyItem}>
                 <View style={styles.historyIcon}>
-                  <Ionicons name="checkmark-done" size={20} color="#10B981" />
+                  <Ionicons 
+                    name={item.status === 'COMPLETED' ? "checkmark-done" : "time-outline"} 
+                    size={20} 
+                    color={item.status === 'COMPLETED' ? "#10B981" : "#F59E0B"} 
+                  />
                 </View>
                 <View style={styles.historyInfo}>
-                  <Text style={styles.historyType}>Full Service</Text>
-                  <Text style={styles.historyDate}>{item.month} {item.date}, {item.year}</Text>
+                  <Text style={styles.historyType}>{item.packageName || 'Service'}</Text>
+                  <Text style={styles.historyDate}>
+                    {new Date(item.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </Text>
                 </View>
-                <Text style={styles.historyPrice}>LKR {item.totalPrice.toLocaleString()}</Text>
+                <Text style={styles.historyPrice}>
+                  LKR {(item.estimatedCost || 0).toLocaleString()}
+                </Text>
               </View>
             ))
           ) : (

@@ -13,13 +13,16 @@ import FilterBottomSheet, { FilterState } from '../../components/home/FilterBott
 import { useBookings } from '../../context/BookingContext';
 import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { bookingService } from '../../services/bookingService';
 import { MOCK_SERVICE_CENTERS, ServiceCenter } from '../../constants/mock_data';
 import { filterServiceCenters, mockAiSearch, AiFilters } from '../../utils/search_utils';
+import { getDaysSinceService } from '../../utils/date_utils';
 
 export default function HomeScreen() {
   const { user: authUser } = useAuth();
   const { pendingBookings } = useBookings();
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
+  const [vehicleLastServiceMap, setVehicleLastServiceMap] = useState<Record<string, string>>({});
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -39,8 +42,28 @@ export default function HomeScreen() {
   const fetchVehicles = useCallback(async () => {
     if (!authUser?.userId) return;
     try {
-      const data = await vehicleService.getVehiclesByUser(authUser.userId);
-      setVehicles(data);
+      setIsLoadingVehicles(true);
+      const [vehicleData, bookingData] = await Promise.all([
+        vehicleService.getVehiclesByUser(authUser.userId),
+        bookingService.getBookingsByCustomer(authUser.userId)
+      ]);
+      
+      setVehicles(vehicleData);
+
+      // Calculate last service date for each vehicle from bookings
+      const serviceMap: Record<string, string> = {};
+      vehicleData.forEach(vehicle => {
+        const vehicleBookings = bookingData
+          .filter(b => b.vehicleId === vehicle.id && b.status === 'COMPLETED')
+          .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
+        
+        if (vehicleBookings.length > 0) {
+          serviceMap[vehicle.id] = vehicleBookings[0].bookingDate;
+        } else {
+          serviceMap[vehicle.id] = vehicle.lastServiceDate || '';
+        }
+      });
+      setVehicleLastServiceMap(serviceMap);
     } catch (e) {
       console.error('Failed to fetch vehicles', e);
     } finally {
@@ -172,8 +195,7 @@ export default function HomeScreen() {
                           image={item.imageUrl || 'https://via.placeholder.com/250'}
                           name={`${item.brand || ''} ${item.model || ''}`}
                           plate={item.plateNumber}
-                          lastService={item.lastServiceDate || '01/01/2026'}
-                          daysSinceService={item.daysSinceService}
+                          lastService={vehicleLastServiceMap[item.id] || item.lastServiceDate || 'N/A'}
                         />
                       </TouchableOpacity>
                     )}

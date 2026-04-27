@@ -11,6 +11,7 @@ import AppButton from '../../components/ui/AppButton';
 import AppDropdown from '../../components/ui/AppDropdown';
 import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/auth_context';
+import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 
 const { width } = Dimensions.get('window');
@@ -32,6 +33,7 @@ export default function VehiclesScreen() {
   const router = useRouter();
   const { add, backOnSave } = useGlobalSearchParams<{ add?: string; backOnSave?: string }>();
   const { user: authUser } = useAuth();
+  const { pendingBookings } = useBookings();
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -188,6 +190,17 @@ export default function VehiclesScreen() {
   };
 
   const handleDelete = (id: string) => {
+    const hasPending = pendingBookings.some(b => b.vehicleId === id);
+    
+    if (hasPending) {
+      Alert.alert(
+        'Cannot Delete',
+        'You have a service to go for this vehicle. Please complete or cancel the service first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Alert.alert(
       'Delete Vehicle',
       'Are you sure you want to remove this vehicle?',

@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { MOCK_SERVICE_CENTERS, MOCK_VEHICLES, Booking } from '../../constants/mock_data';
 import { useBookings } from '../../context/BookingContext';
+import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { useAuth } from '../../context/auth_context';
 
 const { width } = Dimensions.get('window');
 
@@ -35,11 +36,25 @@ export default function RescheduleScreen() {
   const { bookingId } = useLocalSearchParams();
   const router = useRouter();
   const { bookings, rescheduleBooking } = useBookings();
+  const { user: authUser } = useAuth();
 
-  const booking = bookings.find(b => b.id === bookingId);
-  const center = MOCK_SERVICE_CENTERS.find(c => c.id === booking?.centerId);
-  const pkg = center?.packages.find(p => p.id === booking?.packageId);
-  const vehicle = MOCK_VEHICLES.find(v => v.id === booking?.vehicleId);
+  const booking = bookings.find(b => b.bookingId === bookingId);
+  const [userVehicles, setUserVehicles] = useState<VehicleResponse[]>([]);
+  
+  React.useEffect(() => {
+    const fetchVehicles = async () => {
+      if (!authUser?.userId) return;
+      try {
+        const data = await vehicleService.getVehiclesByUser(authUser.userId);
+        setUserVehicles(data);
+      } catch (e) {
+        console.error('Failed to fetch vehicles in reschedule', e);
+      }
+    };
+    fetchVehicles();
+  }, [authUser?.userId]);
+
+  const vehicle = userVehicles.find(v => v.id === booking?.vehicleId);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -57,7 +72,7 @@ export default function RescheduleScreen() {
     return arr;
   }, []);
 
-  if (!booking || !center || !pkg || !vehicle) {
+  if (!booking) {
     return (
       <View style={styles.container}>
         <Text>Booking information not found</Text>
@@ -67,20 +82,28 @@ export default function RescheduleScreen() {
 
   const isReady = selectedDate && selectedTime;
 
-  const handleConfirmReschedule = () => {
+  const handleConfirmReschedule = async () => {
     if (isReady && selectedDate) {
       const allSlots = [...MORNING_SLOTS, ...AFTERNOON_SLOTS, ...EVENING_SLOTS];
       const timeStr = allSlots.find(t => t.id === selectedTime)?.time || '';
       
-      const newDateStr = selectedDate.getDate().toString();
-      const newMonthStr = selectedDate.toLocaleString('default', { month: 'short' });
-      const newYearStr = selectedDate.getFullYear().toString();
-
-      rescheduleBooking(booking.id, newDateStr, newMonthStr, newYearStr, timeStr);
+      const newDateStr = selectedDate.toISOString().split('T')[0];
       
-      Alert.alert('Success', 'Your booking has been rescheduled.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      // Extract time in HH:mm format
+      let hour = parseInt(timeStr.split(':')[0]);
+      const ampm = timeStr.split(' ')[1];
+      if (ampm === 'PM' && hour < 12) hour += 12;
+      if (ampm === 'AM' && hour === 12) hour = 0;
+      const newTimeStr = `${hour.toString().padStart(2, '0')}:00`;
+
+      try {
+        await rescheduleBooking(booking.bookingId, newDateStr, newTimeStr);
+        Alert.alert('Success', 'Your booking has been rescheduled.', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      } catch (e) {
+        Alert.alert('Error', 'Failed to reschedule booking. Please try again.');
+      }
     }
   };
 
@@ -137,7 +160,7 @@ export default function RescheduleScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Reschedule Booking</Text>
-          <Text style={styles.headerSubtitle}>{center.name}</Text>
+          <Text style={styles.headerSubtitle}>{booking.serviceCenterName}</Text>
         </View>
         <View style={{ width: 24 }} />
       </View>
@@ -148,15 +171,15 @@ export default function RescheduleScreen() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Ionicons name="car" size={20} color="#E84E0F" />
-            <Text style={styles.summaryText}>{vehicle.name} • {vehicle.plate}</Text>
+            <Text style={styles.summaryText}>{vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Vehicle'} • {vehicle?.plateNumber || 'N/A'}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Ionicons name="construct" size={20} color="#E84E0F" />
-            <Text style={styles.summaryText}>{pkg.name}</Text>
+            <Text style={styles.summaryText}>{booking.packageName}</Text>
           </View>
           <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
             <Ionicons name="time" size={20} color="#E84E0F" />
-            <Text style={styles.summaryText}>Current: {booking.month} {booking.date} at {booking.time}</Text>
+            <Text style={styles.summaryText}>Current: {new Date(booking.bookingDate).toLocaleDateString()} at {booking.bookingTime}</Text>
           </View>
         </View>
 

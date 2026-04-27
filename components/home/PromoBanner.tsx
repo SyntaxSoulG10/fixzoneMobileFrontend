@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { COLORS } from '../../constants/colors';
-import { Booking, MOCK_SERVICE_CENTERS, MOCK_VEHICLES, MOCK_PROMOTIONS, Promotion } from '../../constants/mock_data';
+import { MOCK_SERVICE_CENTERS, MOCK_VEHICLES, MOCK_PROMOTIONS, Promotion } from '../../constants/mock_data';
+import { BookingResponseDTO } from '../../services/bookingService';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -10,7 +11,7 @@ const BANNER_WIDTH = width - 40;
 const SNAP_INTERVAL = BANNER_WIDTH + 20;
 
 interface PromoBannerProps {
-  pendingBookings?: Booking[];
+  pendingBookings?: BookingResponseDTO[];
 }
 
 export default function PromoBanner({ pendingBookings = [] }: PromoBannerProps) {
@@ -113,24 +114,24 @@ export default function PromoBanner({ pendingBookings = [] }: PromoBannerProps) 
       );
     }
 
-    const booking = item.data;
-    const center = MOCK_SERVICE_CENTERS.find(c => c.id === booking.centerId);
-
+    const booking: BookingResponseDTO = item.data;
+    // Note: serviceCenterName is already in DTO from backend
+    
     return (
-      <View key={`${booking.id}-${index}`} style={[styles.bannerContainer, { backgroundColor: COLORS.primary }]}>
+      <View key={`${booking.bookingId}-${index}`} style={[styles.bannerContainer, { backgroundColor: COLORS.primary }]}>
         <View style={styles.content}>
           <View style={[styles.tag, { backgroundColor: '#fff' }]}>
             <Text style={[styles.tagText, { color: COLORS.primary }]}>UPCOMING SERVICE</Text>
           </View>
-          <Text style={styles.title}>{center?.name || 'Service Center'}</Text>
+          <Text style={styles.title} numberOfLines={1}>{booking.serviceCenterName || 'Service Center'}</Text>
           <Text style={styles.subtitle}>
-            {MOCK_VEHICLES.find(v => v.id === booking.vehicleId)?.name} • {booking.month} {booking.date}, {booking.year}
+            {booking.packageName} • {new Date(booking.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </Text>
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: '#000' }]}
-            onPress={() => router.push(`/invoice/${booking.id}`)}
+            onPress={() => router.push('/(tabs)/history')}
           >
-            <Text style={[styles.buttonText, { color: '#fff' }]}>View Details</Text>
+            <Text style={[styles.buttonText, { color: '#fff' }]}>Go to History</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.iconOverlay}>

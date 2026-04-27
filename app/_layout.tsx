@@ -59,12 +59,12 @@ import { UserProvider } from "../context/UserContext";
 
 export default function Layout() {
   return (
-    <UserProvider>
-      <BookingProvider>
-        <AuthProvider>
+    <AuthProvider>
+      <UserProvider>
+        <BookingProvider>
           <RootLayoutNav />
-        </AuthProvider>
-      </BookingProvider>
-    </UserProvider>
+        </BookingProvider>
+      </UserProvider>
+    </AuthProvider>
   );
 }

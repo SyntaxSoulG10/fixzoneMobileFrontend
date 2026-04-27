@@ -11,6 +11,8 @@ export interface BookingResponseDTO {
   status: string;
   serviceCenterName: string;
   packageName: string;
+  estimatedCost?: number;
+  bookingFee?: number;
 }
 
 export interface BookingRequestDTO {
@@ -46,6 +48,24 @@ export const bookingService = {
   cancelBooking: async (id: string): Promise<BookingResponseDTO> => {
     return request<BookingResponseDTO>(`/bookings/${id}/cancel`, {
       method: 'PUT'
+    });
+  },
+
+  getBookingsByCustomer: async (customerId: string): Promise<BookingResponseDTO[]> => {
+    return request<BookingResponseDTO[]>(`/bookings/customer/${customerId}`, {
+      method: 'GET'
+    });
+  },
+
+  rescheduleBooking: async (id: string, newDate: string, newTime: string): Promise<BookingResponseDTO> => {
+    return request<BookingResponseDTO>(`/bookings/${id}/reschedule?newDate=${newDate}&newTime=${newTime}`, {
+      method: 'PUT'
+    });
+  },
+
+  completePayment: async (id: string, gatewaySessionId: string): Promise<BookingResponseDTO> => {
+    return request<BookingResponseDTO>(`/bookings/${id}/payment?gatewaySessionId=${gatewaySessionId}`, {
+      method: 'POST'
     });
   }
 };

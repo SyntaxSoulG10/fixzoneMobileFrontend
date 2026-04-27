@@ -4,16 +4,18 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 import { useBookings } from '../../context/BookingContext';
+import { useAuth } from '../../context/auth_context';
 
 const { width } = Dimensions.get('window');
 
 export default function InitialPaymentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { addBooking } = useBookings();
+  const { addBooking, completePayment } = useBookings();
+  const { user: authUser } = useAuth();
 
   // Extract data from params
-  const { id, packageId, date, time, vehicleId, centerName, packageName, price: priceParam } = params;
+  const { bookingId, id, packageId, date, time, vehicleId, centerName, packageName, price: priceParam } = params;
 
   // Find objects
   // Find objects or use fallbacks
@@ -49,40 +51,45 @@ export default function InitialPaymentScreen() {
   const bookingCharge = totalPrice * 0.1;
   const discount = 0;
 
-  const handlePay = () => {
+  const handlePay = async () => {
+    if (!authUser?.userId) {
+      Alert.alert('Error', 'Please log in to continue');
+      return;
+    }
+
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      
-      // Add to booking history
-      addBooking({
-        id: Math.random().toString(36).substr(2, 9),
-        status: 'Pending',
-        centerId: center.id,
-        packageId: pkg.id,
-        vehicleId: vehicle.id,
-        date: date as string,
-        time: time as string,
-        month: 'Oct', // Simplified for prototype
-        year: '2026',
-        totalPrice: totalPrice,
-        bookingFee: bookingCharge,
-        paymentMethod: 'Card Payment',
-        invoiceId: `INV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
-      });
+    try {
+      if (bookingId) {
+        // Use existing booking created in SelectScheduleScreen
+        await completePayment(bookingId as string, `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`);
+      } else {
+        // Fallback/Legacy: Create new booking
+        await addBooking({
+          centerId: id as string,
+          packageId: packageId as string,
+          vehicleId: vehicleId as string,
+          bookingDate: date as string,
+          bookingTime: time as string,
+          customerId: authUser.userId,
+        });
+      }
 
       router.replace({
         pathname: '/booking/success',
         params: {
           centerName: center.name,
-          vehicleName: vehicle.name,
+          vehicleName: vehicle.name || 'Your Vehicle',
           date: date as string,
           time: time as string,
           price: pkg.price.toLocaleString()
         }
       });
-    }, 2000);
+    } catch (e) {
+      console.error('Payment/Booking failed', e);
+      Alert.alert('Error', 'Failed to complete booking. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

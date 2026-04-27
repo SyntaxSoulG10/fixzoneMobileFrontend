@@ -1,39 +1,122 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { MOCK_BOOKINGS, Booking } from '../constants/mock_data';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { bookingService, BookingResponseDTO, BookingRequestDTO } from '../services/bookingService';
+import { useAuth } from './auth_context';
 
 interface BookingContextType {
-  bookings: Booking[];
-  addBooking: (booking: Booking) => void;
-  cancelBooking: (bookingId: string) => void;
-  rescheduleBooking: (bookingId: string, newDate: string, newMonth: string, newYear: string, newTime: string) => void;
-  pendingBookings: Booking[];
+  bookings: BookingResponseDTO[];
+  addBooking: (data: BookingRequestDTO) => Promise<BookingResponseDTO>;
+  cancelBooking: (bookingId: string) => Promise<void>;
+  rescheduleBooking: (bookingId: string, newDate: string, newTime: string) => Promise<void>;
+  completePayment: (bookingId: string, gatewaySessionId: string) => Promise<void>;
+  pendingBookings: BookingResponseDTO[];
+  isLoading: boolean;
+  refreshBookings: () => Promise<void>;
 }
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
+// Helper to convert "09:00 AM" to "09:00"
+const formatTimeToBackend = (time: string) => {
+  if (!time || !time.includes(' ')) return time;
+  const [timePart, ampm] = time.split(' ');
+  let [hours, minutes] = timePart.split(':');
+  let hoursNum = parseInt(hours);
+  if (ampm === 'PM' && hoursNum !== 12) hoursNum += 12;
+  if (ampm === 'AM' && hoursNum === 12) hoursNum = 0;
+  return `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
+};
+
 export function BookingProvider({ children }: { children: ReactNode }) {
-  const [bookings, setBookings] = useState<Booking[]>(MOCK_BOOKINGS);
+  const [bookings, setBookings] = useState<BookingResponseDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user: authUser } = useAuth();
 
-  const addBooking = (newBooking: Booking) => {
-    setBookings(prev => [newBooking, ...prev]);
+  const fetchBookings = useCallback(async () => {
+    if (!authUser?.userId) {
+      setBookings([]);
+      setIsLoading(false);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const data = await bookingService.getBookingsByCustomer(authUser.userId);
+      // Sort by date descending
+      const sorted = [...data].sort((a, b) => 
+        new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
+      );
+      setBookings(sorted);
+    } catch (e) {
+      console.error('Failed to fetch bookings', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authUser?.userId]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  const addBooking = async (data: BookingRequestDTO) => {
+    try {
+      const formattedData = {
+        ...data,
+        bookingTime: formatTimeToBackend(data.bookingTime)
+      };
+      const response = await bookingService.createBooking(formattedData);
+      await fetchBookings();
+      return response;
+    } catch (e) {
+      console.error('Failed to add booking', e);
+      throw e;
+    }
   };
 
-  const cancelBooking = (bookingId: string) => {
-    setBookings(prev => prev.map(b => 
-      b.id === bookingId ? { ...b, status: 'Cancelled' } : b
-    ));
+  const cancelBooking = async (bookingId: string) => {
+    try {
+      await bookingService.cancelBooking(bookingId);
+      await fetchBookings();
+    } catch (e) {
+      console.error('Failed to cancel booking', e);
+      throw e;
+    }
   };
 
-  const rescheduleBooking = (bookingId: string, newDate: string, newMonth: string, newYear: string, newTime: string) => {
-    setBookings(prev => prev.map(b => 
-      b.id === bookingId ? { ...b, date: newDate, month: newMonth, year: newYear, time: newTime } : b
-    ));
+  const rescheduleBooking = async (bookingId: string, newDate: string, newTime: string) => {
+    try {
+      const formattedTime = formatTimeToBackend(newTime);
+      await bookingService.rescheduleBooking(bookingId, newDate, formattedTime);
+      await fetchBookings();
+    } catch (e) {
+      console.error('Failed to reschedule booking', e);
+      throw e;
+    }
   };
 
-  const pendingBookings = bookings.filter(b => b.status === 'Pending');
+  const completePayment = async (bookingId: string, gatewaySessionId: string) => {
+    try {
+      await bookingService.completePayment(bookingId, gatewaySessionId);
+      await fetchBookings();
+    } catch (e) {
+      console.error('Failed to complete payment', e);
+      throw e;
+    }
+  };
+
+  const pendingBookings = bookings.filter(b => 
+    b.status === 'PENDING' || b.status === 'CONFIRMED' || b.status === 'PENDING_PAYMENT' || b.status === 'IN_PROGRESS'
+  );
 
   return (
-    <BookingContext.Provider value={{ bookings, addBooking, cancelBooking, rescheduleBooking, pendingBookings }}>
+    <BookingContext.Provider value={{ 
+      bookings, 
+      addBooking, 
+      cancelBooking, 
+      rescheduleBooking, 
+      completePayment,
+      pendingBookings,
+      isLoading,
+      refreshBookings: fetchBookings
+    }}>
       {children}
     </BookingContext.Provider>
   );
