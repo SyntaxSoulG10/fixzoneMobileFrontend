@@ -49,6 +49,9 @@ export default function AuthScreen() {
     if (!password) {
       setPasswordError('Password is required');
       isValid = false;
+    } else if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      isValid = false;
     }
 
     if (!isValid) return;
@@ -68,9 +71,18 @@ export default function AuthScreen() {
     if (!email) {
       setEmailError('Email is required');
       isValid = false;
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setEmailError('Invalid email format');
+        isValid = false;
+      }
     }
     if (!password) {
       setPasswordError('Password is required');
+      isValid = false;
+    } else if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
       isValid = false;
     }
     if (password !== confirmPassword) {
