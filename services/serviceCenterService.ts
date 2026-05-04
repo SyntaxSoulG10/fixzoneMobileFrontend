@@ -11,6 +11,7 @@ export interface ServicePackageDTO {
   features?: string[];
   description?: string;
   image?: any;
+  imageUrl?: string;
   isRecommended?: boolean;
   vehicleType?: string;
 }
@@ -29,6 +30,7 @@ export interface ServiceCenterDTO {
   status?: string;
   servicePackages?: ServicePackageDTO[];
   imageUrl?: string;
+  leaveDates?: string[];
 }
 
 export const serviceCenterService = {

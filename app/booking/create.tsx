@@ -9,6 +9,7 @@ import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../..
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
 import { bookingService } from '../../services/bookingService';
+import { getVehicleIcon } from '../../utils/vehicle_utils';
 import AddVehicleModal from '../../components/booking/AddVehicleModal';
 import { Alert } from 'react-native';
 
@@ -86,6 +87,11 @@ export default function SelectScheduleScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Reset selection state when entering the screen for a fresh experience
+      setSelectedDate(null);
+      setSelectedTime(null);
+      setSelectedVehicle(null);
+      setAvailableSlots([]);
       loadData();
     }, [loadData])
   );
@@ -93,7 +99,7 @@ export default function SelectScheduleScreen() {
   const fetchSlots = useCallback(async () => {
     if (!centerId || !selectedDate) return;
     try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
       const slots = await bookingService.getAvailableSlots(centerId, dateStr);
       setAvailableSlots(slots);
       
@@ -149,7 +155,7 @@ export default function SelectScheduleScreen() {
 
     try {
       setIsProcessing(true);
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
       const timeStr = selectedTime.split(' ')[0]; // "09:00 AM" -> "09:00"
 
       const booking = await bookingService.createBooking({
@@ -162,6 +168,8 @@ export default function SelectScheduleScreen() {
       });
 
       // Proceed to payment with the newly created (soft-locked) booking
+      const selectedVehicleObj = vehicles.find(v => v.id === selectedVehicle);
+      
       router.push({
         pathname: '/payment',
         params: { 
@@ -173,7 +181,9 @@ export default function SelectScheduleScreen() {
           vehicleId: selectedVehicle,
           centerName: center?.name,
           packageName: pkg?.name,
-          price: price.toString()
+          price: price.toString(),
+          vehicleName: selectedVehicleObj ? `${selectedVehicleObj.brand} ${selectedVehicleObj.model}` : 'Your Vehicle',
+          vehiclePlate: selectedVehicleObj?.plateNumber || ''
         }
       });
     } catch (err: any) {
@@ -185,6 +195,8 @@ export default function SelectScheduleScreen() {
   };
 
   const renderDateItem = (date: Date) => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const isLeaveDate = center?.leaveDates?.includes(dateStr);
     const isSelected = selectedDate?.toDateString() === date.toDateString();
     const isToday = new Date().toDateString() === date.toDateString();
     const dayName = date.toLocaleString('default', { weekday: 'narrow' });
@@ -193,12 +205,29 @@ export default function SelectScheduleScreen() {
     return (
       <TouchableOpacity
         key={date.toISOString()}
+        disabled={isLeaveDate}
         onPress={() => setSelectedDate(date)}
-        style={[styles.dateItem, isSelected && styles.dateItemSelected]}
+        style={[
+          styles.dateItem, 
+          isSelected && styles.dateItemSelected,
+          isLeaveDate && styles.dateItemDisabled
+        ]}
       >
-        <Text style={[styles.dayName, isSelected && styles.textWhite]}>{dayName}</Text>
-        <Text style={[styles.dayNum, isSelected && styles.textWhite]}>{dayNum}</Text>
-        {isToday && !isSelected && <Text style={styles.todayText}>TODAY</Text>}
+        <Text style={[
+          styles.dayName, 
+          isSelected && styles.textWhite,
+          isLeaveDate && styles.textDisabled
+        ]}>{dayName}</Text>
+        <Text style={[
+          styles.dayNum, 
+          isSelected && styles.textWhite,
+          isLeaveDate && styles.textDisabled
+        ]}>{dayNum}</Text>
+        {isLeaveDate ? (
+          <Text style={styles.closedLabel}>CLOSED</Text>
+        ) : (
+          isToday && !isSelected && <Text style={styles.todayText}>TODAY</Text>
+        )}
       </TouchableOpacity>
     );
   };
@@ -276,7 +305,15 @@ export default function SelectScheduleScreen() {
                 style={styles.vehicleItem}
               >
                 <View style={[styles.vehicleImageWrapper, selectedVehicle === v.id && styles.vehicleSelected]}>
-                  <Image source={{ uri: v.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=200&auto=format&fit=crop' }} style={styles.vehicleImage} />
+                  {v.imageUrl ? (
+                    <Image source={{ uri: v.imageUrl }} style={styles.vehicleImage} />
+                  ) : (
+                    <Ionicons 
+                      name={getVehicleIcon(v.vehicleType)} 
+                      size={40} 
+                      color={selectedVehicle === v.id ? "#F97316" : "#9CA3AF"} 
+                    />
+                  )}
                   {selectedVehicle === v.id && (
                     <View style={styles.checkBadge}>
                       <Ionicons name="checkmark" size={12} color="#fff" />
@@ -407,7 +444,9 @@ const styles = StyleSheet.create({
   slotStatus: { fontSize: 12, fontWeight: '600', marginTop: 4 },
   textSuccess: { color: '#10B981' },
   textError: { color: '#EF4444' },
-  textDisabled: { color: '#9CA3AF' },
+  textDisabled: { color: '#D1D5DB' },
+  dateItemDisabled: { backgroundColor: '#F3F4F6', opacity: 0.6 },
+  closedLabel: { fontSize: 8, fontWeight: '800', color: '#EF4444', marginTop: 4 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 20, paddingBottom: Platform.OS === 'ios' ? 40 : 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   estimatedLabel: { fontSize: 11, fontWeight: '800', color: '#9CA3AF' },
   estimatedPrice: { fontSize: 20, fontWeight: '800', color: '#F97316', marginTop: 2 },

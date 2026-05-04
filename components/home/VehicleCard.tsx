@@ -1,17 +1,20 @@
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { COLORS } from '../../constants/colors';
 import { getDaysSinceService } from '../../utils/date_utils';
+import { getVehicleIcon } from '../../utils/vehicle_utils';
+import { Ionicons } from '@expo/vector-icons';
 
 interface VehicleCardProps {
   image: string;
   name: string;
   plate: string;
   lastService: string;
+  type?: string;
   daysSinceService?: number;
 }
 
 
-export default function VehicleCard({ image, name, plate, lastService, daysSinceService }: VehicleCardProps) {
+export default function VehicleCard({ image, name, plate, lastService, type, daysSinceService }: VehicleCardProps) {
   const daysSince = daysSinceService !== undefined ? daysSinceService : getDaysSinceService(lastService);
 
   return (
@@ -25,11 +28,17 @@ export default function VehicleCard({ image, name, plate, lastService, daysSince
         elevation: 5,
       }}
     >
-      <Image 
-        source={typeof image === 'string' ? { uri: image } : image} 
-        className="w-full h-32"
-        resizeMode="cover"
-      />
+      {image && !image.includes('via.placeholder.com') ? (
+        <Image 
+          source={typeof image === 'string' ? { uri: image } : image} 
+          className="w-full h-32"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-full h-32 bg-orange-50 items-center justify-center">
+          <Ionicons name={getVehicleIcon(type)} size={60} color="#F97316" />
+        </View>
+      )}
       <View className="p-4 bg-gray-200/50">
         <View className="flex-row justify-between items-start mb-2">
           <View className="flex-1 mr-2">

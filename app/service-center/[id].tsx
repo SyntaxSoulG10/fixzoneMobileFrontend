@@ -150,11 +150,14 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
     return ['Quality Service Inspection'];
   }, [pkg.features, pkg.description]);
 
+  // Default image if none is provided by the DB
+  const packagePlaceholder = 'https://images.unsplash.com/photo-1625047509168-a7026f36de04?q=80&w=400&auto=format&fit=crop';
+
   return (
     <View style={styles.pkgCard}>
       {/* Package Image */}
       <Image 
-        source={{ uri: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1000&auto=format&fit=crop' }} 
+        source={{ uri: pkg.imageUrl || packagePlaceholder }} 
         style={styles.pkgImage} 
       />
       

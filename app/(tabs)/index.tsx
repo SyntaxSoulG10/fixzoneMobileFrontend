@@ -192,9 +192,10 @@ export default function HomeScreen() {
                     renderItem={({ item }) => (
                       <TouchableOpacity onPress={() => router.push(`/vehicle-details/${item.id}`)}>
                         <VehicleCard 
-                          image={item.imageUrl || 'https://via.placeholder.com/250'}
+                          image={item.imageUrl || ''}
                           name={`${item.brand || ''} ${item.model || ''}`}
                           plate={item.plateNumber}
+                          type={item.vehicleType}
                           lastService={vehicleLastServiceMap[item.id] || item.lastServiceDate || 'N/A'}
                         />
                       </TouchableOpacity>

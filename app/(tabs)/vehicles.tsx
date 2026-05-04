@@ -13,8 +13,26 @@ import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/auth_context';
 import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { getDaysSinceService } from '../../utils/date_utils';
+import { getVehicleIcon } from '../../utils/vehicle_utils';
 
 const { width } = Dimensions.get('window');
+
+const getServiceStatus = (lastServiceDate?: string) => {
+  if (!lastServiceDate || lastServiceDate === 'N/A') {
+    return { label: 'No History', color: '#6B7280', bgColor: '#F3F4F6', dotColor: '#9CA3AF' };
+  }
+  
+  const days = getDaysSinceService(lastServiceDate);
+  
+  if (days <= 180) {
+    return { label: 'Up to date', color: '#059669', bgColor: '#ECFDF5', dotColor: '#10B981' };
+  } else if (days <= 365) {
+    return { label: 'Service Due', color: '#D97706', bgColor: '#FFFBEB', dotColor: '#F59E0B' };
+  } else {
+    return { label: 'Overdue', color: '#DC2626', bgColor: '#FEF2F2', dotColor: '#EF4444' };
+  }
+};
 
 // Form data from complete-profile
 const vehicleTypes = ['Car', 'Bike', 'Three Wheels', 'Van', 'Lorry', 'Others'];
@@ -138,6 +156,19 @@ export default function VehiclesScreen() {
     }
 
     setIsSaving(true);
+    
+    // Client-side duplicate check
+    const isDuplicate = vehicles.some(v => 
+      v.plateNumber.toUpperCase().replace(/\s/g, '') === plate.toUpperCase().replace(/\s/g, '') && 
+      v.id !== editingVehicle?.id
+    );
+
+    if (isDuplicate) {
+      Alert.alert('Duplicate Vehicle', 'A vehicle with this license plate is already in your list.');
+      setIsSaving(false);
+      return;
+    }
+
     try {
       // Save image to device storage first (like profile image)
       let savedImageUri: string | undefined = undefined;
@@ -283,23 +314,25 @@ export default function VehiclesScreen() {
           vehicles.map((vehicle) => (
             <View key={vehicle.id} style={styles.vehicleCard}>
             <View style={styles.cardMain}>
-              <Image source={{ uri: vehicle.imageUrl || 'https://via.placeholder.com/250' }} style={styles.vehicleImage} />
+              {vehicle.imageUrl ? (
+                <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} />
+              ) : (
+                <View style={[styles.vehicleImage, styles.vectorPlaceholder]}>
+                  <Ionicons name={getVehicleIcon(vehicle.vehicleType)} size={40} color="#F97316" />
+                </View>
+              )}
               <View style={styles.vehicleInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.brand} {vehicle.model}</Text>
-                  <View style={[
-                    styles.statusBadge, 
-                    { backgroundColor: '#ECFDF5' }
-                  ]}>
-                    <View style={[
-                      styles.statusDot, 
-                      { backgroundColor: '#10B981' }
-                    ]} />
-                    <Text style={[
-                      styles.statusText, 
-                      { color: '#059669' }
-                    ]}>Up to date</Text>
-                  </View>
+                  {(() => {
+                    const status = getServiceStatus(vehicle.lastServiceDate);
+                    return (
+                      <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
+                        <View style={[styles.statusDot, { backgroundColor: status.dotColor }]} />
+                        <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+                      </View>
+                    );
+                  })()}
                 </View>
                 <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
                 
@@ -486,6 +519,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#F3F4F6',
   },
+  vectorPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
+  },
   vehicleInfo: {
     flex: 1,
     marginLeft: 16,
@@ -570,7 +608,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 50,
     right: 20,
     width: 65,
     height: 65,

@@ -8,6 +8,7 @@ import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService, BookingResponseDTO } from '../../services/bookingService';
 import { useAuth } from '../../context/auth_context';
 import { getDaysSinceService } from '../../utils/date_utils';
+import { getVehicleIcon } from '../../utils/vehicle_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -89,7 +90,13 @@ export default function VehicleDetailsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Vehicle Identity */}
         <View style={styles.imageContainer}>
-          <Image source={{ uri: vehicle.imageUrl || 'https://via.placeholder.com/250' }} style={styles.vehicleImage} />
+          {vehicle.imageUrl ? (
+            <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} />
+          ) : (
+            <View style={[styles.vehicleImage, styles.vectorPlaceholderLarge]}>
+              <Ionicons name={getVehicleIcon(vehicle.vehicleType)} size={120} color="#F97316" />
+            </View>
+          )}
           <View style={styles.daysBadge}>
             <Text style={styles.daysBadgeText}>{daysSince} days</Text>
             <Text style={styles.daysBadgeTitle}>since service</Text>
@@ -109,12 +116,12 @@ export default function VehicleDetailsScreen() {
             <View style={styles.statCard}>
               <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
               <Text style={styles.statLabel}>Last Service</Text>
-              <Text style={styles.statValue}>{vehicle.lastServiceDate || 'N/A'}</Text>
+              <Text style={styles.statValue}>{lastServiceDate || 'N/A'}</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="construct-outline" size={20} color={COLORS.primary} />
               <Text style={styles.statLabel}>Total Services</Text>
-              <Text style={styles.statValue}>{vehicleHistory.length}</Text>
+              <Text style={styles.statValue}>{vehicleHistory.filter(b => b.status === 'COMPLETED').length}</Text>
             </View>
           </View>
         </View>
@@ -144,9 +151,14 @@ export default function VehicleDetailsScreen() {
                     {new Date(item.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </Text>
                 </View>
-                <Text style={styles.historyPrice}>
-                  LKR {(item.estimatedCost || 0).toLocaleString()}
-                </Text>
+                <View style={styles.historyPriceContainer}>
+                  <Text style={styles.historyPrice}>
+                    LKR {(item.estimatedCost || 0).toLocaleString()}
+                  </Text>
+                  <Text style={[styles.historyStatus, { color: item.status === 'COMPLETED' ? "#10B981" : "#F59E0B" }]}>
+                    {item.status.replace('_', ' ')}
+                  </Text>
+                </View>
               </View>
             ))
           ) : (
@@ -207,6 +219,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  vectorPlaceholderLarge: {
+    width: width,
+    height: 250,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
   },
   daysBadge: {
     position: 'absolute',
@@ -328,6 +347,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#000',
+  },
+  historyPriceContainer: {
+    alignItems: 'flex-end',
+  },
+  historyStatus: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 2,
+    textTransform: 'uppercase',
   },
   emptyHistory: {
     padding: 20,

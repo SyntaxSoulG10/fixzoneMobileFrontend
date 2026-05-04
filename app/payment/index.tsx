@@ -15,7 +15,7 @@ export default function InitialPaymentScreen() {
   const { user: authUser } = useAuth();
 
   // Extract data from params
-  const { bookingId, id, packageId, date, time, vehicleId, centerName, packageName, price: priceParam } = params;
+  const { bookingId, id, packageId, date, time, vehicleId, centerName, packageName, price: priceParam, vehicleName, vehiclePlate } = params;
 
   // Find objects
   // Find objects or use fallbacks
@@ -30,9 +30,9 @@ export default function InitialPaymentScreen() {
     price: parseFloat(priceParam as string) || 0 
   };
   
-  const vehicle = MOCK_VEHICLES.find(v => v.id === vehicleId) || { 
-    name: 'Your Vehicle', 
-    plate: '', 
+  const vehicle = { 
+    name: vehicleName as string || 'Your Vehicle', 
+    plate: vehiclePlate as string || '', 
     image: require('../../assets/images/honda_vezel_silver.jpg') 
   };
 
