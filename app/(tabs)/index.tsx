@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -131,18 +131,18 @@ export default function HomeScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View className="flex-1 bg-white">
+      <View style={styles.container}>
         <HomeHeader />
         <SearchBar 
           onFilterPress={() => setIsFilterVisible(true)} 
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.flex1} showsVerticalScrollIndicator={false}>
           {isSearching ? (
-            <View className="px-5 py-4">
-              <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xl font-bold text-gray-900">
+            <View style={styles.searchContainer}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>
                   {isAiProcessing ? 'AI is analyzing...' : `Results for "${debouncedQuery}"`}
                 </Text>
                 {isAiProcessing && <ActivityIndicator color="#E84E0F" size="small" />}
@@ -165,16 +165,16 @@ export default function HomeScreen() {
               <PromoBanner pendingBookings={pendingBookings} />
 
               {/* My Vehicles Section */}
-              <View className="px-5 mt-4">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-gray-900">My Vehicles</Text>
+              <View style={styles.vehiclesSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>My Vehicles</Text>
                   {!isLoadingVehicles && vehicles.length > 0 && (
                     <TouchableOpacity 
-                      className="flex-row items-center"
+                      style={styles.rowCenter}
                       onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
                     >
-                      <Text className="text-orange-500 font-bold mr-2">Add New</Text>
-                      <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
+                      <Text style={styles.addText}>Add New</Text>
+                      <View style={styles.addButtonCircle}>
                         <Ionicons name="add" size={18} color="white" />
                       </View>
                     </TouchableOpacity>
@@ -202,16 +202,16 @@ export default function HomeScreen() {
                     )}
                   />
                 ) : (
-                  <View className="items-center w-full py-4">
+                  <View style={styles.emptyVehiclesContainer}>
                     <TouchableOpacity 
                       onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
-                      className="w-64 h-[210px] bg-orange-50/50 rounded-3xl border-2 border-dashed border-orange-300 items-center justify-center p-4"
+                      style={styles.addVehiclePlaceholder}
                     >
-                      <View className="w-16 h-16 bg-orange-100 rounded-full items-center justify-center mb-3 shadow-sm shadow-orange-200">
+                      <View style={styles.addPlaceholderIconContainer}>
                         <Ionicons name="add" size={32} color="#E84E0F" />
                       </View>
-                      <Text className="text-orange-900 font-bold text-base mb-1">Add New Vehicle</Text>
-                      <Text className="text-orange-600/80 text-xs text-center font-medium leading-relaxed px-2">
+                      <Text style={styles.addPlaceholderTitle}>Add New Vehicle</Text>
+                      <Text style={styles.addPlaceholderSubtitle}>
                         Add your vehicle here for smooth bookings
                       </Text>
                     </TouchableOpacity>
@@ -219,9 +219,9 @@ export default function HomeScreen() {
                 )}
               </View>
 
-              <View className="px-5 mt-8">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-gray-900">Trusted Service Centers</Text>
+              <View style={styles.trustedSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Trusted Service Centers</Text>
                 </View>
                 
                 {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
@@ -234,11 +234,11 @@ export default function HomeScreen() {
               </View>
 
               {/* Nearby Service Centers Section */}
-              <View className="px-5 mt-4 mb-8">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-gray-900">Nearby Service Centers</Text>
+              <View style={styles.nearbySection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Nearby Service Centers</Text>
                   <TouchableOpacity onPress={() => router.push('/book')}>
-                    <Text className="text-orange-500 font-bold">View All</Text>
+                    <Text style={styles.viewAllText}>View All</Text>
                   </TouchableOpacity>
                 </View>
                 
@@ -265,3 +265,107 @@ export default function HomeScreen() {
     </TouchableWithoutFeedback>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  flex1: {
+    flex: 1,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  vehiclesSection: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  rowCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addText: {
+    color: '#F97316',
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  addButtonCircle: {
+    backgroundColor: '#F97316',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyVehiclesContainer: {
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 16,
+  },
+  addVehiclePlaceholder: {
+    width: 256,
+    height: 210,
+    backgroundColor: 'rgba(255, 247, 237, 0.5)',
+    borderRadius: 24,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#FDBA74',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  addPlaceholderIconContainer: {
+    width: 64,
+    height: 64,
+    backgroundColor: '#FFEDD5',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#FED7AA',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  addPlaceholderTitle: {
+    color: '#7C2D12',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  addPlaceholderSubtitle: {
+    color: 'rgba(234, 88, 12, 0.8)',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  trustedSection: {
+    paddingHorizontal: 20,
+    marginTop: 32,
+  },
+  nearbySection: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 32,
+  },
+  viewAllText: {
+    color: '#F97316',
+    fontWeight: 'bold',
+  },
+});

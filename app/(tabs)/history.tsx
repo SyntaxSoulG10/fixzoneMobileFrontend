@@ -10,7 +10,7 @@ import { Modal } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-type FilterStatus = 'All' | 'Completed' | 'Pending' | 'Cancelled';
+type FilterStatus = 'All' | 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -37,8 +37,11 @@ export default function HistoryScreen() {
   const filteredBookings = bookings.filter(booking => {
     if (activeFilter === 'All') return true;
     const status = booking.status.toUpperCase();
-    if (activeFilter === 'Pending') {
-      return status === 'PENDING' || status === 'CONFIRMED' || status === 'PENDING_PAYMENT' || status === 'IN_PROGRESS';
+    if (activeFilter === 'Upcoming') {
+      return status === 'CONFIRMED';
+    }
+    if (activeFilter === 'In Progress') {
+      return status === 'IN_PROGRESS';
     }
     return status === activeFilter.toUpperCase();
   });
@@ -117,7 +120,9 @@ export default function HistoryScreen() {
   const renderBookingCard = (booking: BookingResponseDTO) => {
     const vehicle = userVehicles.find(v => v.id === booking.vehicleId);
     
-    const isPending = booking.status === 'PENDING' || booking.status === 'CONFIRMED' || booking.status === 'PENDING_PAYMENT' || booking.status === 'IN_PROGRESS';
+    const isInProgress = booking.status === 'IN_PROGRESS';
+    const isPending = booking.status === 'PENDING' || booking.status === 'CONFIRMED' || booking.status === 'PENDING_PAYMENT';
+    const isUpcomingOrActive = isPending || isInProgress;
     const isCancelled = booking.status === 'CANCELLED';
 
     const formattedDate = new Date(booking.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -131,8 +136,18 @@ export default function HistoryScreen() {
         <View style={styles.cardMainContent}>
           <View style={styles.cardTextContent}>
             <View style={styles.statusRow}>
-              <View style={[styles.statusBadge, isPending ? styles.pendingBadge : (isCancelled ? styles.cancelledBadge : styles.completedBadge)]}>
-                <Text style={[styles.statusText, isPending ? styles.pendingText : (isCancelled ? styles.cancelledText : styles.completedText)]}>
+              <View style={[
+                styles.statusBadge, 
+                isInProgress ? styles.inProgressBadge : 
+                (isPending ? styles.pendingBadge : 
+                (isCancelled ? styles.cancelledBadge : styles.completedBadge))
+              ]}>
+                <Text style={[
+                  styles.statusText, 
+                  isInProgress ? styles.inProgressText : 
+                  (isPending ? styles.pendingText : 
+                  (isCancelled ? styles.cancelledText : styles.completedText))
+                ]}>
                   {booking.status.replace('_', ' ')}
                 </Text>
               </View>
@@ -205,7 +220,7 @@ export default function HistoryScreen() {
           showsHorizontalScrollIndicator={false} 
           contentContainerStyle={styles.filterScrollContent}
         >
-          {(['All', 'Completed', 'Pending', 'Cancelled'] as FilterStatus[]).map((filter) => (
+          {(['All', 'Upcoming', 'In Progress', 'Completed', 'Cancelled'] as FilterStatus[]).map((filter) => (
             <TouchableOpacity
               key={filter}
               onPress={() => setActiveFilter(filter)}
@@ -448,12 +463,18 @@ const styles = StyleSheet.create({
   completedBadge: {
     backgroundColor: '#D1FAE5',
   },
+  inProgressBadge: {
+    backgroundColor: '#DBEAFE',
+  },
   statusText: {
     fontSize: 12,
     fontWeight: '800',
   },
   pendingText: {
     color: '#EF4444',
+  },
+  inProgressText: {
+    color: '#2563EB',
   },
   completedText: {
     color: '#10B981',

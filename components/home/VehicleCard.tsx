@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../../constants/colors';
 import { getDaysSinceService } from '../../utils/date_utils';
 import { getVehicleIcon } from '../../utils/vehicle_utils';
@@ -18,48 +18,115 @@ export default function VehicleCard({ image, name, plate, lastService, type, day
   const daysSince = daysSinceService !== undefined ? daysSinceService : getDaysSinceService(lastService);
 
   return (
-    <TouchableOpacity 
-      className="bg-gray-100 rounded-3xl overflow-hidden mr-4 w-64 border border-gray-200 shadow-sm"
-      style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-      }}
-    >
+    <TouchableOpacity style={styles.cardContainer}>
       {image && !image.includes('via.placeholder.com') ? (
         <Image 
           source={typeof image === 'string' ? { uri: image } : image} 
-          className="w-full h-32"
+          style={styles.cardImage}
           resizeMode="cover"
         />
       ) : (
-        <View className="w-full h-32 bg-orange-50 items-center justify-center">
+        <View style={styles.imagePlaceholder}>
           <Ionicons name={getVehicleIcon(type)} size={60} color="#F97316" />
         </View>
       )}
-      <View className="p-4 bg-gray-200/50">
-        <View className="flex-row justify-between items-start mb-2">
-          <View className="flex-1 mr-2">
-            <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>{name}</Text>
-            <Text className="text-gray-500 text-xs font-medium">{plate}</Text>
+      <View style={styles.detailsContainer}>
+        <View style={styles.headerRow}>
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.vehicleName} numberOfLines={1}>{name}</Text>
+            <Text style={styles.plateText}>{plate}</Text>
           </View>
-          <View className="items-end justify-center">
-            <Text className="text-[12px] text-orange-600 font-bold">
+          <View style={styles.daysContainer}>
+            <Text style={styles.daysText}>
               {daysSince} days
             </Text>
-            <Text className="text-[9px] text-gray-600 font-medium mt-0.5">
+            <Text style={styles.sinceText}>
               since service
             </Text>
           </View>
         </View>
         
         <View>
-          <Text className="text-gray-900 text-sm font-bold">Last Service Date</Text>
-          <Text className="text-gray-500 text-xs">{lastService}</Text>
+          <Text style={styles.lastServiceLabel}>Last Service Date</Text>
+          <Text style={styles.lastServiceDate}>{lastService}</Text>
         </View>
       </View>
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  cardContainer: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginRight: 16,
+    width: 256,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  cardImage: {
+    width: '100%',
+    height: 128,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 128,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailsContainer: {
+    padding: 16,
+    backgroundColor: 'rgba(229, 231, 235, 0.5)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  vehicleInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  vehicleName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  plateText: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  daysContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  daysText: {
+    fontSize: 12,
+    color: '#EA580C',
+    fontWeight: 'bold',
+  },
+  sinceText: {
+    fontSize: 9,
+    color: '#4B5563',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  lastServiceLabel: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  lastServiceDate: {
+    color: '#6B7280',
+    fontSize: 12,
+  },
+});
