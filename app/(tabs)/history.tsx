@@ -57,11 +57,18 @@ export default function HistoryScreen() {
   }, {} as Record<string, BookingResponseDTO[]>);
 
   const getDaysRemaining = (booking: BookingResponseDTO) => {
-    const bookingDate = new Date(booking.bookingDate);
+    if (!booking.bookingDate) return 0;
+    
+    // Parse "YYYY-MM-DD" manually to ensure we create a Date in LOCAL time
+    const [year, month, day] = booking.bookingDate.split('-').map(Number);
+    const bookingDate = new Date(year, month - 1, day); 
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
     const diffTime = bookingDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Use floor to get the number of full days between now and the booking
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const handleReschedule = (booking: BookingResponseDTO) => {
