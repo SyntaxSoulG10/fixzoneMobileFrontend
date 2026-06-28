@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import { useBookings } from '../../context/BookingContext';
 import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService } from '../../services/bookingService';
+import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
 import { MOCK_SERVICE_CENTERS, ServiceCenter } from '../../constants/mock_data';
 import { filterServiceCenters, mockAiSearch, AiFilters } from '../../utils/search_utils';
 import { getDaysSinceService } from '../../utils/date_utils';
@@ -24,6 +25,8 @@ export default function HomeScreen() {
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
   const [vehicleLastServiceMap, setVehicleLastServiceMap] = useState<Record<string, string>>({});
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [trustedCenters, setTrustedCenters] = useState<ServiceCenterDTO[]>([]);
+  const [isLoadingTrusted, setIsLoadingTrusted] = useState(true);
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
@@ -38,17 +41,38 @@ export default function HomeScreen() {
   const [searchResults, setSearchResults] = useState<ServiceCenter[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const hasFetchedVehicles = useRef(false);
+  const hasFetchedTrusted = useRef(false);
+
+  const fetchTrustedCenters = useCallback(async () => {
+    if (!authUser?.userId) return;
+    try {
+      if (!hasFetchedTrusted.current) {
+        setIsLoadingTrusted(true);
+      }
+      const data = await serviceCenterService.getTrustedCenters(authUser.userId);
+      setTrustedCenters(data);
+      hasFetchedTrusted.current = true;
+    } catch (e) {
+      console.error('Failed to fetch trusted centers', e);
+    } finally {
+      setIsLoadingTrusted(false);
+    }
+  }, [authUser?.userId]);
 
   const fetchVehicles = useCallback(async () => {
     if (!authUser?.userId) return;
     try {
-      setIsLoadingVehicles(true);
+      if (!hasFetchedVehicles.current) {
+        setIsLoadingVehicles(true);
+      }
       const [vehicleData, bookingData] = await Promise.all([
         vehicleService.getVehiclesByUser(authUser.userId),
         bookingService.getBookingsByCustomer(authUser.userId)
       ]);
       
       setVehicles(vehicleData);
+      hasFetchedVehicles.current = true;
 
       // Calculate last service date for each vehicle from bookings
       const serviceMap: Record<string, string> = {};
@@ -74,7 +98,8 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchVehicles();
-    }, [fetchVehicles])
+      fetchTrustedCenters();
+    }, [fetchVehicles, fetchTrustedCenters])
   );
 
   const router = useRouter();
@@ -224,13 +249,38 @@ export default function HomeScreen() {
                   <Text style={styles.sectionTitle}>Trusted Service Centers</Text>
                 </View>
                 
-                {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
-                  <ServiceCenterCard 
-                    key={center.id}
-                    {...center}
-                    variant="compact"
-                  />
-                ))}
+                {isLoadingTrusted ? (
+                  <ActivityIndicator color="#E84E0F" />
+                ) : trustedCenters.length > 0 ? (
+                  trustedCenters.map(center => {
+                    const priceFrom = center.servicePackages && center.servicePackages.length > 0 
+                      ? Math.min(...center.servicePackages.map(p => p.price || p.basePrice || 0).filter(p => p > 0)) 
+                      : 0;
+                    const openUntil = center.openingHours && center.openingHours.includes('-') 
+                      ? center.openingHours.split('-')[1].trim() 
+                      : '18:00';
+
+                    return (
+                      <ServiceCenterCard 
+                        key={center.centerId}
+                        id={center.centerId}
+                        name={center.name}
+                        location={center.address}
+                        type="General Service"
+                        image={center.imageUrl}
+                        priceFrom={priceFrom}
+                        openUntil={openUntil}
+                        isVerified={center.isActive}
+                        supportedVehicles={(center.supportedVehicleBrands as any) || ['car', 'van']}
+                        variant="compact"
+                      />
+                    );
+                  })
+                ) : (
+                  <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
+                    You haven't visited any service centers yet.
+                  </Text>
+                )}
               </View>
 
               {/* Nearby Service Centers Section */}

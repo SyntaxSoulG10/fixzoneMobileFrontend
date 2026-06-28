@@ -40,5 +40,9 @@ export const serviceCenterService = {
 
   getServiceCenterById: async (id: string): Promise<ServiceCenterDTO> => {
     return request<ServiceCenterDTO>(`/service-centers/${id}`);
+  },
+
+  getTrustedCenters: async (customerId: string): Promise<ServiceCenterDTO[]> => {
+    return request<ServiceCenterDTO[]>(`/customers/${customerId}/trusted-service-centers`);
   }
 };

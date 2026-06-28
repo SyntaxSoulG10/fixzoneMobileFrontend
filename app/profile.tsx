@@ -106,9 +106,8 @@ export default function ProfileScreen() {
         // 2. Update backend if image changed
         if (profileImage !== authUser.profilePictureUrl) {
           if (profileImage && profileImage.startsWith('file://')) {
-            const base64 = await FileSystem.readAsStringAsync(profileImage, {
-              encoding: 'base64',
-            });
+            const file = new File(profileImage);
+            const base64 = await file.base64();
             const extension = profileImage.split('.').pop()?.toLowerCase() || 'jpg';
             const mimeType = extension === 'png' ? 'image/png' : (extension === 'webp' ? 'image/webp' : 'image/jpeg');
             const imageData = `data:${mimeType};base64,${base64}`;
@@ -158,7 +157,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScreenContainer scrollable={false}>
+    <ScreenContainer scrollable={false} disableKeyboardDismiss={true}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerSide} onPress={() => router.back()}>
@@ -243,8 +242,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 25,
-    paddingBottom: 20,
+    paddingTop: 15,
+    paddingBottom: 15,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
@@ -261,17 +260,17 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   imageSection: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 15,
     backgroundColor: '#fff',
   },
   imageWrapper: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     position: 'relative',
     elevation: 10,
     shadowColor: '#000',
@@ -282,12 +281,12 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 60,
+    borderRadius: 50,
   },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    borderRadius: 60,
+    borderRadius: 50,
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
@@ -309,7 +308,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     color: '#111827',
-    marginTop: 16,
+    marginTop: 10,
     textAlign: 'center',
   },
   userRole: {
@@ -320,14 +319,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   detailsSection: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   footer: {
-    padding: 20,
-    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingTop: 5,
+    paddingBottom: 20,
   },
   saveBtn: {
-    marginBottom: 20,
+    marginBottom: 10,
   },
   logoutBtn: {
     flexDirection: 'row',

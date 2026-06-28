@@ -17,12 +17,14 @@ interface ScreenContainerProps {
   children: React.ReactNode;
   style?: ViewStyle;
   scrollable?: boolean;
+  disableKeyboardDismiss?: boolean;
 }
 
 const ScreenContainer: React.FC<ScreenContainerProps> = ({
   children,
   style,
   scrollable = true,
+  disableKeyboardDismiss = false,
 }) => {
   const content = (
     <View style={[styles.inner, style]}>{children}</View>
@@ -35,7 +37,7 @@ const ScreenContainer: React.FC<ScreenContainerProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        {disableKeyboardDismiss ? (
           <View style={{ flex: 1 }}>
             {scrollable ? (
               <ScrollView
@@ -50,7 +52,24 @@ const ScreenContainer: React.FC<ScreenContainerProps> = ({
               content
             )}
           </View>
-        </TouchableWithoutFeedback>
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ flex: 1 }}>
+              {scrollable ? (
+                <ScrollView
+                  style={styles.scroll}
+                  contentContainerStyle={styles.scrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {content}
+                </ScrollView>
+              ) : (
+                content
+              )}
+            </View>
+          </TouchableWithoutFeedback>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
