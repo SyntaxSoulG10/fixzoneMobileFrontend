@@ -35,16 +35,19 @@ export const authService = {
       body: JSON.stringify(data),
     });
   },
-  updateProfileImage: async (userId: string, imageUrl: string): Promise<{ message: string }> => {
-    return request<{ message: string }>(`/users/${userId}/profile-image`, {
-      method: 'PUT',
-      body: JSON.stringify({ imageUrl }),
+  updateProfileImage: async (userId: string, imageData: string): Promise<{ message: string }> => {
+    return request<{ message: string }>(`/customer/profile/picture`, {
+      method: 'POST',
+      body: JSON.stringify({ imageData }),
     });
   },
   updateProfile: async (userId: string, fullName: string, phone: string): Promise<{ message: string }> => {
-    return request<{ message: string }>(`/users/${userId}/profile`, {
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const secondName = nameParts.slice(1).join(' ') || '';
+    return request<{ message: string }>(`/customer/profile`, {
       method: 'PUT',
-      body: JSON.stringify({ fullName, phone }),
+      body: JSON.stringify({ firstName, secondName, phoneNumber: phone }),
     });
   },
 };

@@ -24,13 +24,13 @@ export interface VehicleCreateRequest {
 
 export const vehicleService = {
   getVehiclesByUser: async (customerId: string): Promise<VehicleResponse[]> => {
-    return request<VehicleResponse[]>(`/vehicles/user/${customerId}`, {
+    return request<VehicleResponse[]>(`/customer/vehicles`, {
       method: 'GET',
     });
   },
 
   createVehicle: async (data: VehicleCreateRequest): Promise<VehicleResponse> => {
-    return request<VehicleResponse>('/vehicles', {
+    return request<VehicleResponse>('/customer/vehicle', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -44,8 +44,9 @@ export const vehicleService = {
   },
 
   deleteVehicle: async (vehicleId: string): Promise<void> => {
-    return request<void>(`/vehicles/${vehicleId}`, {
+    return request<void>(`/customer/vehicle/${vehicleId}`, {
       method: 'DELETE',
     });
   },
 };
+

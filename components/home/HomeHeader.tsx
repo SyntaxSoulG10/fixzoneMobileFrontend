@@ -27,9 +27,9 @@ export default function HomeHeader() {
         <TouchableOpacity style={styles.menuButton} onPress={() => navigation.openDrawer()}>
           <Ionicons name="menu" size={28} color={COLORS.primary} />
         </TouchableOpacity>
-        <View>
+        <View style={{ flex: 1, marginRight: 16 }}>
           <Text style={styles.brandText}>Fix Zone</Text>
-          <Text style={styles.welcomeText}>Welcome {lastName} !</Text>
+          <Text style={styles.welcomeText} numberOfLines={1} ellipsizeMode="tail">Welcome {lastName} !</Text>
         </View>
       </View>
 
@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   menuButton: {
     marginRight: 16,

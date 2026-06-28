@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Dim
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import ScreenContainer from '../components/ui/ScreenContainer';
 import AppInput from '../components/ui/AppInput';
@@ -104,7 +105,17 @@ export default function ProfileScreen() {
         
         // 2. Update backend if image changed
         if (profileImage !== authUser.profilePictureUrl) {
-          await authService.updateProfileImage(authUser.userId, profileImage || '');
+          if (profileImage && profileImage.startsWith('file://')) {
+            const base64 = await FileSystem.readAsStringAsync(profileImage, {
+              encoding: 'base64',
+            });
+            const extension = profileImage.split('.').pop()?.toLowerCase() || 'jpg';
+            const mimeType = extension === 'png' ? 'image/png' : (extension === 'webp' ? 'image/webp' : 'image/jpeg');
+            const imageData = `data:${mimeType};base64,${base64}`;
+            await authService.updateProfileImage(authUser.userId, imageData);
+          } else if (profileImage) {
+            await authService.updateProfileImage(authUser.userId, profileImage);
+          }
         }
 
         // 3. Sync with AuthContext
@@ -179,11 +190,12 @@ export default function ProfileScreen() {
         {/* Details Section */}
         <View style={styles.detailsSection}>
           <AppInput
-            label="Full Name"
+            label="Name"
             placeholder="Your Name"
             value={name}
             onChangeText={setName}
             leftIcon="person-outline"
+            maxLength={40}
           />
           <AppInput
             label="Mobile Number"
@@ -298,12 +310,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     marginTop: 16,
+    textAlign: 'center',
   },
   userRole: {
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '700',
     marginTop: 4,
+    textAlign: 'center',
   },
   detailsSection: {
     padding: 20,

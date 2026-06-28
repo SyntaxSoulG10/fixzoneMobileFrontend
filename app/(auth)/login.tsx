@@ -16,7 +16,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function AuthScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { login, error: authError } = useAuth();
+  const { login, error: authError, clearError } = useAuth();
   
   const [mode, setMode] = useState<'login' | 'signup'>((params.initialMode as 'login' | 'signup') || 'login');
   const [email, setEmail] = useState('');
@@ -34,6 +34,7 @@ export default function AuthScreen() {
     setEmailError('');
     setPasswordError('');
     setConfirmPasswordError('');
+    clearError();
   };
 
   const handleLogin = async () => {
@@ -124,7 +125,7 @@ export default function AuthScreen() {
         label="Email Address"
         placeholder="user@example.com"
         value={email}
-        onChangeText={(text) => { setEmail(text); setEmailError(''); }}
+        onChangeText={(text) => { setEmail(text); setEmailError(''); clearError(); }}
         error={emailError}
         rightIcon="mail"
         autoCapitalize="none"
@@ -136,7 +137,7 @@ export default function AuthScreen() {
         label="Password"
         placeholder="********"
         value={password}
-        onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
+        onChangeText={(text) => { setPassword(text); setPasswordError(''); clearError(); }}
         error={passwordError}
         isPassword
         style={{ marginBottom: 4 }}
