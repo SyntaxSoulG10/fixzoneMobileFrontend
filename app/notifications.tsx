@@ -1,68 +1,39 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import ScreenContainer from '../components/ui/ScreenContainer';
 import { COLORS } from '../constants/colors';
+import { notificationService, NotificationDTO } from '../services/notificationService';
+import { ActivityIndicator } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  type: 'service' | 'promo' | 'alert';
-  read: boolean;
-}
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    title: 'Service Reminder',
-    message: 'Your Honda Civic service is due in 3 days. Book your slot now to avoid delays.',
-    time: '2 hours ago',
-    type: 'service',
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'Exclusive Offer!',
-    message: 'Get 20% off on all interior detailing services this weekend only.',
-    time: '5 hours ago',
-    type: 'promo',
-    read: false,
-  },
-  {
-    id: '3',
-    title: 'Booking Confirmed',
-    message: 'Your booking for Toyota Corolla at Hybrid Hub has been successfully confirmed.',
-    time: 'Yesterday',
-    type: 'service',
-    read: true,
-  },
-  {
-    id: '4',
-    title: 'New Service Center',
-    message: 'FixAuto Professionals is now open in Colombo 07. Check out their services.',
-    time: '2 days ago',
-    type: 'promo',
-    read: true,
-  },
-  {
-    id: '5',
-    title: 'Security Alert',
-    message: 'A new login was detected from a Chrome browser on Windows.',
-    time: '3 days ago',
-    type: 'alert',
-    read: true,
-  },
-];
-
 export default function NotificationsScreen() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchNotifications();
+    }, [])
+  );
+
+  const fetchNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const data = await notificationService.getNotifications();
+      // Sort newest first
+      const sorted = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setNotifications(sorted);
+    } catch (e) {
+      console.error('Failed to fetch notifications', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -73,12 +44,24 @@ export default function NotificationsScreen() {
     }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (e) {
+      console.error('Failed to mark all as read', e);
+    }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAsRead = async (id: string) => {
+    const notif = notifications.find(n => n.id === id);
+    if (!notif || notif.isRead) return;
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (e) {
+      console.error('Failed to mark as read', e);
+    }
   };
 
   const toggleExpand = (id: string) => {
@@ -102,13 +85,19 @@ export default function NotificationsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {notifications.length > 0 ? (
+        {isLoading ? (
+          <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
+        ) : notifications.length > 0 ? (
           notifications.map((notif) => {
             const iconData = getIcon(notif.type);
+            const isRead = notif.isRead;
+            // format date string if needed, or just use as-is
+            const displayTime = new Date(notif.createdAt).toLocaleDateString();
+            
             return (
               <TouchableOpacity 
                 key={notif.id} 
-                style={[styles.notifCard, !notif.read && styles.unreadCard]}
+                style={[styles.notifCard, !isRead && styles.unreadCard]}
                 onPress={() => toggleExpand(notif.id)}
                 activeOpacity={0.7}
               >
@@ -118,7 +107,7 @@ export default function NotificationsScreen() {
                 
                 <View style={styles.notifContent}>
                   <Text 
-                    style={[styles.notifTitle, !notif.read && styles.unreadTitle]} 
+                    style={[styles.notifTitle, !isRead && styles.unreadTitle]} 
                     numberOfLines={1}
                   >
                     {notif.title}
@@ -137,11 +126,11 @@ export default function NotificationsScreen() {
                         {expandedIds.includes(notif.id) ? 'See Less' : 'See More'}
                       </Text>
                     )}
-                    <Text style={styles.notifTime}>{notif.time}</Text>
+                    <Text style={styles.notifTime}>{displayTime}</Text>
                   </View>
                 </View>
 
-                {!notif.read && <View style={styles.unreadDot} />}
+                {!isRead && <View style={styles.unreadDot} />}
               </TouchableOpacity>
             );
           })

@@ -211,8 +211,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   imageContainer: {
-    width: width,
-    height: 250,
+    width: '100%',
+    height: 180,
+    backgroundColor: '#fff',
     position: 'relative',
   },
   vehicleImage: {
@@ -222,15 +223,15 @@ const styles = StyleSheet.create({
   },
   vectorPlaceholderLarge: {
     width: width,
-    height: 250,
+    height: 180,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFF7ED',
   },
   daysBadge: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    bottom: 10,
+    right: 15,
     alignItems: 'flex-end',
   },
   daysBadgeText: {
@@ -251,10 +252,11 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   infoSection: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
   },
   vehicleName: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '900',
     color: '#000',
   },
@@ -267,7 +269,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 25,
+    marginTop: 15,
   },
   statCard: {
     width: (width - 60) / 3,
@@ -292,13 +294,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   historySection: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 5,
+    paddingBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 20,
@@ -314,9 +318,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#F3F4F6',
   },
@@ -374,9 +378,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#E84E0F',
     marginHorizontal: 20,
-    paddingVertical: 18,
-    borderRadius: 20,
-    marginTop: 10,
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 5,
     elevation: 4,
     shadowColor: '#E84E0F',
     shadowOffset: { width: 0, height: 4 },

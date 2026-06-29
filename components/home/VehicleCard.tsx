@@ -18,7 +18,7 @@ export default function VehicleCard({ image, name, plate, lastService, type, day
   const daysSince = daysSinceService !== undefined ? daysSinceService : getDaysSinceService(lastService);
 
   return (
-    <TouchableOpacity style={styles.cardContainer}>
+    <View style={styles.cardContainer}>
       {image && !image.includes('via.placeholder.com') ? (
         <Image 
           source={typeof image === 'string' ? { uri: image } : image} 
@@ -51,7 +51,7 @@ export default function VehicleCard({ image, name, plate, lastService, type, day
           <Text style={styles.lastServiceDate}>{lastService}</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
