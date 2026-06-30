@@ -68,7 +68,7 @@ export default function BookScreen() {
           type="General Service" // Default type
           image={item.imageUrl}
           priceFrom={priceFrom}
-          openUntil={openUntil}
+          openingHours={item.openingHours}
           isVerified={item.isActive}
           supportedVehicles={(item.supportedVehicleBrands as any) || ['car', 'van']} 
           variant="premium"

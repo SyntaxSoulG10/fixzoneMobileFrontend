@@ -9,6 +9,28 @@ import CustomDrawer from "../components/navigation/CustomDrawer";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { UserProvider } from "../context/UserContext";
 import { BookingProvider } from "../context/BookingContext";
+import Toast, { BaseToast } from 'react-native-toast-message';
+import NotificationPoller from '../components/NotificationPoller';
+
+const toastConfig = {
+  info: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#E84E0F', height: 80 }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 2
+      }}
+      text2Style={{
+        fontSize: 14,
+        color: '#4B5563'
+      }}
+      text2NumberOfLines={2}
+    />
+  )
+};
 
 function RootLayoutNav() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -63,6 +85,8 @@ export default function Layout() {
       <UserProvider>
         <BookingProvider>
           <RootLayoutNav />
+          <NotificationPoller />
+          <Toast config={toastConfig} />
         </BookingProvider>
       </UserProvider>
     </AuthProvider>

@@ -4,7 +4,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { File, Paths } from 'expo-file-system';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
@@ -43,7 +42,6 @@ const brandMap: Record<string, string[]> = {
   'Van': ['Nissan', 'Toyota', 'Ford', 'Other'],
   'Lorry': ['Isuzu', 'Mitsubishi', 'Tata', 'Ashok Leyland', 'Other'],
 };
-const fuelTypes = ['Petrol', 'Diesel', 'Hybrid', 'EV'];
 
 const DEFAULT_VEHICLE_IMAGE = require('../../assets/images/honda_civic_red.jpg');
 
@@ -92,9 +90,9 @@ export default function VehiclesScreen() {
   const [brand, setBrand] = useState('');
   const [customBrand, setCustomBrand] = useState('');
   const [model, setModel] = useState('');
-  const [fuel, setFuel] = useState('');
   const [plate, setPlate] = useState('');
   const [vehicleImage, setVehicleImage] = useState<string | null>(null);
+  const [vehicleImageBase64, setVehicleImageBase64] = useState<string | null>(null);
 
   const pickVehicleImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -109,10 +107,12 @@ export default function VehiclesScreen() {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
+      base64: true,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets[0].base64) {
       setVehicleImage(result.assets[0].uri);
+      setVehicleImageBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
     }
   };
 
@@ -125,8 +125,8 @@ export default function VehiclesScreen() {
       setCustomVType('');
       setModel(vehicle.model || '');
       setPlate(vehicle.plateNumber || '');
-      setFuel('Petrol');
       setVehicleImage(vehicle.imageUrl || null);
+      setVehicleImageBase64(null);
     } else {
       setEditingVehicle(null);
       setVType('');
@@ -134,9 +134,9 @@ export default function VehiclesScreen() {
       setBrand('');
       setCustomBrand('');
       setModel('');
-      setFuel('');
       setPlate('');
       setVehicleImage(null);
+      setVehicleImageBase64(null);
     }
     setIsModalVisible(true);
   };
@@ -170,30 +170,13 @@ export default function VehiclesScreen() {
     }
 
     try {
-      // Save image to device storage first (like profile image)
-      let savedImageUri: string | undefined = undefined;
-      if (vehicleImage && !vehicleImage.startsWith('http')) {
-        try {
-          const filename = `vehicle_${Date.now()}.jpg`;
-          const sourceFile = new File(vehicleImage);
-          const destinationFile = new File(Paths.document, filename);
-          sourceFile.copy(destinationFile);
-          savedImageUri = destinationFile.uri;
-        } catch (imgErr) {
-          console.warn('Image save failed, continuing without it', imgErr);
-          savedImageUri = vehicleImage;
-        }
-      } else if (vehicleImage) {
-        savedImageUri = vehicleImage; // already a persisted URL
-      }
-
       if (editingVehicle) {
         await vehicleService.updateVehicle(editingVehicle.id, {
           brand: finalBrand,
           model,
           vehicleType: finalVType,
           plateNumber: plate,
-          imageUrl: savedImageUri,
+          ...(vehicleImageBase64 ? { imageData: vehicleImageBase64 } : {})
         });
         Alert.alert('Success', 'Vehicle updated!');
       } else {
@@ -203,7 +186,7 @@ export default function VehiclesScreen() {
           model,
           vehicleType: finalVType,
           plateNumber: plate,
-          imageUrl: savedImageUri,
+          ...(vehicleImageBase64 ? { imageData: vehicleImageBase64 } : {})
         });
         Alert.alert('Success', 'Vehicle added!');
       }
@@ -214,7 +197,12 @@ export default function VehiclesScreen() {
         router.back();
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save vehicle');
+      const errorMsg = e.message || '';
+      if (errorMsg.includes('vehicles_plate_number_key') || errorMsg.includes('duplicate key value')) {
+        Alert.alert('Registration Failed', 'A vehicle with this license plate is already registered in our system.');
+      } else {
+        Alert.alert('Error', errorMsg || 'Failed to save vehicle');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -429,14 +417,6 @@ export default function VehiclesScreen() {
               onChangeText={setModel}
             />
 
-            <AppDropdown
-              label="Fuel Type ⚡"
-              placeholder="Select Fuel Type"
-              value={fuel}
-              options={fuelTypes}
-              onSelect={setFuel}
-            />
-
             <AppInput
               label="License Number"
               placeholder="e.g. ABC 1234"
@@ -608,7 +588,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 60,
     right: 20,
     width: 65,
     height: 65,

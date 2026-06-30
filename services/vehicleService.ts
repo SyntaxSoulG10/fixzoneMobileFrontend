@@ -19,6 +19,7 @@ export interface VehicleCreateRequest {
   vehicleType: string;
   plateNumber: string;
   imageUrl?: string;
+  imageData?: string;
   lastServiceDate?: string;
 }
 

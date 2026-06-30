@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
@@ -7,15 +7,32 @@ import { MOCK_USER } from '../../constants/mock_data';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { useAuth } from '../../context/auth_context';
+import { notificationService } from '../../services/notificationService';
 
 export default function HomeHeader() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const router = useRouter();
   const { user } = useUser();
   const { user: authUser } = useAuth();
+  const [hasUnread, setHasUnread] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUnreadStatus = async () => {
+        try {
+          const notifications = await notificationService.getNotifications();
+          const unread = notifications.some(n => !n.isRead);
+          setHasUnread(unread);
+        } catch (error) {
+          console.log('Error fetching notifications for header:', error);
+        }
+      };
+      fetchUnreadStatus();
+    }, [])
+  );
 
   const fullName = authUser?.fullName || user.name;
   const nameParts = fullName.trim().split(/\s+/);
@@ -48,8 +65,9 @@ export default function HomeHeader() {
             )}
           </View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/notifications')}>
+        <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/notifications')}>
           <Ionicons name="notifications-outline" size={28} color="#000" />
+          {hasUnread && <View style={styles.unreadDot} />}
         </TouchableOpacity>
       </View>
     </View>
@@ -110,4 +128,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  notificationBtn: {
+    position: 'relative',
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 2,
+    right: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  }
 });

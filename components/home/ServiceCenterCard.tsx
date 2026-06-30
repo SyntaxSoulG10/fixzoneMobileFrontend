@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { VehicleType } from '../../constants/mock_data';
+import { isServiceCenterOpen } from '../../utils/businessHours';
 
 const { width } = Dimensions.get('window');
 
@@ -14,7 +15,7 @@ interface ServiceCenterCardProps {
   location: string;
   type: string;
   priceFrom?: number;
-  openUntil?: string;
+  openingHours?: string;
   isVerified?: boolean;
   supportedVehicles?: VehicleType[];
   variant?: 'compact' | 'premium';
@@ -27,7 +28,7 @@ export default function ServiceCenterCard({
   location,
   type,
   priceFrom = 0,
-  openUntil = '',
+  openingHours = '',
   isVerified = false,
   supportedVehicles = [],
   variant = 'compact',
@@ -74,6 +75,8 @@ export default function ServiceCenterCard({
     );
   }
 
+  const isOpen = isServiceCenterOpen(openingHours);
+
   // Premium Variant (High-Fidelity)
   return (
     <TouchableOpacity
@@ -87,6 +90,11 @@ export default function ServiceCenterCard({
           style={styles.premiumImage}
           resizeMode="cover"
         />
+        {isOpen !== null && (
+          <View style={[styles.statusBadgeOverlay, { borderColor: isOpen ? '#10B981' : '#EF4444' }]}>
+            <Text style={[styles.statusBadgeText, { color: isOpen ? '#10B981' : '#EF4444' }]}>{isOpen ? 'OPEN' : 'CLOSED'}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.premiumInfoContainer}>
@@ -96,9 +104,8 @@ export default function ServiceCenterCard({
           <View style={styles.premiumMiddleLeft}>
             <View style={styles.premiumLocationRow}>
               <Ionicons name="location-sharp" size={14} color="#6B7280" />
-              <Text style={styles.premiumLocationText}>{location}</Text>
+              <Text style={styles.premiumLocationText}>{location.split(',').pop()?.trim()}</Text>
             </View>
-            <Text style={styles.premiumStatusText}>Open until {openUntil}</Text>
           </View>
           
           <View style={styles.premiumMiddleRight}>
@@ -181,15 +188,29 @@ const styles = StyleSheet.create({
   },
   premiumImageContainer: {
     width: '100%',
-    height: 180,
+    height: 140,
     position: 'relative',
   },
   premiumImage: {
     width: '100%',
     height: '100%',
   },
+  statusBadgeOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)', // Semi-transparent dark base so text is legible over images
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
   premiumInfoContainer: {
-    padding: 16,
+    padding: 12,
     backgroundColor: '#F3F4F6',
   },
   premiumName: {
@@ -220,12 +241,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: '600',
   },
-  premiumStatusText: {
-    fontSize: 13,
-    color: '#10B981',
-    fontWeight: '700',
-    marginBottom: 4,
-  },
   premiumBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -240,7 +255,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     marginBottom: 4,
-    marginTop: 10,
+    marginTop: 2,
   },
   vehicleChip: {
     backgroundColor: '#FFF7ED',
@@ -265,14 +280,13 @@ const styles = StyleSheet.create({
   premiumVehicleChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   premiumPriceLabel: {
     fontSize: 10,
     color: '#6B7280',
     fontWeight: '700',
     textAlign: 'right',
-    marginTop: 10,
   },
   premiumPriceValue: {
     fontSize: 18,
@@ -298,8 +312,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
-    marginBottom: 15
-  
+    marginBottom: 4
   },
   detailsButtonText: {
     color: '#fff',

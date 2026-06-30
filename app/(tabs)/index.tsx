@@ -269,7 +269,7 @@ export default function HomeScreen() {
                         type="General Service"
                         image={center.imageUrl}
                         priceFrom={priceFrom}
-                        openUntil={openUntil}
+                        openingHours={center.openingHours}
                         isVerified={center.isActive}
                         supportedVehicles={(center.supportedVehicleBrands as any) || ['car', 'van']}
                         variant="compact"

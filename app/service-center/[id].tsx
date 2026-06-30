@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform, ActivityIndicator, SafeAreaView, Share, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
 import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../../services/serviceCenterService';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 const { width } = Dimensions.get('window');
 
@@ -16,8 +18,6 @@ export default function ServiceCenterDetails() {
 
   const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedVehicleType, setSelectedVehicleType] = useState<VehicleType>('bike'); // Default to bike based on screenshot
-  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -30,12 +30,6 @@ export default function ServiceCenterDetails() {
       setIsLoading(true);
       const data = await serviceCenterService.getServiceCenterById(centerId);
       setCenter(data);
-      if (data.supportedVehicleBrands && data.supportedVehicleBrands.length > 0) {
-        // Find if screenshot type exists, else default to first
-        const types = data.supportedVehicleBrands as VehicleType[];
-        if (types.includes('bike')) setSelectedVehicleType('bike');
-        else setSelectedVehicleType(types[0]);
-      }
     } catch (err) {
       console.error('Failed to load service center:', err);
     } finally {
@@ -43,30 +37,35 @@ export default function ServiceCenterDetails() {
     }
   };
 
-  const filteredPackages = useMemo(() => {
-    if (!center?.servicePackages) return [];
-    return center.servicePackages.filter(pkg => pkg.vehicleType === selectedVehicleType);
-  }, [center, selectedVehicleType]);
+  const handleShare = async () => {
+    if (!center) return;
+    try {
+      const message = `Check out ${center.name} on FixZone!\n📍 Located at: ${center.address || 'Colombo'}\nBook your vehicle service today!`;
+      await Share.share({
+        message: message,
+        title: `Book a service at ${center.name}`
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share this service center.');
+    }
+  };
 
-  const renderVehicleTab = (type: VehicleType) => {
-    const isSelected = selectedVehicleType === type;
-    let iconName: keyof typeof Ionicons.glyphMap = 'car-outline';
-    if (type === 'bike') iconName = 'bicycle-outline';
-    if (type === 'van') iconName = 'bus-outline';
-    if (type === 'lorry') iconName = 'car-sport-outline';
-
-    return (
-      <TouchableOpacity
-        key={type}
-        onPress={() => setSelectedVehicleType(type)}
-        style={[styles.tab, isSelected && styles.tabSelected]}
-      >
-        <Ionicons name={iconName} size={22} color={isSelected ? '#fff' : '#6B7280'} />
-        <Text style={[styles.tabText, isSelected && styles.tabTextSelected]}>
-          {type.charAt(0).toUpperCase() + type.slice(1)}
-        </Text>
-      </TouchableOpacity>
-    );
+  const handleCall = async () => {
+    if (!center || !center.contactPhone) {
+      Alert.alert('Not Available', 'Phone number is not available for this service center.');
+      return;
+    }
+    const phoneNumber = `tel:${center.contactPhone}`;
+    try {
+      const supported = await Linking.canOpenURL(phoneNumber);
+      if (supported) {
+        await Linking.openURL(phoneNumber);
+      } else {
+        Alert.alert('Error', 'Your device does not support making phone calls.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open the phone dialer.');
+    }
   };
 
   if (isLoading) {
@@ -85,8 +84,6 @@ export default function ServiceCenterDetails() {
     );
   }
 
-  const supportedVehicles = (center.supportedVehicleBrands || []) as VehicleType[];
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -99,17 +96,49 @@ export default function ServiceCenterDetails() {
           <Text style={styles.headerTitle} numberOfLines={1}>{center.name}</Text>
           <Text style={styles.headerSubtitle}>Select Service Package</Text>
         </View>
-        <TouchableOpacity onPress={() => setIsFavorite(!isFavorite)} style={styles.headerIcon}>
-          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={28} color={isFavorite ? "#EF4444" : "#1F2937"} />
-        </TouchableOpacity>
+        <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
-        {/* Vehicle Tabs */}
-        <View style={styles.tabsWrapper}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
-            {supportedVehicles.map(v => renderVehicleTab(v))}
-          </ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Hero Image */}
+        <View style={styles.heroContainer}>
+          <Image 
+            source={{ uri: center.imageUrl || 'https://images.unsplash.com/photo-1625047509168-a7026f36de04?q=80&w=800&auto=format&fit=crop' }} 
+            style={styles.heroImage} 
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.heroGradient}
+          />
+          <View style={styles.heroTextContainer}>
+            <Text style={styles.heroTitle}>{center.name}</Text>
+            <Text style={styles.heroSubtitle}>{center.address || 'Colombo 07'}  |  2.4 km away</Text>
+          </View>
+        </View>
+
+        {/* Action Bar */}
+        <View style={styles.actionBar}>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleCall}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="call" size={18} color="#111827" />
+              </View>
+              <Text style={styles.actionBtnText}>Call</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="share-social" size={18} color="#111827" />
+              </View>
+              <Text style={styles.actionBtnText}>Share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="navigate" size={18} color="#111827" />
+              </View>
+              <Text style={styles.actionBtnText}>Direction</Text>
+            </TouchableOpacity>
+          </View>
+          <StatusBadge openingHours={center.openingHours} />
         </View>
 
         {/* Section Title */}
@@ -119,11 +148,11 @@ export default function ServiceCenterDetails() {
 
         {/* Packages List */}
         <View style={styles.packagesList}>
-          {filteredPackages.length > 0 ? (
-            filteredPackages.map(pkg => <PackageCard key={pkg.packageId || pkg.name} pkg={pkg} centerId={center.centerId} />)
+          {center.servicePackages && center.servicePackages.length > 0 ? (
+            center.servicePackages.map(pkg => <PackageCard key={pkg.packageId || pkg.name} pkg={pkg} centerId={center.centerId} />)
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No packages for this vehicle type.</Text>
+              <Text style={styles.emptyStateText}>No packages available for this center.</Text>
             </View>
           )}
           <View style={{ height: 40 }} />
@@ -135,13 +164,13 @@ export default function ServiceCenterDetails() {
 
 function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: string }) {
   const router = useRouter();
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
   
   const price = typeof pkg.price === 'number' ? pkg.price : Number(pkg.basePrice || pkg.price) || 0;
   const durationInMins = (pkg as any).estimatedDurationMins || 60;
   const durationHours = Math.floor(durationInMins / 60);
   const durationText = durationHours > 0 ? `${durationHours} hrs` : `${durationInMins} mins`;
 
-  // Default features: split description by comma if features array is empty
   const features = useMemo(() => {
     if (pkg.features && pkg.features.length > 0) return pkg.features;
     if (pkg.description) {
@@ -150,19 +179,16 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
     return ['Quality Service Inspection'];
   }, [pkg.features, pkg.description]);
 
-  // Default image if none is provided by the DB
   const packagePlaceholder = 'https://images.unsplash.com/photo-1625047509168-a7026f36de04?q=80&w=400&auto=format&fit=crop';
 
   return (
     <View style={styles.pkgCard}>
-      {/* Package Image */}
       <Image 
         source={{ uri: pkg.imageUrl || packagePlaceholder }} 
         style={styles.pkgImage} 
       />
       
       <View style={styles.pkgBody}>
-        {/* Title and Price */}
         <View style={styles.pkgHeaderRow}>
           <Text style={styles.pkgName}>{pkg.name}</Text>
           <View style={styles.priceContainer}>
@@ -171,15 +197,13 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
           </View>
         </View>
 
-        {/* Duration */}
         <View style={styles.durationRow}>
           <Ionicons name="time-outline" size={16} color="#4B5563" />
           <Text style={styles.durationText}>{durationText}</Text>
         </View>
 
-        {/* Features */}
         <View style={styles.featuresList}>
-          {features.slice(0, 3).map((f, i) => (
+          {features.slice(0, showAllFeatures ? features.length : 3).map((f, i) => (
             <View key={i} style={styles.featureItem}>
               <View style={styles.checkIcon}>
                 <Ionicons name="checkmark" size={12} color="#fff" />
@@ -187,17 +211,23 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
               <Text style={styles.featureText}>{f}</Text>
             </View>
           ))}
-          {features.length > 3 && (
-            <Text style={styles.moreText}>+{features.length - 3} more</Text>
+          {!showAllFeatures && features.length > 3 && (
+            <TouchableOpacity onPress={() => setShowAllFeatures(true)}>
+              <Text style={styles.moreText}>+{features.length - 3} more</Text>
+            </TouchableOpacity>
+          )}
+          {showAllFeatures && features.length > 3 && (
+            <TouchableOpacity onPress={() => setShowAllFeatures(false)}>
+              <Text style={styles.moreText}>Show less</Text>
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* Book Button */}
         <TouchableOpacity 
           style={styles.bookBtn}
           onPress={() => router.push({ pathname: '/booking/create', params: { centerId, packageId: pkg.packageId || '', packageName: pkg.name } })}
         >
-          <Text style={styles.bookBtnText}>Book Now</Text>
+          <Text style={styles.bookBtnText}>Select Package</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -213,7 +243,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#fff',
-    marginTop: Platform.OS === 'android' ? Constants.statusBarHeight : 0, // Dynamic top margin for Android status bar
+    marginTop: Platform.OS === 'android' ? Constants.statusBarHeight : 0,
   },
   headerIcon: {
     width: 44,
@@ -235,39 +265,87 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
-  tabsWrapper: {
-    backgroundColor: '#fff',
-    paddingVertical: 16,
+  heroContainer: {
+    width: '100%',
+    height: 160,
+    position: 'relative',
   },
-  tabContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
-  tab: {
+  heroGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+  },
+  heroTextContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  heroSubtitle: {
+    color: '#E5E7EB',
+    fontSize: 14,
+    marginTop: 4,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  actionBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#F3F4F6',
-    minWidth: 100,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  tabSelected: {
-    backgroundColor: '#F97316',
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 20,
   },
-  tabText: {
-    fontSize: 15,
-    fontWeight: '600',
+  actionBtn: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#F97316',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionBtnText: {
+    fontSize: 12,
     color: '#4B5563',
+    fontWeight: '500',
   },
-  tabTextSelected: {
-    color: '#fff',
+  closeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EF4444',
   },
   sectionTitleContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: '#fff',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
@@ -287,11 +365,11 @@ const styles = StyleSheet.create({
   },
   pkgImage: {
     width: '100%',
-    height: 180,
+    height: 130,
     backgroundColor: '#E5E7EB',
   },
   pkgBody: {
-    padding: 20,
+    padding: 16,
   },
   pkgHeaderRow: {
     flexDirection: 'row',
@@ -299,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   pkgName: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: '#111827',
     flex: 1,
@@ -309,7 +387,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   pkgPrice: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#F97316',
   },
@@ -325,13 +403,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   durationText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#4B5563',
     fontWeight: '500',
   },
   featuresList: {
-    marginTop: 16,
-    gap: 10,
+    marginTop: 12,
+    gap: 8,
   },
   featureItem: {
     flexDirection: 'row',
@@ -347,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   featureText: {
-    fontSize: 15,
+    fontSize: 13,
     color: '#1F2937',
     fontWeight: '500',
   },
@@ -359,17 +437,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   bookBtn: {
-    marginTop: 24,
-    backgroundColor: '#fff',
+    marginTop: 16,
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#F97316',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   bookBtnText: {
     color: '#111827',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   emptyState: {

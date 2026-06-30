@@ -97,10 +97,6 @@ export default function VehicleDetailsScreen() {
               <Ionicons name={getVehicleIcon(vehicle.vehicleType)} size={120} color="#F97316" />
             </View>
           )}
-          <View style={styles.daysBadge}>
-            <Text style={styles.daysBadgeText}>{daysSince} days</Text>
-            <Text style={styles.daysBadgeTitle}>since service</Text>
-          </View>
         </View>
 
         <View style={styles.infoSection}>
@@ -109,9 +105,9 @@ export default function VehicleDetailsScreen() {
           
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Ionicons name="flash-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.statLabel}>Fuel Type</Text>
-              <Text style={styles.statValue}>Petrol</Text>
+              <Ionicons name="time-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.statLabel}>Days Since</Text>
+              <Text style={styles.statValue}>{daysSince}</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
