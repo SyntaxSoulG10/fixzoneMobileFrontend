@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { COLORS } from '../../constants/colors';
-import { MOCK_SERVICE_CENTERS, MOCK_VEHICLES, MOCK_PROMOTIONS, Promotion } from '../../constants/mock_data';
+import { MOCK_SERVICE_CENTERS, MOCK_VEHICLES } from '../../constants/mock_data';
 import { BookingResponseDTO } from '../../services/bookingService';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,18 +20,13 @@ export default function PromoBanner({ pendingBookings = [] }: PromoBannerProps) 
   const [isPaused, setIsPaused] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(1);
   
-  // Base banners: Pending bookings + Mock Promotions
-  const baseBanners = [
-    ...pendingBookings.map(b => ({ type: 'pending', data: b })),
-    ...MOCK_PROMOTIONS.map(p => ({ type: 'promo', data: p }))
-  ];
+  // Base banners: Pending bookings only
+  const baseBanners = pendingBookings.map(b => ({ type: 'pending', data: b }));
   
   // Create circular list: [Last, ...Originals, First]
-  const allBanners = [
-    baseBanners[baseBanners.length - 1], 
-    ...baseBanners, 
-    baseBanners[0]
-  ];
+  const allBanners = baseBanners.length > 0 
+    ? [baseBanners[baseBanners.length - 1], ...baseBanners, baseBanners[0]]
+    : [];
 
   // Initial position should be the first real item (index 1)
   useEffect(() => {
@@ -90,29 +85,7 @@ export default function PromoBanner({ pendingBookings = [] }: PromoBannerProps) 
   };
 
   const renderBanner = (item: any, index: number) => {
-    if (item.type === 'promo') {
-      const promo: Promotion = item.data;
-      return (
-        <View key={`promo-${index}`} style={[styles.bannerContainer, { backgroundColor: COLORS.primary }]}>
-          <View style={styles.content}>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>{promo.expiryDate.toUpperCase()}</Text>
-            </View>
-            <Text style={styles.title} numberOfLines={1}>{promo.title}</Text>
-            <Text style={styles.subtitle} numberOfLines={2}>
-              {promo.description}
-            </Text>
-            <TouchableOpacity 
-              style={styles.button}
-              onPress={() => router.push('/promotions')}
-            >
-              <Text style={[styles.buttonText, { color: COLORS.primary }]}>View Offer</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.abstractShape} />
-        </View>
-      );
-    }
+
 
     const booking: BookingResponseDTO = item.data;
     // Note: serviceCenterName is already in DTO from backend
@@ -140,6 +113,10 @@ export default function PromoBanner({ pendingBookings = [] }: PromoBannerProps) 
       </View>
     );
   };
+
+  if (baseBanners.length === 0) {
+    return null;
+  }
 
   // Calculate dots based on index
   const dotIndex = (currentIndex - 1 + baseBanners.length) % baseBanners.length;

@@ -6,12 +6,15 @@ import ServiceCenterCard from '../../components/home/ServiceCenterCard';
 import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
 import { COLORS } from '../../constants/colors';
 import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
+import * as Location from 'expo-location';
+import { calculateDistance } from '../../utils/location_utils';
 
 export default function BookScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [serviceCenters, setServiceCenters] = useState<ServiceCenterDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
     vehicleType: '',
@@ -34,6 +37,18 @@ export default function BookScreen() {
   };
 
   useEffect(() => {
+    const fetchLocation = async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          let location = await Location.getCurrentPositionAsync({});
+          setUserLocation(location);
+        }
+      } catch (e) {
+        console.error('Error requesting location:', e);
+      }
+    };
+    fetchLocation();
     fetchCenters();
   }, []);
 
@@ -41,7 +56,7 @@ export default function BookScreen() {
     try {
       setIsLoading(true);
       const data = await serviceCenterService.getAllServiceCenters();
-      setServiceCenters(data);
+      setServiceCenters(data.content);
     } catch (error) {
       console.error('Failed to fetch centers:', error);
     } finally {
@@ -72,6 +87,16 @@ export default function BookScreen() {
           isVerified={item.isActive}
           supportedVehicles={(item.supportedVehicleBrands as any) || ['car', 'van']} 
           variant="premium"
+          calculatedDistance={
+            item.latitude && item.longitude && userLocation
+              ? calculateDistance(
+                  userLocation.coords.latitude,
+                  userLocation.coords.longitude,
+                  item.latitude,
+                  item.longitude
+                )
+              : undefined
+          }
         />
       </View>
     );

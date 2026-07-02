@@ -22,6 +22,8 @@ export interface ServiceCenterDTO {
   name: string;
   managerName?: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   contactPhone: string;
   openingHours?: string;
   rating?: number;
@@ -33,9 +35,22 @@ export interface ServiceCenterDTO {
   leaveDates?: string[];
 }
 
+export interface PagedResponse<T> {
+  content: T[];
+  pageNo: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}
+
 export const serviceCenterService = {
-  getAllServiceCenters: async (): Promise<ServiceCenterDTO[]> => {
-    return request<ServiceCenterDTO[]>('/service-centers');
+  getAllServiceCenters: async (page = 0, size = 10): Promise<PagedResponse<ServiceCenterDTO>> => {
+    return request<PagedResponse<ServiceCenterDTO>>(`/service-centers?page=${page}&size=${size}`);
+  },
+
+  getNearbyServiceCenters: async (lat: number, lng: number, radius = 15, page = 0, size = 10): Promise<PagedResponse<ServiceCenterDTO>> => {
+    return request<PagedResponse<ServiceCenterDTO>>(`/service-centers/nearby?lat=${lat}&lng=${lng}&radius=${radius}&page=${page}&size=${size}`);
   },
 
   getServiceCenterById: async (id: string): Promise<ServiceCenterDTO> => {

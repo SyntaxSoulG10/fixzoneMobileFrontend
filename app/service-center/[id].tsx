@@ -7,13 +7,15 @@ import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../../services/serviceCenterService';
 import StatusBadge from '../../components/ui/StatusBadge';
+import * as Clipboard from 'expo-clipboard';
+import { openDirections } from '../../utils/location_utils';
 
 const { width } = Dimensions.get('window');
 
 type VehicleType = 'bike' | 'car' | 'van' | 'lorry';
 
 export default function ServiceCenterDetails() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, distance } = useLocalSearchParams<{ id: string; distance?: string }>();
   const router = useRouter();
 
   const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
@@ -68,6 +70,15 @@ export default function ServiceCenterDetails() {
     }
   };
 
+  const handleDirection = async () => {
+    if (!center) return;
+    if (center.latitude && center.longitude) {
+      await openDirections(center.latitude, center.longitude, center.name);
+    } else {
+      Alert.alert('Location Unavailable', 'Exact GPS coordinates are not available for this center yet.');
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -112,7 +123,10 @@ export default function ServiceCenterDetails() {
           />
           <View style={styles.heroTextContainer}>
             <Text style={styles.heroTitle}>{center.name}</Text>
-            <Text style={styles.heroSubtitle}>{center.address || 'Colombo 07'}  |  2.4 km away</Text>
+            <Text style={styles.heroSubtitle}>
+              {center.address || 'Colombo 07'} 
+              {distance ? `  |  ${distance} km away` : ''}
+            </Text>
           </View>
         </View>
 
@@ -131,7 +145,8 @@ export default function ServiceCenterDetails() {
               </View>
               <Text style={styles.actionBtnText}>Share</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn}>
+
+            <TouchableOpacity style={styles.actionBtn} onPress={handleDirection}>
               <View style={styles.actionIconCircle}>
                 <Ionicons name="navigate" size={18} color="#111827" />
               </View>
@@ -146,8 +161,22 @@ export default function ServiceCenterDetails() {
           <Text style={styles.sectionTitle}>Available Packages</Text>
         </View>
 
+        {center.status !== 'APPROVED' && (
+          <View style={{ backgroundColor: '#FFF4ED', padding: 12, marginHorizontal: 20, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#FFDDC2' }}>
+            <Text style={{ color: '#E84E0F', fontWeight: 'bold', textAlign: 'center' }}>
+              Temporarily Unavailable
+            </Text>
+            <Text style={{ color: '#C2410C', textAlign: 'center', fontSize: 12, marginTop: 4 }}>
+              This service center is currently not accepting new bookings.
+            </Text>
+          </View>
+        )}
+
         {/* Packages List */}
-        <View style={styles.packagesList}>
+        <View 
+          style={[styles.packagesList, center.status !== 'APPROVED' && { opacity: 0.5 }]} 
+          pointerEvents={center.status !== 'APPROVED' ? 'none' : 'auto'}
+        >
           {center.servicePackages && center.servicePackages.length > 0 ? (
             center.servicePackages.map(pkg => <PackageCard key={pkg.packageId || pkg.name} pkg={pkg} centerId={center.centerId} />)
           ) : (
@@ -307,19 +336,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
+    padding: 20,
+    backgroundColor: '#F9FAFB',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 20,
   },
   actionBtn: {
     alignItems: 'center',
-    gap: 6,
+    marginRight: 16,
   },
   actionIconCircle: {
     width: 38,

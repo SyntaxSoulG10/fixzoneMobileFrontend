@@ -37,12 +37,20 @@ export default function VehicleCard({ image, name, plate, lastService, type, day
             <Text style={styles.plateText}>{plate}</Text>
           </View>
           <View style={styles.daysContainer}>
-            <Text style={styles.daysText}>
-              {daysSince} days
-            </Text>
-            <Text style={styles.sinceText}>
-              since service
-            </Text>
+            {daysSince !== undefined ? (
+              <>
+                <Text style={styles.daysText}>
+                  {daysSince} days
+                </Text>
+                <Text style={styles.sinceText}>
+                  since service
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.daysText}>
+                New
+              </Text>
+            )}
           </View>
         </View>
         

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,8 @@ import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCe
 import { MOCK_SERVICE_CENTERS, ServiceCenter } from '../../constants/mock_data';
 import { filterServiceCenters, mockAiSearch, AiFilters } from '../../utils/search_utils';
 import { getDaysSinceService } from '../../utils/date_utils';
+import * as Location from 'expo-location';
+import { calculateDistance } from '../../utils/location_utils';
 
 export default function HomeScreen() {
   const { user: authUser } = useAuth();
@@ -41,8 +43,54 @@ export default function HomeScreen() {
   const [searchResults, setSearchResults] = useState<ServiceCenter[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
   const hasFetchedVehicles = useRef(false);
   const hasFetchedTrusted = useRef(false);
+  const [nearbyCenters, setNearbyCenters] = useState<ServiceCenterDTO[]>([]);
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    const fetchLocation = async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.warn('Permission to access location was denied.');
+          return;
+        }
+        let location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location);
+      } catch (e) {
+        console.error('Error requesting location:', e);
+      }
+    };
+    fetchLocation();
+  }, []);
+
+  const fetchNearbyCenters = useCallback(async (lat: number, lng: number) => {
+    try {
+      setIsLoadingNearby(true);
+      setNearbyError(null);
+      const res = await serviceCenterService.getNearbyServiceCenters(lat, lng, 15, 0, 10);
+      setNearbyCenters(res.content);
+    } catch (e) {
+      console.error('Failed to fetch nearby centers', e);
+      setNearbyError('Unable to load service centers.');
+    } finally {
+      setIsLoadingNearby(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userLocation) {
+      fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude);
+    } else if (userLocation === null && !isLocationLoading) {
+      // If location denied or unavailable, fetch all centers instead of nearby
+      // (Or we can just show empty / fallback message)
+    }
+  }, [userLocation, fetchNearbyCenters]);
 
   const fetchTrustedCenters = useCallback(async () => {
     if (!authUser?.userId) return;
@@ -99,8 +147,21 @@ export default function HomeScreen() {
     useCallback(() => {
       fetchVehicles();
       fetchTrustedCenters();
-    }, [fetchVehicles, fetchTrustedCenters])
+      if (userLocation) {
+        fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude);
+      }
+    }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters])
   );
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      fetchVehicles(),
+      fetchTrustedCenters(),
+      userLocation ? fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude) : Promise.resolve()
+    ]);
+    setIsRefreshing(false);
+  }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters]);
 
   const router = useRouter();
 
@@ -154,6 +215,31 @@ export default function HomeScreen() {
     performSearch();
   }, [debouncedQuery]);
 
+  const getCentersWithDistance = <T extends any>(centers: T[]): T[] => {
+    if (!userLocation) return centers;
+    
+    return [...centers].map((center: any) => {
+      if (center.latitude && center.longitude) {
+        const dist = calculateDistance(
+          userLocation.coords.latitude, 
+          userLocation.coords.longitude, 
+          center.latitude, 
+          center.longitude
+        );
+        return { ...center, calculatedDistance: dist };
+      }
+      return center;
+    }).sort((a: any, b: any) => {
+      const distA = a.calculatedDistance ?? Infinity;
+      const distB = b.calculatedDistance ?? Infinity;
+      return distA - distB;
+    });
+  };
+
+  const sortedSearchResults = getCentersWithDistance(searchResults);
+  const sortedTrustedCenters = getCentersWithDistance(trustedCenters);
+  
+  // Now nearbyCenters comes from the API and is already sorted by distance!
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
@@ -163,7 +249,11 @@ export default function HomeScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        <ScrollView style={styles.flex1} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.flex1} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#E84E0F']} />}
+        >
           {isSearching ? (
             <View style={styles.searchContainer}>
               <View style={styles.sectionHeader}>
@@ -173,12 +263,13 @@ export default function HomeScreen() {
                 {isAiProcessing && <ActivityIndicator color="#E84E0F" size="small" />}
               </View>
 
-              {searchResults.length > 0 ? (
-                searchResults.map(center => (
+              {sortedSearchResults.length > 0 ? (
+                sortedSearchResults.map(center => (
                   <ServiceCenterCard 
                     key={`search-${center.id}`}
                     {...center}
                     variant="compact"
+                    calculatedDistance={center.calculatedDistance}
                   />
                 ))
               ) : !isAiProcessing ? (
@@ -251,31 +342,20 @@ export default function HomeScreen() {
                 
                 {isLoadingTrusted ? (
                   <ActivityIndicator color="#E84E0F" />
-                ) : trustedCenters.length > 0 ? (
-                  trustedCenters.map(center => {
-                    const priceFrom = center.servicePackages && center.servicePackages.length > 0 
-                      ? Math.min(...center.servicePackages.map(p => p.price || p.basePrice || 0).filter(p => p > 0)) 
-                      : 0;
-                    const openUntil = center.openingHours && center.openingHours.includes('-') 
-                      ? center.openingHours.split('-')[1].trim() 
-                      : '18:00';
-
-                    return (
+                ) : sortedTrustedCenters.length > 0 ? (
+                  <FlatList
+                    data={sortedTrustedCenters}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item) => item.centerId || item.id || Math.random().toString()}
+                    renderItem={({ item }) => (
                       <ServiceCenterCard 
-                        key={center.centerId}
-                        id={center.centerId}
-                        name={center.name}
-                        location={center.address}
-                        type="General Service"
-                        image={center.imageUrl}
-                        priceFrom={priceFrom}
-                        openingHours={center.openingHours}
-                        isVerified={center.isActive}
-                        supportedVehicles={(center.supportedVehicleBrands as any) || ['car', 'van']}
-                        variant="compact"
+                        {...item} 
+                        id={item.centerId || item.id}
+                        calculatedDistance={item.calculatedDistance}
                       />
-                    );
-                  })
+                    )}
+                  />
                 ) : (
                   <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
                     You haven't visited any service centers yet.
@@ -292,13 +372,33 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 </View>
                 
-                {MOCK_SERVICE_CENTERS.slice(2).map(center => (
-                  <ServiceCenterCard 
-                    key={`nearby-${center.id}`}
-                    {...center}
-                    variant="compact"
-                  />
-                ))}
+                {isLoadingNearby ? (
+                  <ActivityIndicator color="#E84E0F" size="large" style={{ marginVertical: 20 }} />
+                ) : nearbyError ? (
+                  <View style={{ alignItems: 'center', padding: 20 }}>
+                    <Text style={{ color: '#EF4444', marginBottom: 10 }}>{nearbyError}</Text>
+                    <TouchableOpacity 
+                      style={{ backgroundColor: '#E84E0F', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                      onPress={() => userLocation && fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude)}
+                    >
+                      <Text style={{ color: 'white', fontWeight: '600' }}>Retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : nearbyCenters.length > 0 ? (
+                  nearbyCenters.map((center: any) => (
+                    <ServiceCenterCard 
+                      key={`nearby-${center.centerId || center.id}`}
+                      {...center}
+                      id={center.centerId || center.id}
+                      variant="compact"
+                      calculatedDistance={center.latitude && center.longitude && userLocation ? calculateDistance(userLocation.coords.latitude, userLocation.coords.longitude, center.latitude, center.longitude) : undefined}
+                    />
+                  ))
+                ) : (
+                  <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
+                    {!userLocation ? "Location access needed to find nearby centers." : "No service centers found within 15 km."}
+                  </Text>
+                )}
               </View>
             </>
           )}
@@ -361,9 +461,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyVehiclesContainer: {
+    paddingVertical: 12,
+  },
+  quickFiltersContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  quickFilterChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    paddingVertical: 16,
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  quickFilterChipActive: {
+    backgroundColor: '#E84E0F',
+    borderColor: '#E84E0F',
+  },
+  quickFilterText: {
+    marginLeft: 4,
+    color: '#E84E0F',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  quickFilterTextActive: {
+    color: '#FFFFFF',
   },
   addVehiclePlaceholder: {
     width: 256,

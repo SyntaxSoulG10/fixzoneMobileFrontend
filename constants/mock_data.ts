@@ -24,6 +24,8 @@ export interface ServiceCenter {
   id: string;
   name: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   type: string;
   distance: string;
   image: any;
@@ -348,6 +350,44 @@ export const MOCK_SERVICE_CENTERS: ServiceCenter[] = [
     openingTime: '08:30',
     closingTime: '17:30',
     packages: [...CAR_PACKAGES, ...VAN_PACKAGES]
+  },
+  {
+    id: 'moratuwa-1',
+    name: 'Moratuwa Auto Care',
+    location: 'Moratuwa',
+    latitude: 6.7730,
+    longitude: 79.8816,
+    type: 'General Service',
+    distance: 'Unknown',
+    image: require('../assets/images/prime_motors_general.jpg'),
+    rating: 4.6,
+    ratingCount: 89,
+    priceFrom: 3500,
+    openUntil: '6.00 PM',
+    isVerified: true,
+    supportedVehicles: ['car', 'van'],
+    openingTime: '08:00',
+    closingTime: '18:00',
+    packages: [...CAR_PACKAGES, ...VAN_PACKAGES]
+  },
+  {
+    id: 'moratuwa-2',
+    name: 'Southern Express Wash',
+    location: 'Moratuwa',
+    latitude: 6.7750,
+    longitude: 79.8850,
+    type: 'Full Service Wash',
+    distance: 'Unknown',
+    image: require('../assets/images/elite_auto_detailing.jpg'),
+    rating: 4.8,
+    ratingCount: 156,
+    priceFrom: 1500,
+    openUntil: '8.00 PM',
+    isVerified: true,
+    supportedVehicles: ['bike', 'car', 'van'],
+    openingTime: '07:00',
+    closingTime: '20:00',
+    packages: [...CAR_PACKAGES, ...BIKE_PACKAGES, ...VAN_PACKAGES]
   }
 ];
 

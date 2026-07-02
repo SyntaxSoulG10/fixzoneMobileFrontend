@@ -107,7 +107,7 @@ export default function VehicleDetailsScreen() {
             <View style={styles.statCard}>
               <Ionicons name="time-outline" size={20} color={COLORS.primary} />
               <Text style={styles.statLabel}>Days Since</Text>
-              <Text style={styles.statValue}>{daysSince}</Text>
+              <Text style={styles.statValue}>{daysSince !== undefined ? daysSince : 'N/A'}</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />

@@ -1,5 +1,5 @@
-export const getDaysSinceService = (dateString: string) => {
-  if (!dateString) return 0;
+export const getDaysSinceService = (dateString: string): number | undefined => {
+  if (!dateString || dateString === 'N/A' || dateString.toLowerCase() === 'not available') return undefined;
   let serviceDate: Date;
   
   if (dateString.includes('/')) {
@@ -8,13 +8,13 @@ export const getDaysSinceService = (dateString: string) => {
       // Assuming DD/MM/YYYY
       serviceDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
     } else {
-      return 0;
+      return undefined;
     }
   } else {
     serviceDate = new Date(dateString);
   }
 
-  if (isNaN(serviceDate.getTime())) return 0;
+  if (isNaN(serviceDate.getTime())) return undefined;
 
   const today = new Date();
   const diffTime = today.getTime() - serviceDate.getTime();

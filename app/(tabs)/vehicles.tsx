@@ -24,6 +24,10 @@ const getServiceStatus = (lastServiceDate?: string) => {
   
   const days = getDaysSinceService(lastServiceDate);
   
+  if (days === undefined) {
+    return { label: 'No History', color: '#6B7280', bgColor: '#F3F4F6', dotColor: '#9CA3AF' };
+  }
+  
   if (days <= 180) {
     return { label: 'Up to date', color: '#059669', bgColor: '#ECFDF5', dotColor: '#10B981' };
   } else if (days <= 365) {

@@ -17,7 +17,8 @@ export default function CustomDrawer(props: any) {
 
   const menuItems = [
     { label: 'Dash Board', icon: 'grid-outline', route: '/(tabs)' },
-    { label: 'Promotion', icon: 'megaphone-outline', route: '/promotions' },
+    { label: 'Book a service', icon: 'calendar-outline', route: '/(tabs)/book' },
+    { label: 'History', icon: 'time-outline', route: '/(tabs)/history' },
     { label: 'Support', icon: 'headset-outline', route: '/support' },
     { label: 'Settings', icon: 'settings-outline', route: '/settings' },
   ];

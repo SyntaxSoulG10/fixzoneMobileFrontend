@@ -19,6 +19,7 @@ interface ServiceCenterCardProps {
   isVerified?: boolean;
   supportedVehicles?: VehicleType[];
   variant?: 'compact' | 'premium';
+  calculatedDistance?: number;
 }
 
 export default function ServiceCenterCard({
@@ -32,13 +33,18 @@ export default function ServiceCenterCard({
   isVerified = false,
   supportedVehicles = [],
   variant = 'compact',
+  calculatedDistance,
 }: ServiceCenterCardProps) {
   const router = useRouter();
 
   const handlePress = () => {
     router.push({
       pathname: '/service-center/[id]',
-      params: { id, name },
+      params: { 
+        id, 
+        name,
+        distance: calculatedDistance !== undefined ? calculatedDistance.toFixed(1) : undefined
+      },
     });
   };
 
@@ -66,6 +72,11 @@ export default function ServiceCenterCard({
         />
         <View style={styles.compactInfo}>
           <Text style={styles.compactName}>{name} - {location}</Text>
+          {calculatedDistance !== undefined && (
+            <Text style={{ fontSize: 12, color: '#E84E0F', fontWeight: 'bold', marginTop: 2 }}>
+              {calculatedDistance.toFixed(1)} km away
+            </Text>
+          )}
           <Text style={styles.servedForLabel}>Served for :</Text>
           <View style={styles.compactChipRow}>
             {supportedVehicles.map(renderVehicleChip)}
@@ -106,6 +117,14 @@ export default function ServiceCenterCard({
               <Ionicons name="location-sharp" size={14} color="#6B7280" />
               <Text style={styles.premiumLocationText}>{location.split(',').pop()?.trim()}</Text>
             </View>
+            {calculatedDistance !== undefined && (
+              <View style={[styles.premiumLocationRow, { marginTop: -2 }]}>
+                <Ionicons name="navigate-outline" size={12} color="#E84E0F" />
+                <Text style={[styles.premiumLocationText, { color: '#E84E0F', fontWeight: '800' }]}>
+                  {calculatedDistance.toFixed(1)} km away
+                </Text>
+              </View>
+            )}
           </View>
           
           <View style={styles.premiumMiddleRight}>
