@@ -7,6 +7,7 @@ import { BookingResponseDTO } from '../../services/bookingService';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
 import { Modal } from 'react-native';
+import { MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +36,9 @@ export default function HistoryScreen() {
   }, [authUser?.userId]);
 
   const filteredBookings = bookings.filter(booking => {
+    // Hide bookings that are still pending payment
+    if (booking.status === 'PENDING_PAYMENT') return false;
+
     if (activeFilter === 'All') return true;
     const status = booking.status.toUpperCase();
     if (activeFilter === 'Upcoming') {
@@ -44,6 +48,10 @@ export default function HistoryScreen() {
       return status === 'IN_PROGRESS';
     }
     return status === activeFilter.toUpperCase();
+  }).sort((a, b) => {
+    const dateA = new Date(`${a.bookingDate}T${a.bookingTime || '00:00:00'}`);
+    const dateB = new Date(`${b.bookingDate}T${b.bookingTime || '00:00:00'}`);
+    return dateB.getTime() - dateA.getTime();
   });
 
   const groupedBookings = filteredBookings.reduce((acc, booking) => {
@@ -132,17 +140,23 @@ export default function HistoryScreen() {
     const isUpcomingOrActive = isPending || isInProgress;
     const isCancelled = booking.status === 'CANCELLED';
 
-    const formattedDate = new Date(booking.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const dateObj = new Date(booking.bookingDate);
+    const day = dateObj.getDate();
+    const month = dateObj.toLocaleString('en-US', { month: 'short' }).toUpperCase();
 
     return (
       <TouchableOpacity 
         key={booking.bookingId} 
         style={styles.card}
         onPress={() => openSummary(booking)}
+        activeOpacity={0.9}
       >
-        <View style={styles.cardMainContent}>
-          <View style={styles.cardTextContent}>
-            <View style={styles.statusRow}>
+        <View style={styles.cardBody}>
+          <View style={styles.titleRow}>
+            <View style={styles.titleContent}>
+              <Text style={styles.bookingTitle} numberOfLines={1}>
+                {booking.packageName || 'Service'}
+              </Text>
               <View style={[
                 styles.statusBadge, 
                 isInProgress ? styles.inProgressBadge : 
@@ -158,51 +172,18 @@ export default function HistoryScreen() {
                   {booking.status.replace('_', ' ')}
                 </Text>
               </View>
-              <Text style={styles.dateText}>{formattedDate}</Text>
             </View>
-            
-            <Text style={styles.bookingTitle} numberOfLines={1}>
-              {booking.packageName || 'Service'} - {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Vehicle'}
-            </Text>
-            <Text style={styles.bookingDetails}>
-              {vehicle?.plateNumber}  = LKR {(booking.estimatedCost || 0).toLocaleString()}
-            </Text>
-
-            <View style={styles.actionRow}>
-              {isPending ? (
-                <>
-                  <TouchableOpacity style={styles.actionButton} onPress={() => handleReschedule(booking)}>
-                    <Text style={styles.actionButtonText}>Reschedule</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionButton, { marginLeft: 12, backgroundColor: '#6B7280' }]} onPress={() => handleCancel(booking)}>
-                    <Text style={styles.actionButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </>
-              ) : !isCancelled ? (
-                <>
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.rebookButton]}
-                    onPress={() => router.push({
-                      pathname: '/booking/create',
-                      params: { 
-                        centerId: booking.centerId, 
-                        packageId: booking.packageId,
-                        packageName: booking.packageName
-                      }
-                    })}
-                  >
-                    <Text style={styles.actionButtonText}>Rebook</Text>
-                  </TouchableOpacity>
-                  <View style={styles.invoiceIconBtn}>
-                    <Ionicons name="document-text" size={24} color="#9CA3AF" />
-                  </View>
-                </>
-              ) : null}
+            <View style={styles.dateBadge}>
+              <Text style={styles.dateDay}>{day}</Text>
+              <Text style={styles.dateMonth}>{month}</Text>
             </View>
           </View>
-
-          <View style={[styles.centerImagePlaceholder, { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }]}>
-            <Ionicons name="business" size={40} color="#D1D5DB" />
+          
+          <View style={styles.vehicleRow}>
+            <Ionicons name="car-sport" size={16} color="#6B7280" />
+            <Text style={styles.vehicleText}>
+              {vehicle ? `${vehicle.brand} ${vehicle.model} • ${vehicle.plateNumber}` : 'Your Vehicle'}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -248,7 +229,11 @@ export default function HistoryScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {Object.keys(groupedBookings).sort((a,b) => b.localeCompare(a)).map(monthYear => (
+        {Object.keys(groupedBookings).sort((a, b) => {
+          const dateA = new Date(a);
+          const dateB = new Date(b);
+          return dateB.getTime() - dateA.getTime();
+        }).map(monthYear => (
           <View key={monthYear} style={styles.monthSection}>
             <View style={styles.monthHeaderRow}>
               <Text style={styles.monthTitle}>{monthYear}</Text>
@@ -315,11 +300,23 @@ export default function HistoryScreen() {
                   <View style={styles.summarySection}>
                     <Text style={styles.sectionLabel}>Package</Text>
                     <Text style={styles.sectionValue}>{selectedBooking.packageName}</Text>
+                    <Text style={[styles.sectionSubValue, { marginTop: 4, lineHeight: 20 }]}>
+                      {MOCK_SERVICE_CENTERS.find(c => c.id === selectedBooking.centerId)?.packages?.find(p => p.id === selectedBooking.packageId)?.description || 
+                       'Standard comprehensive service package for your vehicle, ensuring optimal performance and safety.'}
+                    </Text>
                   </View>
 
                   <View style={styles.summarySection}>
                     <Text style={styles.sectionLabel}>Estimated Cost</Text>
                     <Text style={[styles.sectionValue, { color: '#E84E0F' }]}>LKR {(selectedBooking.estimatedCost || 0).toLocaleString()}</Text>
+                  </View>
+
+                  <View style={styles.summarySection}>
+                    <Text style={styles.sectionLabel}>Initial Payment Paid</Text>
+                    <Text style={[styles.sectionValue, { color: '#10B981' }]}>
+                      LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.1)).toLocaleString()}
+                    </Text>
+                    <Text style={[styles.sectionSubValue, { marginTop: 2 }]}>Paid securely online to confirm booking</Text>
                   </View>
 
                   <View style={styles.summarySection}>
@@ -435,34 +432,57 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    marginBottom: 16,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    marginBottom: 20,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    overflow: 'hidden',
   },
-  cardMainContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  cardBody: {
+    padding: 16,
   },
-  cardTextContent: {
-    flex: 1,
-    marginRight: 12,
-  },
-  statusRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  titleContent: {
+    flex: 1,
+    marginRight: 12,
+    alignItems: 'flex-start',
+  },
+  dateBadge: {
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  dateDay: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#E84E0F',
+    lineHeight: 20,
+  },
+  dateMonth: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.5,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 4,
   },
   pendingBadge: {
     backgroundColor: '#FEE2E2',
@@ -473,9 +493,13 @@ const styles = StyleSheet.create({
   inProgressBadge: {
     backgroundColor: '#DBEAFE',
   },
+  cancelledBadge: {
+    backgroundColor: '#F3F4F6',
+  },
   statusText: {
     fontSize: 12,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
   pendingText: {
     color: '#EF4444',
@@ -486,56 +510,84 @@ const styles = StyleSheet.create({
   completedText: {
     color: '#10B981',
   },
-  cancelledBadge: {
-    backgroundColor: '#E5E7EB',
-  },
   cancelledText: {
     color: '#6B7280',
   },
-  dateText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '700',
+  cardBody: {
+    padding: 16,
   },
   bookingTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 4,
   },
-  bookingDetails: {
+  vehicleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  vehicleText: {
     fontSize: 13,
-    color: '#111827',
-    fontWeight: '700',
-    marginBottom: 12,
+    color: '#4B5563',
+    fontWeight: '600',
+    marginLeft: 6,
   },
-  centerImagePlaceholder: {
-    width: 90,
-    height: 90,
-    borderRadius: 12,
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 10,
+    borderRadius: 8,
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  priceValue: {
+    fontSize: 14,
+    color: '#E84E0F',
+    fontWeight: '800',
+  },
+  cardFooter: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   actionButton: {
     backgroundColor: '#E84E0F',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
     borderRadius: 10,
+    flex: 1,
+    gap: 6,
+  },
+  cancelButton: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    flex: 0.6,
   },
   rebookButton: {
     flex: 1,
-    alignItems: 'center',
   },
   actionButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   invoiceIconBtn: {
-    marginLeft: 15,
-    padding: 4,
+    backgroundColor: '#F3F4F6',
+    padding: 8,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyContainer: {
     alignItems: 'center',

@@ -348,11 +348,14 @@ export default function HomeScreen() {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     keyExtractor={(item) => item.centerId || item.id || Math.random().toString()}
+                    contentContainerStyle={{ paddingRight: 20 }}
+                    ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
                     renderItem={({ item }) => (
                       <ServiceCenterCard 
                         {...item} 
                         id={item.centerId || item.id}
                         calculatedDistance={item.calculatedDistance}
+                        hideServedFor={true}
                       />
                     )}
                   />

@@ -34,7 +34,7 @@ export default function VehicleDetailsScreen() {
 
         // Fetch bookings
         const bookings = await bookingService.getBookingsByCustomer(authUser.userId);
-        const vehicleBookings = bookings.filter(b => b.vehicleId === id);
+        const vehicleBookings = bookings.filter(b => b.vehicleId === id && b.status !== 'PENDING_PAYMENT');
         setVehicleHistory(vehicleBookings);
       } catch (e) {
         console.error('Error fetching vehicle details', e);

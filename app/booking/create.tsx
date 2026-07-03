@@ -126,7 +126,9 @@ export default function SelectScheduleScreen() {
     if (ampm === 'AM' && hoursNum === 12) hoursNum = 0;
     
     const backendFormat = `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
-    const isAvailable = availableSlots.includes(backendFormat);
+    
+    // Backend returns "08:00-09:00", so we check if any slot starts with our time
+    const isAvailable = availableSlots.some(slot => slot.startsWith(backendFormat));
     
     return {
       id: time,

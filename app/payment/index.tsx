@@ -30,10 +30,12 @@ export default function InitialPaymentScreen() {
     price: parseFloat(priceParam as string) || 0 
   };
   
+  const mockVehicle = MOCK_VEHICLES.find(v => v.id === vehicleId);
+  
   const vehicle = { 
-    name: vehicleName as string || 'Your Vehicle', 
-    plate: vehiclePlate as string || '', 
-    image: require('../../assets/images/honda_vezel_silver.jpg') 
+    name: vehicleName as string || mockVehicle?.name || 'Your Vehicle', 
+    plate: vehiclePlate as string || mockVehicle?.plate || '', 
+    image: mockVehicle?.image || require('../../assets/images/honda_vezel_silver.jpg') 
   };
 
   // States

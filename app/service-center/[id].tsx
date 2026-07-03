@@ -156,6 +156,35 @@ export default function ServiceCenterDetails() {
           <StatusBadge openingHours={center.openingHours} />
         </View>
 
+        {/* Vehicles Served */}
+        <View style={styles.sectionTitleContainer}>
+          <Text style={styles.sectionTitle}>Served For</Text>
+        </View>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.vehiclesScrollView}
+          contentContainerStyle={styles.vehiclesChipsWrapper}
+        >
+          {(center.supportedVehicleBrands && center.supportedVehicleBrands.length > 0 
+            ? center.supportedVehicleBrands 
+            : ['Car', 'Van', 'Bike']).map((v, i) => {
+              const type = v.toLowerCase();
+              let iconName: any = 'car-outline';
+              if(type.includes('bike') || type.includes('motor')) iconName = 'bicycle-outline';
+              if(type.includes('van') || type.includes('bus') || type.includes('lorry')) iconName = 'bus-outline';
+              
+              return (
+                <View key={i} style={styles.vehicleChipBadge}>
+                  <Ionicons name={iconName} size={14} color="#E84E0F" />
+                  <Text style={styles.vehicleChipBadgeText}>
+                    {v.charAt(0).toUpperCase() + v.slice(1).toLowerCase()}
+                  </Text>
+                </View>
+              );
+          })}
+        </ScrollView>
+
         {/* Section Title */}
         <View style={styles.sectionTitleContainer}>
           <Text style={styles.sectionTitle}>Available Packages</Text>
@@ -212,51 +241,60 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
 
   return (
     <View style={styles.pkgCard}>
-      <Image 
-        source={{ uri: pkg.imageUrl || packagePlaceholder }} 
-        style={styles.pkgImage} 
-      />
+      <View style={styles.pkgImageWrapper}>
+        <Image 
+          source={{ uri: pkg.imageUrl || packagePlaceholder }} 
+          style={styles.pkgImage} 
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.6)']}
+          style={styles.imageGradient}
+        />
+        <View style={styles.priceBadge}>
+          <Text style={styles.priceBadgeText}>LKR {price.toLocaleString()}</Text>
+        </View>
+        <View style={styles.durationBadge}>
+          <Ionicons name="time" size={12} color="#fff" />
+          <Text style={styles.durationBadgeText}>{durationText}</Text>
+        </View>
+      </View>
       
       <View style={styles.pkgBody}>
-        <View style={styles.pkgHeaderRow}>
-          <Text style={styles.pkgName}>{pkg.name}</Text>
-          <View style={styles.priceContainer}>
-            <Text style={styles.pkgPrice}>LKR {price.toLocaleString()}</Text>
-            <Text style={styles.estimatedText}>Estimated</Text>
-          </View>
-        </View>
-
-        <View style={styles.durationRow}>
-          <Ionicons name="time-outline" size={16} color="#4B5563" />
-          <Text style={styles.durationText}>{durationText}</Text>
-        </View>
+        <Text style={styles.pkgName}>{pkg.name}</Text>
+        <Text style={styles.pkgSubtitle}>Premium Service Package</Text>
 
         <View style={styles.featuresList}>
           {features.slice(0, showAllFeatures ? features.length : 3).map((f, i) => (
             <View key={i} style={styles.featureItem}>
               <View style={styles.checkIcon}>
-                <Ionicons name="checkmark" size={12} color="#fff" />
+                <Ionicons name="checkmark-sharp" size={14} color="#FFF" />
               </View>
               <Text style={styles.featureText}>{f}</Text>
             </View>
           ))}
-          {!showAllFeatures && features.length > 3 && (
-            <TouchableOpacity onPress={() => setShowAllFeatures(true)}>
-              <Text style={styles.moreText}>+{features.length - 3} more</Text>
-            </TouchableOpacity>
-          )}
-          {showAllFeatures && features.length > 3 && (
-            <TouchableOpacity onPress={() => setShowAllFeatures(false)}>
-              <Text style={styles.moreText}>Show less</Text>
-            </TouchableOpacity>
-          )}
+          
+          <TouchableOpacity 
+            style={styles.moreToggleBtn}
+            onPress={() => setShowAllFeatures(!showAllFeatures)}
+          >
+            <Text style={styles.moreText}>
+              {showAllFeatures ? 'Show less' : `+${Math.max(0, features.length - 3)} more features`}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity 
-          style={styles.bookBtn}
           onPress={() => router.push({ pathname: '/booking/create', params: { centerId, packageId: pkg.packageId || '', packageName: pkg.name } })}
         >
-          <Text style={styles.bookBtnText}>Select Package</Text>
+          <LinearGradient
+            colors={['#E84E0F', '#F97316']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.bookBtn}
+          >
+            <Text style={styles.bookBtnText}>Select Package</Text>
+            <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 8 }} />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -379,103 +417,157 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
-  packagesList: {
-    paddingHorizontal: 16,
+  vehiclesScrollView: {
+    flexGrow: 0,
+    marginBottom: 24,
   },
-  pkgCard: {
-    backgroundColor: '#FFF5F0', // Cream background
-    borderRadius: 24,
-    marginBottom: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#FFE4D6',
-  },
-  pkgImage: {
-    width: '100%',
-    height: 130,
-    backgroundColor: '#E5E7EB',
-  },
-  pkgBody: {
-    padding: 16,
-  },
-  pkgHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  pkgName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    flex: 1,
-    marginRight: 12,
-  },
-  priceContainer: {
-    alignItems: 'flex-end',
-  },
-  pkgPrice: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F97316',
-  },
-  estimatedText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  durationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-  },
-  durationText: {
-    fontSize: 13,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
-  featuresList: {
-    marginTop: 12,
-    gap: 8,
-  },
-  featureItem: {
+  vehiclesChipsWrapper: {
+    paddingHorizontal: 20,
+    paddingRight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+  vehicleChipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFE4D6',
+    gap: 6,
+  },
+  vehicleChipBadgeText: {
+    fontSize: 14,
+    color: '#E84E0F',
+    fontWeight: '700',
+  },
+  packagesList: {
+    paddingHorizontal: 20,
+  },
+  pkgCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  pkgImageWrapper: {
+    position: 'relative',
+    height: 160,
+    width: '100%',
+  },
+  pkgImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '60%',
+  },
+  priceBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  priceBadgeText: {
+    color: '#E84E0F',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  durationBadge: {
+    position: 'absolute',
+    bottom: 12,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  durationBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pkgBody: {
+    padding: 20,
+  },
+  pkgName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  pkgSubtitle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  featuresList: {
+    marginTop: 16,
+    gap: 12,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   checkIcon: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#111827',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
   },
   featureText: {
-    fontSize: 13,
-    color: '#1F2937',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  moreToggleBtn: {
+    marginTop: 4,
   },
   moreText: {
     fontSize: 14,
-    color: '#F97316',
+    color: '#E84E0F',
     fontWeight: '700',
-    marginLeft: 28,
-    marginTop: 2,
   },
   bookBtn: {
-    marginTop: 16,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#F97316',
-    borderRadius: 12,
-    paddingVertical: 10,
+    marginTop: 24,
+    flexDirection: 'row',
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   bookBtnText: {
-    color: '#111827',
-    fontSize: 15,
-    fontWeight: '700',
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   emptyState: {
     alignItems: 'center',
