@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.removeItem('token');
       setUser(null);
       setIsAuthenticated(false);
+      setError(null);
     } catch (e) {
       console.error('Logout failed', e);
     } finally {

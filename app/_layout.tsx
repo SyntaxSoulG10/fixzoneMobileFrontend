@@ -11,6 +11,7 @@ import { UserProvider } from "../context/UserContext";
 import { BookingProvider } from "../context/BookingContext";
 import Toast, { BaseToast } from 'react-native-toast-message';
 import NotificationPoller from '../components/NotificationPoller';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 const toastConfig = {
   info: (props: any) => (
@@ -81,14 +82,16 @@ function RootLayoutNav() {
 
 export default function Layout() {
   return (
-    <AuthProvider>
-      <UserProvider>
-        <BookingProvider>
-          <RootLayoutNav />
-          <NotificationPoller />
-          <Toast config={toastConfig} />
-        </BookingProvider>
-      </UserProvider>
-    </AuthProvider>
+    <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}>
+      <AuthProvider>
+        <UserProvider>
+          <BookingProvider>
+            <RootLayoutNav />
+            <NotificationPoller />
+            <Toast config={toastConfig} />
+          </BookingProvider>
+        </UserProvider>
+      </AuthProvider>
+    </StripeProvider>
   );
 }
