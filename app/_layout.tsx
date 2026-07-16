@@ -33,7 +33,7 @@ const toastConfig = {
 };
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -41,13 +41,19 @@ function RootLayoutNav() {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const isVerifyScreen = segments.join('/') === '(auth)/verify-otp';
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace("/(auth)/login");
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace("/(tabs)");
+    } else if (isAuthenticated) {
+      if (!user?.emailVerified && !isVerifyScreen) {
+        // Redirect to verification screen if not verified
+        router.replace({ pathname: "/(auth)/verify-otp", params: { email: user?.email } });
+      } else if (user?.emailVerified && inAuthGroup) {
+        router.replace("/(tabs)");
+      }
     }
-  }, [isAuthenticated, segments, isLoading]);
+  }, [isAuthenticated, user?.emailVerified, segments, isLoading]);
 
   if (isLoading) {
     return (

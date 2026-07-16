@@ -13,6 +13,7 @@ export interface LoginResponse {
   fullName: string;
   profilePictureUrl?: string;
   phone?: string;
+  emailVerified: boolean;
 }
 
 export interface RegisterRequest {
@@ -48,6 +49,18 @@ export const authService = {
     return request<{ message: string }>(`/customer/profile`, {
       method: 'PUT',
       body: JSON.stringify({ firstName, secondName, phoneNumber: phone }),
+    });
+  },
+  verifyOtp: async (email: string, otpCode: string): Promise<{ message: string }> => {
+    return request<{ message: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, otpCode }),
+    });
+  },
+  resendOtp: async (email: string): Promise<{ message: string }> => {
+    return request<{ message: string }>('/auth/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
   },
 };
