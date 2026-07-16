@@ -84,13 +84,14 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    if (!authUser?.userId) return;
     if (userLocation) {
       fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude);
     } else if (userLocation === null && !isLocationLoading) {
       // If location denied or unavailable, fetch all centers instead of nearby
       // (Or we can just show empty / fallback message)
     }
-  }, [userLocation, fetchNearbyCenters]);
+  }, [userLocation, fetchNearbyCenters, authUser?.userId]);
 
   const fetchTrustedCenters = useCallback(async () => {
     if (!authUser?.userId) return;
@@ -147,10 +148,10 @@ export default function HomeScreen() {
     useCallback(() => {
       fetchVehicles();
       fetchTrustedCenters();
-      if (userLocation) {
+      if (authUser?.userId && userLocation) {
         fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude);
       }
-    }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters])
+    }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters, authUser?.userId])
   );
 
   const onRefresh = useCallback(async () => {
@@ -158,10 +159,10 @@ export default function HomeScreen() {
     await Promise.all([
       fetchVehicles(),
       fetchTrustedCenters(),
-      userLocation ? fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude) : Promise.resolve()
+      (authUser?.userId && userLocation) ? fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude) : Promise.resolve()
     ]);
     setIsRefreshing(false);
-  }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters]);
+  }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters, authUser?.userId]);
 
   const router = useRouter();
 

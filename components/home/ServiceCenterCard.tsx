@@ -55,7 +55,8 @@ export default function ServiceCenterCard({
   const renderVehicleChip = (vType: VehicleType | string, index: number) => {
     return (
       <View key={`${vType}-${index}`} style={styles.vehicleChip}>
-        <Text style={styles.vehicleChipText}>
+        <View style={styles.bulletPoint} />
+        <Text style={styles.vehicleChipText} numberOfLines={1}>
           {vType.charAt(0).toUpperCase() + vType.slice(1).toLowerCase()}
         </Text>
       </View>
@@ -202,6 +203,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 4,
   },
+  servedForLabel: {
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  compactChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  vehicleChip: {
+    width: '48%', // two-column layout
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bulletPoint: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E84E0F',
+    marginRight: 6,
+  },
+  vehicleChipText: {
+    color: '#4B5563',
+    fontSize: 11,
+    fontWeight: '500',
+  },
 
   // Premium Styles (High Fidelity)
   premiumCard: {
@@ -219,7 +250,7 @@ const styles = StyleSheet.create({
   },
   premiumImageContainer: {
     width: '100%',
-    height: 160,
+    height: 190,
     position: 'relative',
   },
   premiumImage: {
@@ -231,26 +262,26 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '70%',
+    height: '60%',
   },
   statusBadgeOverlay: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    paddingHorizontal: 10,
+    top: 12,
+    left: 12,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
     color: '#FFF',
     letterSpacing: 0.5,
   },
   premiumPriceBadge: {
     position: 'absolute',
-    bottom: 68,
-    right: 8,
+    bottom: 48, // Adjusted for the new marginTop of info container
+    right: 12,
     alignItems: 'flex-end',
   },
   premiumPriceLabel: {
@@ -265,10 +296,10 @@ const styles = StyleSheet.create({
   },
   premiumInfoContainer: {
     paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 16,
+    paddingBottom: 10,
+    paddingTop: 12,
     backgroundColor: '#FFFFFF',
-    marginTop: -60,
+    marginTop: -40, // Shows more image
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
@@ -276,7 +307,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   premiumName: {
     fontSize: 20,
@@ -287,25 +318,19 @@ const styles = StyleSheet.create({
   premiumLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   premiumLocationText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#E84E0F',
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: '700',
   },
   premiumVehiclesSection: {
     backgroundColor: '#F9FAFB',
-    padding: 8,
+    padding: 6,
     borderRadius: 8,
-    marginBottom: 12,
-  },
-  servedForLabel: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   premiumVehicleChips: {
     flexDirection: 'row',
@@ -313,16 +338,16 @@ const styles = StyleSheet.create({
   },
   detailsButton: {
     backgroundColor: '#E84E0F',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   detailsButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
   },
 });

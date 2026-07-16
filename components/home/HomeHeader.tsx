@@ -22,6 +22,7 @@ export default function HomeHeader() {
   useFocusEffect(
     useCallback(() => {
       const fetchUnreadStatus = async () => {
+        if (!authUser?.userId) return;
         try {
           const notifications = await notificationService.getNotifications();
           const unread = notifications.some(n => !n.isRead);
@@ -31,7 +32,7 @@ export default function HomeHeader() {
         }
       };
       fetchUnreadStatus();
-    }, [])
+    }, [authUser?.userId])
   );
 
   const fullName = authUser?.fullName || user.name;

@@ -9,6 +9,7 @@ import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../..
 import StatusBadge from '../../components/ui/StatusBadge';
 import * as Clipboard from 'expo-clipboard';
 import { openDirections } from '../../utils/location_utils';
+import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
 
@@ -202,18 +203,24 @@ export default function ServiceCenterDetails() {
         )}
 
         {/* Packages List */}
-        <View 
-          style={[styles.packagesList, center.status !== 'APPROVED' && { opacity: 0.5 }]} 
-          pointerEvents={center.status !== 'APPROVED' ? 'none' : 'auto'}
-        >
-          {center.servicePackages && center.servicePackages.length > 0 ? (
-            center.servicePackages.map(pkg => <PackageCard key={pkg.packageId || pkg.name} pkg={pkg} centerId={center.centerId} />)
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No packages available for this center.</Text>
-            </View>
+        <View style={{ position: 'relative' }}>
+          <View 
+            style={styles.packagesList} 
+            pointerEvents={center.status !== 'APPROVED' ? 'none' : 'auto'}
+          >
+            {center.servicePackages && center.servicePackages.length > 0 ? (
+              center.servicePackages.map(pkg => <PackageCard key={pkg.packageId || pkg.name} pkg={pkg} centerId={center.centerId} />)
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No packages available for this center.</Text>
+              </View>
+            )}
+            <View style={{ height: 40 }} />
+          </View>
+
+          {center.status !== 'APPROVED' && center.servicePackages && center.servicePackages.length > 0 && (
+            <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
           )}
-          <View style={{ height: 40 }} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -273,14 +280,16 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
             </View>
           ))}
           
-          <TouchableOpacity 
-            style={styles.moreToggleBtn}
-            onPress={() => setShowAllFeatures(!showAllFeatures)}
-          >
-            <Text style={styles.moreText}>
-              {showAllFeatures ? 'Show less' : `+${Math.max(0, features.length - 3)} more features`}
-            </Text>
-          </TouchableOpacity>
+          {features.length > 3 && (
+            <TouchableOpacity 
+              style={styles.moreToggleBtn}
+              onPress={() => setShowAllFeatures(!showAllFeatures)}
+            >
+              <Text style={styles.moreText}>
+                {showAllFeatures ? 'Show less' : `+${features.length - 3} more features`}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity 
