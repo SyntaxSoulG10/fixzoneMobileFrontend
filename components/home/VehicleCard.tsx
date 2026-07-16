@@ -90,14 +90,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   detailsContainer: {
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     backgroundColor: 'rgba(229, 231, 235, 0.5)',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   vehicleInfo: {
     flex: 1,

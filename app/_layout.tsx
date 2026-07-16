@@ -10,7 +10,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { UserProvider } from "../context/UserContext";
 import { BookingProvider } from "../context/BookingContext";
 import Toast, { BaseToast } from 'react-native-toast-message';
-import NotificationPoller from '../components/NotificationPoller';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
 const toastConfig = {
@@ -69,9 +68,9 @@ function RootLayoutNav() {
           },
         }}
       >
+        <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="(tabs)" options={{ drawerLabel: 'Home' }} />
         <Drawer.Screen name="(auth)" options={{ drawerItemStyle: { display: 'none' } }} />
-        <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="service-center/[id]" options={{ drawerItemStyle: { display: 'none' } }} />
       </Drawer>
     </GestureHandlerRootView>
@@ -87,7 +86,6 @@ export default function Layout() {
         <UserProvider>
           <BookingProvider>
             <RootLayoutNav />
-            <NotificationPoller />
             <Toast config={toastConfig} />
           </BookingProvider>
         </UserProvider>

@@ -107,7 +107,7 @@ export default function VehiclesScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
@@ -122,11 +122,50 @@ export default function VehiclesScreen() {
 
   const openModal = (vehicle?: VehicleResponse) => {
     if (vehicle) {
+      const hasPending = pendingBookings.some(b => b.vehicleId === vehicle.id);
+      
+      if (hasPending) {
+        Alert.alert(
+          'Cannot Edit',
+          'You have a service to go for this vehicle. Please complete or cancel the service first.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       setEditingVehicle(vehicle);
-      setVType(vehicle.vehicleType || 'Car'); 
-      setBrand(vehicle.brand || '');
-      setCustomBrand('');
-      setCustomVType('');
+      
+      // Normalize vehicleType
+      let loadedType = 'Car';
+      if (vehicle.vehicleType) {
+        const vt = vehicle.vehicleType.toLowerCase();
+        if (vt.includes('bike') || vt.includes('motor')) loadedType = 'Bike';
+        else if (vt.includes('wheel') || vt.includes('tuk')) loadedType = 'Three Wheels';
+        else if (vt.includes('van')) loadedType = 'Van';
+        else if (vt.includes('lorry') || vt.includes('truck')) loadedType = 'Lorry';
+        else if (vt.includes('other')) loadedType = 'Others';
+      }
+      setVType(loadedType);
+
+      // Normalize brand
+      let loadedBrand = 'Other';
+      if (vehicle.brand && brandMap[loadedType]) {
+        const vb = vehicle.brand.toLowerCase();
+        const matched = brandMap[loadedType].find(b => b.toLowerCase() === vb);
+        if (matched) {
+          loadedBrand = matched;
+        } else {
+          setCustomBrand(vehicle.brand);
+        }
+      }
+      setBrand(loadedBrand);
+
+      if (loadedType === 'Others') {
+        setCustomVType(vehicle.vehicleType || '');
+      } else {
+        setCustomVType('');
+      }
+
       setModel(vehicle.model || '');
       setPlate(vehicle.plateNumber || '');
       setVehicleImage(vehicle.imageUrl || null);
