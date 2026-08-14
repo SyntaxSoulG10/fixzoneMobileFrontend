@@ -94,7 +94,7 @@ export default function ServiceCenterCard({
             <>
               <Text style={styles.servedForLabel}>Served for :</Text>
               <View style={styles.compactChipRow}>
-                {(supportedVehicleBrands.length > 0 ? supportedVehicleBrands : supportedVehicles).map((vType, index) => renderVehicleChip(vType as VehicleType, index))}
+                {((supportedVehicleBrands && supportedVehicleBrands.length > 0) ? supportedVehicleBrands : (supportedVehicles || [])).map((vType, index) => renderVehicleChip(vType as VehicleType, index))}
               </View>
             </>
           )}
@@ -150,7 +150,7 @@ export default function ServiceCenterCard({
         <View style={styles.premiumVehiclesSection}>
           <Text style={styles.servedForLabel}>Served for:</Text>
           <View style={styles.premiumVehicleChips}>
-            {(supportedVehicleBrands.length > 0 ? supportedVehicleBrands : supportedVehicles).map((vType, index, arr) => renderVehicleText(vType as VehicleType, index, index === arr.length - 1))}
+            {((supportedVehicleBrands && supportedVehicleBrands.length > 0) ? supportedVehicleBrands : (supportedVehicles || [])).map((vType, index, arr) => renderVehicleText(vType as VehicleType, index, index === arr.length - 1))}
           </View>
         </View>
 
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   premiumPriceValue: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#ffffff',
   },
   premiumInfoContainer: {
     paddingHorizontal: 12,

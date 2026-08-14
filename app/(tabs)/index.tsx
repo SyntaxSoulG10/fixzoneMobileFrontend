@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,18 +8,16 @@ import SearchBar from '../../components/home/SearchBar';
 import PromoBanner from '../../components/home/PromoBanner';
 import VehicleCard from '../../components/home/VehicleCard';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
-import NoResults from '../../components/home/NoResults';
 import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
 import { useBookings } from '../../context/BookingContext';
 import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService } from '../../services/bookingService';
 import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
-import { MOCK_SERVICE_CENTERS, ServiceCenter } from '../../constants/mock_data';
-import { filterServiceCenters, mockAiSearch, AiFilters } from '../../utils/search_utils';
 import { getDaysSinceService } from '../../utils/date_utils';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../../utils/location_utils';
+import { applyFilters, extractFilterOptions } from '../../utils/filter_utils';
 
 export default function HomeScreen() {
   const { user: authUser } = useAuth();
@@ -37,12 +35,6 @@ export default function HomeScreen() {
     availability: '',
   });
 
-  // Search State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<ServiceCenter[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const hasFetchedVehicles = useRef(false);
@@ -169,8 +161,6 @@ export default function HomeScreen() {
   const handleApplyFilters = (newFilters: FilterState) => {
     setFilters(newFilters);
     setIsFilterVisible(false);
-    // Logic to filter the list could go here
-    console.log('Applied Filters:', newFilters);
   };
 
   const handleResetFilters = () => {
@@ -182,39 +172,29 @@ export default function HomeScreen() {
     });
   };
 
-  // 1. Debounce logic
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // 2. Search Execution Logic
-  useEffect(() => {
-    const performSearch = async () => {
-      if (!debouncedQuery.trim()) {
-        setSearchResults([]);
-        setIsSearching(false);
-        return;
+  // Compute dynamic filters based on real data
+  const allHomeCenters = useMemo(() => {
+    const combined = [...nearbyCenters];
+    trustedCenters.forEach(tc => {
+      if (!combined.some(c => c.centerId === tc.centerId)) {
+        combined.push(tc);
       }
+    });
+    return combined;
+  }, [nearbyCenters, trustedCenters]);
 
-      setIsSearching(true);
-      const isComplex = debouncedQuery.trim().split(' ').length > 1;
-      
-      let aiFilters: AiFilters | undefined;
-      if (isComplex) {
-        setIsAiProcessing(true);
-        aiFilters = await mockAiSearch(debouncedQuery);
-        setIsAiProcessing(false);
-      }
+  const { availableVehicles, availableServices } = useMemo(() => {
+    return extractFilterOptions(allHomeCenters);
+  }, [allHomeCenters]);
 
-      const results = filterServiceCenters(debouncedQuery, MOCK_SERVICE_CENTERS, aiFilters);
-      setSearchResults(results);
-    };
+  // Filter nearby & trusted lists
+  const filteredNearbyCenters = useMemo(() => {
+    return applyFilters(nearbyCenters, filters, '', userLocation);
+  }, [nearbyCenters, filters, userLocation]);
 
-    performSearch();
-  }, [debouncedQuery]);
+  const filteredTrustedCenters = useMemo(() => {
+    return applyFilters(trustedCenters, filters, '', userLocation);
+  }, [trustedCenters, filters, userLocation]);
 
   const getCentersWithDistance = <T extends any>(centers: T[]): T[] => {
     if (!userLocation) return centers;
@@ -237,8 +217,10 @@ export default function HomeScreen() {
     });
   };
 
-  const sortedSearchResults = getCentersWithDistance(searchResults);
-  const sortedTrustedCenters = getCentersWithDistance(trustedCenters);
+  const sortedTrustedCenters = getCentersWithDistance(filteredTrustedCenters);
+  const sortedNearbyCenters = useMemo(() => {
+    return getCentersWithDistance(filteredNearbyCenters);
+  }, [filteredNearbyCenters, userLocation]);
   
   // Now nearbyCenters comes from the API and is already sorted by distance!
   return (
@@ -247,39 +229,18 @@ export default function HomeScreen() {
         <HomeHeader />
         <SearchBar 
           onFilterPress={() => setIsFilterVisible(true)} 
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+          value=""
+          onChangeText={() => {}}
+          onFocus={() => {
+            router.push({ pathname: '/book', params: { focus: 'true' } });
+          }}
         />
         <ScrollView 
           style={styles.flex1} 
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#E84E0F']} />}
         >
-          {isSearching ? (
-            <View style={styles.searchContainer}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>
-                  {isAiProcessing ? 'AI is analyzing...' : `Results for "${debouncedQuery}"`}
-                </Text>
-                {isAiProcessing && <ActivityIndicator color="#E84E0F" size="small" />}
-              </View>
-
-              {sortedSearchResults.length > 0 ? (
-                sortedSearchResults.map(center => (
-                  <ServiceCenterCard 
-                    key={`search-${center.id}`}
-                    {...center}
-                    variant="compact"
-                    calculatedDistance={center.calculatedDistance}
-                  />
-                ))
-              ) : !isAiProcessing ? (
-                <NoResults query={debouncedQuery} onReset={() => setSearchQuery('')} />
-              ) : null}
-            </View>
-          ) : (
-            <>
-              <PromoBanner pendingBookings={pendingBookings} />
+          <PromoBanner pendingBookings={pendingBookings} />
 
               {/* My Vehicles Section */}
               <View style={styles.vehiclesSection}>
@@ -388,24 +349,24 @@ export default function HomeScreen() {
                       <Text style={{ color: 'white', fontWeight: '600' }}>Retry</Text>
                     </TouchableOpacity>
                   </View>
-                ) : nearbyCenters.length > 0 ? (
-                  nearbyCenters.map((center: any) => (
+                ) : sortedNearbyCenters.length > 0 ? (
+                  sortedNearbyCenters.map((center: any) => (
                     <ServiceCenterCard 
                       key={`nearby-${center.centerId || center.id}`}
                       {...center}
                       id={center.centerId || center.id}
                       variant="compact"
-                      calculatedDistance={center.latitude && center.longitude && userLocation ? calculateDistance(userLocation.coords.latitude, userLocation.coords.longitude, center.latitude, center.longitude) : undefined}
+                      calculatedDistance={center.calculatedDistance}
                     />
                   ))
                 ) : (
                   <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
-                    {!userLocation ? "Location access needed to find nearby centers." : "No service centers found within 15 km."}
+                    {nearbyCenters.length > 0 
+                      ? "No service centers match your filters." 
+                      : (!userLocation ? "Location access needed to find nearby centers." : "No service centers found within 15 km.")}
                   </Text>
                 )}
               </View>
-            </>
-          )}
         </ScrollView>
 
         <FilterBottomSheet
@@ -414,6 +375,8 @@ export default function HomeScreen() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           initialFilters={filters}
+          availableVehicles={availableVehicles}
+          availableServices={availableServices}
         />
       </View>
     </TouchableWithoutFeedback>

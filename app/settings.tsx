@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,8 +35,78 @@ const SettingSection = ({ title, children }: { title: string, children: React.Re
   </View>
 );
 
+interface SettingItemData {
+  id: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  route?: string;
+}
+
+interface SettingSectionData {
+  id: string;
+  title: string;
+  items: SettingItemData[];
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const settingSections: SettingSectionData[] = [
+    {
+      id: 'account',
+      title: 'Account Settings',
+      items: [
+        { id: 'profile-edit', icon: 'person-outline', label: 'Profile Edit', route: '/profile' },
+        { id: 'password', icon: 'lock-closed-outline', label: 'Password', route: '/profile' },
+      ],
+    },
+    {
+      id: 'notifications',
+      title: 'Notification Preference',
+      items: [
+        { id: 'push-notif', icon: 'notifications-outline', label: 'Push Notification', route: '/notifications' },
+        { id: 'sms-notif', icon: 'chatbubble-outline', label: 'SMS Notification' },
+      ],
+    },
+    {
+      id: 'security',
+      title: 'Security & Privacy',
+      items: [
+        { id: 'privacy', icon: 'shield-checkmark-outline', label: 'Privacy' },
+      ],
+    },
+    {
+      id: 'preferences',
+      title: 'Preferences',
+      items: [
+        { id: 'language', icon: 'globe-outline', label: 'Language' },
+      ],
+    },
+  ];
+
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) return settingSections;
+    const query = searchQuery.toLowerCase().trim();
+
+    return settingSections.map(section => {
+      const sectionTitleMatches = section.title.toLowerCase().includes(query);
+      const matchingItems = section.items.filter(
+        item => sectionTitleMatches || item.label.toLowerCase().includes(query)
+      );
+
+      return {
+        ...section,
+        items: matchingItems,
+      };
+    }).filter(section => section.items.length > 0);
+  }, [searchQuery]);
+
+  const handleItemPress = (item: SettingItemData) => {
+    if (item.route) {
+      router.push(item.route as any);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -57,27 +127,40 @@ export default function SettingsScreen() {
             placeholder="Search Settings...." 
             placeholderTextColor="#9CA3AF"
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Sections */}
-        <SettingSection title="Frequently Asked Questions">
-          <SettingItem icon="person-outline" label="Profile Edit" />
-          <SettingItem icon="lock-closed-outline" label="Password" isLast />
-        </SettingSection>
-
-        <SettingSection title="Notification Preference">
-          <SettingItem icon="notifications-outline" label="Push Notification" />
-          <SettingItem icon="chatbubble-outline" label="SMS Notification" isLast />
-        </SettingSection>
-
-        <SettingSection title="Security & Privacy">
-          <SettingItem icon="shield-checkmark-outline" label="Privacy" isLast />
-        </SettingSection>
-
-        <SettingSection title="Preferences">
-          <SettingItem icon="globe-outline" label="Language" isLast />
-        </SettingSection>
+        {/* Filtered Sections */}
+        {filteredSections.length > 0 ? (
+          filteredSections.map(section => (
+            <SettingSection key={section.id} title={section.title}>
+              {section.items.map((item, index) => (
+                <SettingItem
+                  key={item.id}
+                  icon={item.icon}
+                  label={item.label}
+                  isLast={index === section.items.length - 1}
+                  onPress={() => handleItemPress(item)}
+                />
+              ))}
+            </SettingSection>
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={48} color="#D1D5DB" />
+            <Text style={styles.emptyTitle}>No settings found</Text>
+            <Text style={styles.emptySubtitle}>
+              We couldn&apos;t find any setting matching &quot;{searchQuery}&quot;
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -169,5 +252,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });

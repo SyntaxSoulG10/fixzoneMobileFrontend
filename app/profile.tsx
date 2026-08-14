@@ -204,6 +204,7 @@ export default function ProfileScreen() {
             error={mobileError}
             keyboardType="phone-pad"
             leftIcon="call-outline"
+            editable={false} // Phone number is not updatable
           />
           <AppInput
             label="Email Address"

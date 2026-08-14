@@ -16,15 +16,7 @@ import AppButton from '../ui/AppButton';
 
 const { height } = Dimensions.get('window');
 
-const DISTANCE_OPTIONS = ['Nearby', '2km', '5km', '10km'];
-const VEHICLE_TYPES = ['Car', 'Bike', 'Van', 'Lorry'];
-const SERVICE_TYPES = [
-  'General Service',
-  'Engine Repair',
-  'Electrical',
-  'Tire Service',
-  'Emergency Service',
-];
+const DISTANCE_OPTIONS = ['Nearby (5km)', '15km', '20km', '25km'];
 const AVAILABILITY_OPTIONS = ['Open Now', '24/7', 'Available Today'];
 
 interface FilterBottomSheetProps {
@@ -33,6 +25,8 @@ interface FilterBottomSheetProps {
   onApply: (filters: FilterState) => void;
   onReset: () => void;
   initialFilters: FilterState;
+  availableVehicles?: string[];
+  availableServices?: string[];
 }
 
 export interface FilterState {
@@ -48,6 +42,8 @@ export default function FilterBottomSheet({
   onApply,
   onReset,
   initialFilters,
+  availableVehicles = ['Car', 'Bike', 'Van', 'Lorry'], // Fallbacks
+  availableServices = ['General Service', 'Engine Repair', 'Electrical', 'Tire Service'], // Fallbacks
 }: FilterBottomSheetProps) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const insets = useSafeAreaInsets();
@@ -124,20 +120,24 @@ export default function FilterBottomSheet({
               </View>
 
               {/* Vehicle Type Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Vehicle Type</Text>
-                <View style={styles.chipGroup}>
-                  {VEHICLE_TYPES.map((option) => renderChip('vehicleType', option))}
+              {availableVehicles.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Vehicle Type</Text>
+                  <View style={styles.chipGroup}>
+                    {availableVehicles.map((option) => renderChip('vehicleType', option))}
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Service Type Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Service Type</Text>
-                <View style={styles.chipGroup}>
-                  {SERVICE_TYPES.map((option) => renderChip('serviceType', option))}
+              {availableServices.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Service Type</Text>
+                  <View style={styles.chipGroup}>
+                    {availableServices.map((option) => renderChip('serviceType', option))}
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Availability Section */}
               <View style={styles.section}>
@@ -193,6 +193,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
+    maxHeight: '100%',
+    flexShrink: 1,
   },
   header: {
     alignItems: 'center',
@@ -220,15 +222,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
+    flexShrink: 1,
   },
   section: {
-    marginTop: 24,
+    marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   chipGroup: {
     flexDirection: 'row',
@@ -236,9 +239,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
   },
   chipUnselected: {
@@ -250,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   chipText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   chipTextUnselected: {

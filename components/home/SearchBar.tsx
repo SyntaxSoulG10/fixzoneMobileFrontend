@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
@@ -7,19 +7,27 @@ interface SearchBarProps {
   onFilterPress?: () => void;
   value: string;
   onChangeText: (text: string) => void;
+  onFocus?: () => void;
+  autoFocus?: boolean;
 }
 
-export default function SearchBar({ onFilterPress, value, onChangeText }: SearchBarProps) {
+const SearchBar = forwardRef<TextInput, SearchBarProps>(function SearchBar(
+  { onFilterPress, value, onChangeText, onFocus, autoFocus },
+  ref
+) {
   return (
     <View style={styles.container}>
       <View style={styles.searchSection}>
         <Ionicons name="search" size={20} color="#9CA3AF" />
         <TextInput 
+          ref={ref}
           placeholder="Search Service Station ..."
           style={styles.input}
           placeholderTextColor="#9CA3AF"
           value={value}
           onChangeText={onChangeText}
+          onFocus={onFocus}
+          autoFocus={autoFocus}
         />
         {value.length > 0 && (
           <TouchableOpacity onPress={() => onChangeText('')} style={styles.clearButton}>
@@ -32,7 +40,9 @@ export default function SearchBar({ onFilterPress, value, onChangeText }: Search
       </View>
     </View>
   );
-}
+});
+
+export default SearchBar;
 
 const styles = StyleSheet.create({
   container: {

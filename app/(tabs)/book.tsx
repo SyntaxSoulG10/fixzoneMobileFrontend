@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard, ActivityIndicator, TextInput } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import HomeHeader from '../../components/home/HomeHeader';
 import SearchBar from '../../components/home/SearchBar';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
 import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
+import NoResults from '../../components/home/NoResults';
 import { COLORS } from '../../constants/colors';
 import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../../utils/location_utils';
+import { applyFilters, extractFilterOptions } from '../../utils/filter_utils';
 
 export default function BookScreen() {
+  const { focus, search } = useLocalSearchParams<{ focus?: string; search?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [serviceCenters, setServiceCenters] = useState<ServiceCenterDTO[]>([]);
@@ -21,6 +25,8 @@ export default function BookScreen() {
     serviceType: '',
     availability: '',
   });
+
+  const searchBarRef = useRef<TextInput>(null);
 
   const handleApplyFilters = (newFilters: FilterState) => {
     setFilters(newFilters);
@@ -52,6 +58,18 @@ export default function BookScreen() {
     fetchCenters();
   }, []);
 
+  useEffect(() => {
+    if (search !== undefined) {
+      setSearchQuery(search);
+    }
+    if (focus === 'true') {
+      const timer = setTimeout(() => {
+        searchBarRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [focus, search]);
+
   const fetchCenters = async () => {
     try {
       setIsLoading(true);
@@ -63,6 +81,16 @@ export default function BookScreen() {
       setIsLoading(false);
     }
   };
+
+  // Extract dynamic filters
+  const { availableVehicles, availableServices } = useMemo(() => {
+    return extractFilterOptions(serviceCenters);
+  }, [serviceCenters]);
+
+  // Apply filters
+  const filteredServiceCenters = useMemo(() => {
+    return applyFilters(serviceCenters, filters, searchQuery, userLocation);
+  }, [serviceCenters, filters, searchQuery, userLocation]);
 
   const renderServiceCenter = ({ item }: { item: ServiceCenterDTO }) => {
     // Map DTO to Card Props
@@ -108,6 +136,7 @@ export default function BookScreen() {
         {/* Fixed Header and Search */}
         <HomeHeader />
         <SearchBar 
+          ref={searchBarRef}
           value={searchQuery}
           onChangeText={setSearchQuery}
           onFilterPress={() => setIsFilterVisible(true)} 
@@ -121,20 +150,29 @@ export default function BookScreen() {
           </View>
         ) : (
           <FlatList
-            data={serviceCenters}
+            data={filteredServiceCenters}
             keyExtractor={(item) => item.centerId}
             renderItem={renderServiceCenter}
-          contentContainerStyle={styles.listContent}
-          ListHeaderComponent={
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Service Centers</Text>
-                <Text style={styles.sectionSubtitle}>Handpicked for Quality assurance</Text>
+            contentContainerStyle={styles.listContent}
+            ListHeaderComponent={
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>Service Centers</Text>
+                  <Text style={styles.sectionSubtitle}>Handpicked for Quality assurance</Text>
+                </View>
               </View>
-            </View>
-          }
-          showsVerticalScrollIndicator={false}
-        />
+            }
+            ListEmptyComponent={
+              <NoResults 
+                query={searchQuery || 'selected filters'} 
+                onReset={() => {
+                  setSearchQuery('');
+                  handleResetFilters();
+                }} 
+              />
+            }
+            showsVerticalScrollIndicator={false}
+          />
         )}
 
         <FilterBottomSheet
@@ -143,6 +181,8 @@ export default function BookScreen() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           initialFilters={filters}
+          availableVehicles={availableVehicles}
+          availableServices={availableServices}
         />
       </View>
     </TouchableWithoutFeedback>

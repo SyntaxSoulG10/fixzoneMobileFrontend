@@ -125,7 +125,9 @@ export default function ServiceCenterDetails() {
           <View style={styles.heroTextContainer}>
             <Text style={styles.heroTitle}>{center.name}</Text>
             <Text style={styles.heroSubtitle}>
-              {center.address || 'Colombo 07'} 
+              {center.address 
+                ? center.address.split(',').slice(0, 4).join(',').trim() 
+                : 'Colombo'} 
               {distance ? `  |  ${distance} km away` : ''}
             </Text>
           </View>
