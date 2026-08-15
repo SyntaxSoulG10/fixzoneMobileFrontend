@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import ScreenContainer from '../components/ui/ScreenContainer';
 import { COLORS } from '../constants/colors';
 import { notificationService, NotificationDTO } from '../services/notificationService';
-import { ActivityIndicator } from 'react-native';
-
-const { width } = Dimensions.get('window');
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -25,7 +21,6 @@ export default function NotificationsScreen() {
     try {
       setIsLoading(true);
       const data = await notificationService.getNotifications();
-      // Sort newest first
       const sorted = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setNotifications(sorted);
     } catch (e) {
@@ -35,13 +30,23 @@ export default function NotificationsScreen() {
     }
   };
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'service': return { name: 'construct', color: '#3B82F6', bg: '#EFF6FF' };
-      case 'promo': return { name: 'megaphone', color: '#E84E0F', bg: '#FFF7ED' };
-      case 'alert': return { name: 'alert-circle', color: '#EF4444', bg: '#FEF2F2' };
-      default: return { name: 'notifications', color: '#6B7280', bg: '#F3F4F6' };
+  const getIcon = (notif: NotificationDTO) => {
+    const title = (notif.title || '').toLowerCase();
+    const type = (notif.type || '').toLowerCase();
+
+    if (title.includes('payment') || title.includes('paid')) {
+      return { name: 'checkmark-circle', color: '#F97316', bg: '#FFF7ED' };
     }
+    if (title.includes('booking') || title.includes('rescheduled') || type === 'booking') {
+      return { name: 'calendar', color: '#3B82F6', bg: '#EFF6FF' };
+    }
+    if (title.includes('account') || title.includes('activated') || title.includes('completed')) {
+      return { name: 'checkmark-circle', color: '#22C55E', bg: '#F0FDF4' };
+    }
+    if (type === 'alert' || title.includes('cancel') || title.includes('warning')) {
+      return { name: 'alert-circle', color: '#EF4444', bg: '#FEF2F2' };
+    }
+    return { name: 'notifications', color: '#6366F1', bg: '#EEF2FF' };
   };
 
   const markAllAsRead = async () => {
@@ -71,209 +76,242 @@ export default function NotificationsScreen() {
     markAsRead(id);
   };
 
+  const isToday = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+  };
+
+  const todayNotifs = notifications.filter(n => isToday(n.createdAt));
+  const earlierNotifs = notifications.filter(n => !isToday(n.createdAt));
+
+  const renderCard = (notif: NotificationDTO) => {
+    const iconData = getIcon(notif);
+    const isRead = notif.isRead;
+    const isExpanded = expandedIds.includes(notif.id);
+    const dateObj = new Date(notif.createdAt);
+    const displayDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+
+    return (
+      <TouchableOpacity 
+        key={notif.id} 
+        style={styles.notifCard}
+        onPress={() => toggleExpand(notif.id)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.cardHeaderRow}>
+          <View style={[styles.iconContainer, { backgroundColor: iconData.bg }]}>
+            <Ionicons name={iconData.name as any} size={22} color={iconData.color} />
+          </View>
+          
+          <View style={styles.notifContent}>
+            <Text style={styles.notifTitle} numberOfLines={1}>
+              {notif.title}
+            </Text>
+            
+            <Text 
+              style={styles.notifMessage}
+              numberOfLines={isExpanded ? undefined : 2}
+            >
+              {notif.message}
+            </Text>
+
+            <View style={styles.notifFooter}>
+              <Text style={styles.seeMoreText}>
+                {isExpanded ? 'See Less' : 'See More'}
+              </Text>
+              <Text style={styles.notifTime}>{displayDate}</Text>
+            </View>
+          </View>
+
+          {!isRead && <View style={styles.unreadDot} />}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <ScreenContainer scrollable={false}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerSide} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={28} color="#000" />
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity style={styles.headerSide} onPress={markAllAsRead}>
-          <Ionicons name="checkmark-done-outline" size={24} color={COLORS.primary} />
+        <TouchableOpacity style={styles.markReadButton} onPress={markAllAsRead}>
+          <Ionicons name="checkmark-done" size={24} color="#E84E0F" />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
+          <ActivityIndicator color="#E84E0F" style={{ marginTop: 40 }} />
         ) : notifications.length > 0 ? (
-          notifications.map((notif) => {
-            const iconData = getIcon(notif.type);
-            const isRead = notif.isRead;
-            // format date string if needed, or just use as-is
-            const displayTime = new Date(notif.createdAt).toLocaleDateString();
-            
-            return (
-              <TouchableOpacity 
-                key={notif.id} 
-                style={[styles.notifCard, !isRead && styles.unreadCard]}
-                onPress={() => toggleExpand(notif.id)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: iconData.bg }]}>
-                  <Ionicons name={iconData.name as any} size={22} color={iconData.color} />
-                </View>
-                
-                <View style={styles.notifContent}>
-                  <Text 
-                    style={[styles.notifTitle, !isRead && styles.unreadTitle]} 
-                    numberOfLines={1}
-                  >
-                    {notif.title}
-                  </Text>
-                  
-                  <Text 
-                    style={styles.notifMessage}
-                    numberOfLines={expandedIds.includes(notif.id) ? undefined : 2}
-                  >
-                    {notif.message}
-                  </Text>
-                  
-                  <View style={styles.notifFooter}>
-                    {notif.message.length > 60 && (
-                      <Text style={styles.seeMoreText}>
-                        {expandedIds.includes(notif.id) ? 'See Less' : 'See More'}
-                      </Text>
-                    )}
-                    <Text style={styles.notifTime}>{displayTime}</Text>
-                  </View>
-                </View>
+          <>
+            {todayNotifs.length > 0 && (
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionHeader}>TODAY</Text>
+                {todayNotifs.map(renderCard)}
+              </View>
+            )}
 
-                {!isRead && <View style={styles.unreadDot} />}
-              </TouchableOpacity>
-            );
-          })
+            {earlierNotifs.length > 0 && (
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionHeader}>EARLIER</Text>
+                {earlierNotifs.map(renderCard)}
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
+              <Ionicons name="notifications-off-outline" size={36} color="#94A3B8" />
             </View>
             <Text style={styles.emptyTitle}>All caught up!</Text>
-            <Text style={styles.emptySubtitle}>You don&apos;t have any notifications right now.</Text>
+            <Text style={styles.emptySubtitle}>You don't have any notifications right now.</Text>
           </View>
         )}
       </ScrollView>
-    </ScreenContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 25,
-    paddingBottom: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    paddingTop: 55,
+    paddingBottom: 16,
+    backgroundColor: '#F8FAFC',
   },
-  headerSide: {
-    width: 40,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+  backButton: {
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#000',
-    marginTop: -2,
+    color: '#0F172A',
+  },
+  markReadButton: {
+    padding: 4,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  notifCard: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 20,
+  sectionContainer: {
+    marginTop: 4,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    marginTop: 12,
     marginBottom: 12,
+    marginLeft: 4,
+  },
+  notifCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F1F5F9',
     position: 'relative',
-    alignItems: 'flex-start',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
     elevation: 2,
   },
-  unreadCard: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FED7AA',
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 15,
+    marginRight: 14,
   },
   notifContent: {
     flex: 1,
+    paddingRight: 12,
   },
   notifTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 6,
-  },
-  unreadTitle: {
-    color: '#111827',
+    fontSize: 15,
     fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  notifMessage: {
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 19,
+    fontWeight: '400',
   },
   notifFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
+  },
+  seeMoreText: {
+    fontSize: 13,
+    color: '#E84E0F',
+    fontWeight: '700',
   },
   notifTime: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: '#94A3B8',
     fontWeight: '600',
-    marginLeft: 'auto', // Pushes to right if no see more text
-  },
-  notifMessage: {
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
-    fontWeight: '500',
-  },
-  seeMoreText: {
-    fontSize: 12,
-    color: COLORS.primary,
-    fontWeight: '700',
-    marginTop: 4,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.primary,
-    marginLeft: 10,
-    marginTop: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#E84E0F',
+    position: 'absolute',
+    top: 2,
+    right: 2,
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 100,
+    marginTop: 120,
   },
   emptyIconCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F9FAFB',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
+    color: '#0F172A',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#94A3B8',
     textAlign: 'center',
     paddingHorizontal: 40,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

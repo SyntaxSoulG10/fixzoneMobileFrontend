@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
@@ -58,7 +58,7 @@ export default function SettingsScreen() {
       title: 'Account Settings',
       items: [
         { id: 'profile-edit', icon: 'person-outline', label: 'Profile Edit', route: '/profile' },
-        { id: 'password', icon: 'lock-closed-outline', label: 'Password', route: '/profile' },
+        { id: 'password', icon: 'lock-closed-outline', label: 'Change Password', route: '/change-password' },
       ],
     },
     {
@@ -66,14 +66,13 @@ export default function SettingsScreen() {
       title: 'Notification Preference',
       items: [
         { id: 'push-notif', icon: 'notifications-outline', label: 'Push Notification', route: '/notifications' },
-        { id: 'sms-notif', icon: 'chatbubble-outline', label: 'SMS Notification' },
       ],
     },
     {
       id: 'security',
       title: 'Security & Privacy',
       items: [
-        { id: 'privacy', icon: 'shield-checkmark-outline', label: 'Privacy' },
+        { id: 'privacy', icon: 'shield-checkmark-outline', label: 'Privacy Policy', route: '/privacy' },
       ],
     },
     {
@@ -103,6 +102,14 @@ export default function SettingsScreen() {
   }, [searchQuery]);
 
   const handleItemPress = (item: SettingItemData) => {
+    if (item.id === 'language') {
+      Alert.alert(
+        'Language Updates',
+        'New language updates are coming in the next update soon! Stay tuned. 🌐',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     if (item.route) {
       router.push(item.route as any);
     }

@@ -78,6 +78,8 @@ function RootLayoutNav() {
         <Drawer.Screen name="(tabs)" options={{ drawerLabel: 'Home' }} />
         <Drawer.Screen name="(auth)" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="service-center/[id]" options={{ drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="about" options={{ drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="support" options={{ drawerItemStyle: { display: 'none' } }} />
       </Drawer>
     </GestureHandlerRootView>
   );

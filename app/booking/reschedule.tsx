@@ -40,7 +40,7 @@ export default function RescheduleScreen() {
 
   const booking = bookings.find(b => b.bookingId === bookingId);
   const [userVehicles, setUserVehicles] = useState<VehicleResponse[]>([]);
-  
+
   React.useEffect(() => {
     const fetchVehicles = async () => {
       if (!authUser?.userId) return;
@@ -86,9 +86,9 @@ export default function RescheduleScreen() {
     if (isReady && selectedDate) {
       const allSlots = [...MORNING_SLOTS, ...AFTERNOON_SLOTS, ...EVENING_SLOTS];
       const timeStr = allSlots.find(t => t.id === selectedTime)?.time || '';
-      
+
       const newDateStr = selectedDate.toISOString().split('T')[0];
-      
+
       // Extract time in HH:mm format
       let hour = parseInt(timeStr.split(':')[0]);
       const ampm = timeStr.split(' ')[1];
@@ -113,7 +113,7 @@ export default function RescheduleScreen() {
     const weekDay = date.toLocaleString('default', { weekday: 'narrow' });
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={date.toISOString()}
         onPress={() => setSelectedDate(date)}
         style={[styles.dateItem, isSelected && styles.dateItemSelected]}
@@ -142,7 +142,7 @@ export default function RescheduleScreen() {
           {slot.time}
         </Text>
         <Text style={[
-          styles.timeSlotStatus, 
+          styles.timeSlotStatus,
           isBusy ? styles.statusBusy : styles.statusAvailable,
           isSelected && styles.statusSelected
         ]}>
@@ -166,7 +166,7 @@ export default function RescheduleScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+
         {/* Booking Summary (Read Only) */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
@@ -192,7 +192,7 @@ export default function RescheduleScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>SELECT NEW TIME</Text>
-          
+
           <Text style={styles.timeCategoryLabel}>Morning</Text>
           <View style={styles.timeSlotsGrid}>
             {MORNING_SLOTS.map(renderTimeSlot)}
@@ -212,8 +212,8 @@ export default function RescheduleScreen() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <TouchableOpacity 
-          style={[styles.proceedButton, !isReady && styles.proceedButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.proceedButton, !isReady && styles.proceedButtonDisabled]}
           onPress={handleConfirmReschedule}
           disabled={!isReady}
         >

@@ -18,6 +18,7 @@ export interface ServicePackage {
   image: any;
   isRecommended: boolean;
   vehicleType: VehicleType;
+  description?: string;
 }
 
 export interface ServiceCenter {

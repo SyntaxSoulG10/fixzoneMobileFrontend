@@ -4,9 +4,19 @@ import { notificationService } from '../services/notificationService';
 import Toast from 'react-native-toast-message';
 import { Vibration } from 'react-native';
 
+let triggerCheck: (() => void) | null = null;
+
+// Module-level persistent set to prevent duplicate toasts across screen remounts
+const globalShownNotificationIds = new Set<string>();
+
+export const checkNotificationsNow = () => {
+  if (triggerCheck) {
+    triggerCheck();
+  }
+};
+
 export default function NotificationPoller() {
   const { isAuthenticated, user } = useAuth();
-  const shownNotificationIds = useRef<Set<string>>(new Set());
   const isInitialFetch = useRef(true);
 
   useEffect(() => {
@@ -23,26 +33,34 @@ export default function NotificationPoller() {
         const unread = notifications.filter(n => !n.isRead);
         
         if (isInitialFetch.current) {
-          // On the very first fetch (e.g. app launch or just logged in), 
-          // silently add them to the "shown" list so we don't spam popups for old unread notifications.
-          unread.forEach(n => shownNotificationIds.current.add(n.id));
+          // On initial app launch, silently mark past notifications (> 2 min old) as shown
+          const now = Date.now();
+          unread.forEach(n => {
+            const createdTime = new Date(n.createdAt).getTime();
+            if ((now - createdTime) > 2 * 60 * 1000) {
+              globalShownNotificationIds.add(n.id);
+            }
+          });
           isInitialFetch.current = false;
-          return;
         }
 
-        // For each unread notification, if we haven't shown it yet during this session, show a toast
+        // Show Toast ONCE for any new unread notification
         unread.forEach(n => {
-          if (!shownNotificationIds.current.has(n.id)) {
-            shownNotificationIds.current.add(n.id);
+          if (!globalShownNotificationIds.has(n.id)) {
+            globalShownNotificationIds.add(n.id);
             
-            Vibration.vibrate();
+            try {
+              Vibration.vibrate();
+            } catch (e) {
+              // Ignore vibration error
+            }
             
             Toast.show({
               type: 'info',
               text1: n.title,
               text2: n.message,
               position: 'top',
-              visibilityTime: 4000,
+              visibilityTime: 6000,
             });
           }
         });
@@ -51,13 +69,18 @@ export default function NotificationPoller() {
       }
     };
 
-    // Initial check
+    triggerCheck = poll;
+
+    // Initial check immediately on mount
     poll();
     
-    // Poll every 15 seconds
-    const intervalId = setInterval(poll, 15000);
+    // Poll every 4 seconds for instant real-time updates
+    const intervalId = setInterval(poll, 4000);
     
-    return () => clearInterval(intervalId);
+    return () => {
+      triggerCheck = null;
+      clearInterval(intervalId);
+    };
   }, [isAuthenticated, user]);
 
   return null;

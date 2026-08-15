@@ -10,10 +10,10 @@ const { width } = Dimensions.get('window');
 
 interface ServiceCenterCardProps {
   id: string;
-  image: any;
+  image?: any;
   name: string;
-  location: string;
-  type: string;
+  location?: string;
+  type?: string;
   priceFrom?: number;
   openingHours?: string;
   isVerified?: boolean;
@@ -84,7 +84,7 @@ export default function ServiceCenterCard({
           style={styles.compactImage}
         />
         <View style={styles.compactInfo}>
-          <Text style={styles.compactName}>{name} - {location}</Text>
+          <Text style={styles.compactName}>{name}</Text>
           {calculatedDistance !== undefined && (
             <Text style={{ fontSize: 12, color: '#E84E0F', fontWeight: 'bold', marginTop: 2 }}>
               {calculatedDistance.toFixed(1)} km away
@@ -166,14 +166,14 @@ export default function ServiceCenterCard({
 const styles = StyleSheet.create({
   // Compact Styles (Original Home Screen style)
   compactCard: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: '#E2E8F0',
   },
   compactImage: {
     width: 64,
@@ -236,17 +236,17 @@ const styles = StyleSheet.create({
 
   // Premium Styles (High Fidelity)
   premiumCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 24,
     overflow: 'hidden',
     marginBottom: 24,
-    elevation: 6,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#E2E8F0',
   },
   premiumImageContainer: {
     width: '100%',
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 10,
     paddingTop: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     marginTop: -40, // Shows more image
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   detailsButton: {
     backgroundColor: '#E84E0F',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',

@@ -160,7 +160,7 @@ export default function InvoiceScreen() {
           <View style={styles.paymentInfoRow}>
             <View>
               <Text style={styles.paymentInfoLabel}>Status</Text>
-              <Text style={styles.paymentInfoValue}>{booking.status.replace('_', ' ')}</Text>
+              <Text style={styles.paymentInfoValue}>{booking.status === 'CONFIRMED' ? 'Ready for Service' : booking.status.replace('_', ' ')}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.paymentInfoLabel}>Booking ID</Text>

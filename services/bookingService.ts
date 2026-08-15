@@ -67,5 +67,20 @@ export const bookingService = {
     return request<BookingResponseDTO>(`/bookings/${id}/payment?gatewaySessionId=${gatewaySessionId}`, {
       method: 'POST'
     });
+  },
+
+  getStatusHistory: async (id: string): Promise<BookingStatusHistoryDTO[]> => {
+    return request<BookingStatusHistoryDTO[]>(`/bookings/${id}/status-history`, {
+      method: 'GET'
+    });
   }
 };
+
+export interface BookingStatusHistoryDTO {
+  id: string;
+  bookingId: string;
+  status: string;
+  statusDisplay: string;
+  changedAt: string;
+  changedBy?: string;
+}

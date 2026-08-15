@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useBookings } from '../../context/BookingContext';
-import { BookingResponseDTO } from '../../services/bookingService';
+import { bookingService, BookingResponseDTO, BookingStatusHistoryDTO } from '../../services/bookingService';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
-import { Modal } from 'react-native';
+import { Modal, ActivityIndicator } from 'react-native';
 import { MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
+import { checkNotificationsNow } from '../../components/NotificationPoller';
 
 const { width } = Dimensions.get('window');
 
@@ -15,12 +16,20 @@ type FilterStatus = 'All' | 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelle
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { bookings, cancelBooking, isLoading } = useBookings();
+  const { bookings, cancelBooking, isLoading, refreshBookings } = useBookings();
   const { user: authUser } = useAuth();
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('All');
   const [userVehicles, setUserVehicles] = useState<VehicleResponse[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<BookingResponseDTO | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<BookingStatusHistoryDTO[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshBookings();
+    }, [refreshBookings])
+  );
 
   React.useEffect(() => {
     const fetchVehicles = async () => {
@@ -42,7 +51,7 @@ export default function HistoryScreen() {
     if (activeFilter === 'All') return true;
     const status = booking.status.toUpperCase();
     if (activeFilter === 'Upcoming') {
-      return status === 'CONFIRMED';
+      return status === 'CONFIRMED' || status === 'PENDING';
     }
     if (activeFilter === 'In Progress') {
       return status === 'IN_PROGRESS';
@@ -66,14 +75,14 @@ export default function HistoryScreen() {
 
   const getDaysRemaining = (booking: BookingResponseDTO) => {
     if (!booking.bookingDate) return 0;
-    
+
     // Parse "YYYY-MM-DD" manually to ensure we create a Date in LOCAL time
     const [year, month, day] = booking.bookingDate.split('-').map(Number);
-    const bookingDate = new Date(year, month - 1, day); 
-    
+    const bookingDate = new Date(year, month - 1, day);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const diffTime = bookingDate.getTime() - today.getTime();
     // Use floor to get the number of full days between now and the booking
     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -97,8 +106,9 @@ export default function HistoryScreen() {
 
   const handleCancel = (booking: BookingResponseDTO) => {
     const daysRemaining = getDaysRemaining(booking);
-    const penalty = daysRemaining < 3 ? (booking.estimatedCost || 0) * 0.05 : 0;
-    const penaltyMsg = penalty > 0 
+    const baseFee = booking.bookingFee ?? booking.estimatedCost ?? 0;
+    const penalty = daysRemaining < 3 ? baseFee * 0.05 : 0;
+    const penaltyMsg = penalty > 0
       ? `\n\nNote: A 5% penalty (LKR ${penalty.toLocaleString()}) will be applied as the cancellation is within 3 days.`
       : '';
 
@@ -107,17 +117,24 @@ export default function HistoryScreen() {
       `Are you sure you want to cancel this booking?${penaltyMsg}`,
       [
         { text: 'No', style: 'cancel' },
-        { 
-          text: 'Yes, Cancel', 
+        {
+          text: 'Yes, Cancel',
           style: 'destructive',
           onPress: async () => {
             try {
               await cancelBooking(booking.bookingId);
-              const msg = penalty > 0 
+              setIsSummaryVisible(false);
+              const msg = penalty > 0
                 ? `Booking cancelled. A penalty of LKR ${penalty.toLocaleString()} has been applied.`
                 : 'Booking cancelled successfully.';
-              Alert.alert('Cancelled', msg);
-              setIsSummaryVisible(false);
+              Alert.alert('Cancelled', msg, [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    checkNotificationsNow();
+                  }
+                }
+              ]);
             } catch (e) {
               Alert.alert('Error', 'Failed to cancel booking');
             }
@@ -127,14 +144,24 @@ export default function HistoryScreen() {
     );
   };
 
-  const openSummary = (booking: BookingResponseDTO) => {
+  const openSummary = async (booking: BookingResponseDTO) => {
     setSelectedBooking(booking);
     setIsSummaryVisible(true);
+    setStatusHistory([]);
+    setIsLoadingHistory(true);
+    try {
+      const history = await bookingService.getStatusHistory(booking.bookingId);
+      setStatusHistory(history);
+    } catch (e) {
+      console.error('Failed to load status history', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
   const renderBookingCard = (booking: BookingResponseDTO) => {
     const vehicle = userVehicles.find(v => v.id === booking.vehicleId);
-    
+
     const isInProgress = booking.status === 'IN_PROGRESS';
     const isPending = booking.status === 'PENDING' || booking.status === 'CONFIRMED' || booking.status === 'PENDING_PAYMENT';
     const isUpcomingOrActive = isPending || isInProgress;
@@ -145,8 +172,8 @@ export default function HistoryScreen() {
     const month = dateObj.toLocaleString('en-US', { month: 'short' }).toUpperCase();
 
     return (
-      <TouchableOpacity 
-        key={booking.bookingId} 
+      <TouchableOpacity
+        key={booking.bookingId}
         style={styles.card}
         onPress={() => openSummary(booking)}
         activeOpacity={0.9}
@@ -158,18 +185,18 @@ export default function HistoryScreen() {
                 {booking.packageName || 'Service'}
               </Text>
               <View style={[
-                styles.statusBadge, 
-                isInProgress ? styles.inProgressBadge : 
-                (isPending ? styles.pendingBadge : 
-                (isCancelled ? styles.cancelledBadge : styles.completedBadge))
+                styles.statusBadge,
+                isInProgress ? styles.inProgressBadge :
+                  (isPending ? styles.pendingBadge :
+                    (isCancelled ? styles.cancelledBadge : styles.completedBadge))
               ]}>
                 <Text style={[
-                  styles.statusText, 
-                  isInProgress ? styles.inProgressText : 
-                  (isPending ? styles.pendingText : 
-                  (isCancelled ? styles.cancelledText : styles.completedText))
+                  styles.statusText,
+                  isInProgress ? styles.inProgressText :
+                    (isPending ? styles.pendingText :
+                      (isCancelled ? styles.cancelledText : styles.completedText))
                 ]}>
-                  {booking.status.replace('_', ' ')}
+                  {booking.status === 'CONFIRMED' ? 'Ready for Service' : booking.status.replace('_', ' ')}
                 </Text>
               </View>
             </View>
@@ -178,13 +205,38 @@ export default function HistoryScreen() {
               <Text style={styles.dateMonth}>{month}</Text>
             </View>
           </View>
-          
+
           <View style={styles.vehicleRow}>
             <Ionicons name="car-sport" size={16} color="#6B7280" />
             <Text style={styles.vehicleText}>
               {vehicle ? `${vehicle.brand} ${vehicle.model} • ${vehicle.plateNumber}` : 'Your Vehicle'}
             </Text>
           </View>
+
+          {(booking.status === 'CONFIRMED' || booking.status === 'PENDING') && (
+            <View style={styles.cardActionsRow}>
+              <TouchableOpacity
+                style={styles.cardRescheduleBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleReschedule(booking);
+                }}
+              >
+                <Ionicons name="calendar-outline" size={14} color="#334155" />
+                <Text style={styles.cardRescheduleText}>Reschedule</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cardCancelBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleCancel(booking);
+                }}
+              >
+                <Ionicons name="close-circle-outline" size={14} color="#64748B" />
+                <Text style={styles.cardCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -203,9 +255,9 @@ export default function HistoryScreen() {
 
       {/* Filters */}
       <View>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScrollContent}
         >
           {(['All', 'Upcoming', 'In Progress', 'Completed', 'Cancelled'] as FilterStatus[]).map((filter) => (
@@ -301,8 +353,8 @@ export default function HistoryScreen() {
                     <Text style={styles.sectionLabel}>Package</Text>
                     <Text style={styles.sectionValue}>{selectedBooking.packageName}</Text>
                     <Text style={[styles.sectionSubValue, { marginTop: 4, lineHeight: 20 }]}>
-                      {MOCK_SERVICE_CENTERS.find(c => c.id === selectedBooking.centerId)?.packages?.find(p => p.id === selectedBooking.packageId)?.description || 
-                       'Standard comprehensive service package for your vehicle, ensuring optimal performance and safety.'}
+                      {MOCK_SERVICE_CENTERS.find(c => c.id === selectedBooking.centerId)?.packages?.find(p => p.id === selectedBooking.packageId)?.description ||
+                        'Standard comprehensive service package for your vehicle, ensuring optimal performance and safety.'}
                     </Text>
                   </View>
 
@@ -316,20 +368,65 @@ export default function HistoryScreen() {
                     <Text style={[styles.sectionValue, { color: '#10B981' }]}>
                       LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.1)).toLocaleString()}
                     </Text>
-                    <Text style={[styles.sectionSubValue, { marginTop: 2 }]}>Paid securely online to confirm booking</Text>
                   </View>
 
                   <View style={styles.summarySection}>
-                    <Text style={styles.sectionLabel}>Status</Text>
-                    <View style={styles.modalStatusBadge}>
-                      <Text style={styles.modalStatusText}>{selectedBooking.status.replace('_', ' ')}</Text>
-                    </View>
+                    <Text style={styles.sectionLabel}>Status History & Timeline</Text>
+                    {isLoadingHistory ? (
+                      <ActivityIndicator size="small" color="#E84E0F" style={{ marginTop: 12, alignSelf: 'flex-start' }} />
+                    ) : (
+                      <View style={styles.timelineContainer}>
+                        {statusHistory.map((item, index) => {
+                          const dateObj = new Date(item.changedAt);
+                          const formattedTime = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()} at ${dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+                          const isLast = index === statusHistory.length - 1;
+
+                          let iconName = "checkmark";
+                          let iconColor = "#10B981";
+
+                          if (item.status === 'PENDING_PAYMENT') {
+                            iconName = "document-text";
+                            iconColor = "#3B82F6";
+                          } else if (item.status === 'CONFIRMED') {
+                            iconName = "checkmark-circle";
+                            iconColor = "#F97316";
+                          } else if (item.status === 'IN_PROGRESS') {
+                            iconName = "construct";
+                            iconColor = "#2563EB";
+                          } else if (item.status === 'COMPLETED') {
+                            iconName = "checkmark-done-circle";
+                            iconColor = "#10B981";
+                          } else if (item.status === 'CANCELLED') {
+                            iconName = "close-circle";
+                            iconColor = "#EF4444";
+                          }
+
+                          return (
+                            <View key={item.id || index} style={styles.timelineItem}>
+                              <View style={styles.timelineLeftColumn}>
+                                <View style={[styles.timelineDot, { backgroundColor: isLast ? iconColor : '#CBD5E1' }]}>
+                                  <Ionicons name={iconName as any} size={10} color="#FFF" />
+                                </View>
+                                {!isLast && <View style={styles.timelineLine} />}
+                              </View>
+
+                              <View style={styles.timelineRightColumn}>
+                                <Text style={[styles.timelineStatusTitle, isLast && { color: '#0F172A', fontWeight: '800' }]}>
+                                  {item.statusDisplay}
+                                </Text>
+                                <Text style={styles.timelineTimeText}>{formattedTime}</Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.modalActions}>
-                    {selectedBooking.status === 'PENDING' && (
+                    {(selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING') && (
                       <View style={styles.modalSecondaryActions}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           style={[styles.secondaryBtn, { borderColor: '#E84E0F' }]}
                           onPress={() => {
                             setIsSummaryVisible(false);
@@ -338,7 +435,7 @@ export default function HistoryScreen() {
                         >
                           <Text style={[styles.secondaryBtnText, { color: '#E84E0F' }]}>Reschedule</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           style={[styles.secondaryBtn, { borderColor: '#EF4444' }]}
                           onPress={() => handleCancel(selectedBooking)}
                         >
@@ -512,9 +609,6 @@ const styles = StyleSheet.create({
   },
   cancelledText: {
     color: '#6B7280',
-  },
-  cardBody: {
-    padding: 16,
   },
   bookingTitle: {
     fontSize: 16,
@@ -697,5 +791,96 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     fontSize: 14,
     fontWeight: '800',
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  cardRescheduleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 4,
+  },
+  cardRescheduleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  cardCancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 4,
+  },
+  cardCancelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  timelineContainer: {
+    marginTop: 10,
+    paddingLeft: 4,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  timelineLeftColumn: {
+    alignItems: 'center',
+    marginRight: 12,
+    width: 18,
+  },
+  timelineDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineDotActive: {
+    backgroundColor: '#10B981',
+  },
+  timelineLine: {
+    width: 2,
+    height: 22,
+    backgroundColor: '#E2E8F0',
+    marginTop: 2,
+  },
+  timelineRightColumn: {
+    flex: 1,
+    paddingTop: 0,
+  },
+  timelineStatusTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  timelineStatusTitleActive: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+  timelineTimeText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+    fontWeight: '500',
   },
 });

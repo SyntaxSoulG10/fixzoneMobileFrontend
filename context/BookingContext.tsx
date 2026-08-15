@@ -31,16 +31,15 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { user: authUser } = useAuth();
 
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (isSilent = false) => {
     if (!authUser?.userId) {
       setBookings([]);
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
       return;
     }
     try {
-      setIsLoading(true);
+      if (!isSilent && bookings.length === 0) setIsLoading(true);
       const data = await bookingService.getBookingsByCustomer(authUser.userId);
-      // Sort by date descending
       const sorted = [...data].sort((a, b) => 
         new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
       );
@@ -48,13 +47,24 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error('Failed to fetch bookings', e);
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
     }
-  }, [authUser?.userId]);
+  }, [authUser?.userId, bookings.length]);
 
   useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+    fetchBookings(false);
+
+    if (!authUser?.userId) return;
+
+    // Refresh bookings in background every 4 seconds silently
+    const intervalId = setInterval(() => {
+      fetchBookings(true);
+    }, 4000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [fetchBookings, authUser?.userId]);
 
   const addBooking = async (data: BookingRequestDTO) => {
     try {
@@ -63,7 +73,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         bookingTime: formatTimeToBackend(data.bookingTime)
       };
       const response = await bookingService.createBooking(formattedData);
-      await fetchBookings();
+      await fetchBookings(false);
       return response;
     } catch (e) {
       console.error('Failed to add booking', e);
@@ -74,7 +84,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const cancelBooking = async (bookingId: string) => {
     try {
       await bookingService.cancelBooking(bookingId);
-      await fetchBookings();
+      await fetchBookings(false);
     } catch (e) {
       console.error('Failed to cancel booking', e);
       throw e;
@@ -85,7 +95,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     try {
       const formattedTime = formatTimeToBackend(newTime);
       await bookingService.rescheduleBooking(bookingId, newDate, formattedTime);
-      await fetchBookings();
+      await fetchBookings(false);
     } catch (e) {
       console.error('Failed to reschedule booking', e);
       throw e;
@@ -95,7 +105,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const completePayment = async (bookingId: string, gatewaySessionId: string) => {
     try {
       await bookingService.completePayment(bookingId, gatewaySessionId);
-      await fetchBookings();
+      await fetchBookings(false);
     } catch (e) {
       console.error('Failed to complete payment', e);
       throw e;
@@ -115,7 +125,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       completePayment,
       pendingBookings,
       isLoading,
-      refreshBookings: fetchBookings
+      refreshBookings: () => fetchBookings(false)
     }}>
       {children}
     </BookingContext.Provider>

@@ -20,8 +20,8 @@ export default function VehicleCard({ image, name, plate, lastService, type, day
   return (
     <View style={styles.cardContainer}>
       {image && !image.includes('via.placeholder.com') ? (
-        <Image 
-          source={typeof image === 'string' ? { uri: image } : image} 
+        <Image
+          source={typeof image === 'string' ? { uri: image } : image}
           style={styles.cardImage}
           resizeMode="cover"
         />
@@ -53,7 +53,7 @@ export default function VehicleCard({ image, name, plate, lastService, type, day
             )}
           </View>
         </View>
-        
+
         <View>
           <Text style={styles.lastServiceLabel}>Last Service Date</Text>
           <Text style={styles.lastServiceDate}>{lastService}</Text>
@@ -65,18 +65,18 @@ export default function VehicleCard({ image, name, plate, lastService, type, day
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
     borderRadius: 24,
     overflow: 'hidden',
     marginRight: 16,
     width: 256,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardImage: {
     width: '100%',
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   detailsContainer: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(229, 231, 235, 0.5)',
+    backgroundColor: '#F1F5F9',
   },
   headerRow: {
     flexDirection: 'row',

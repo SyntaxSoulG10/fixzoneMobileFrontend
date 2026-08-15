@@ -111,7 +111,7 @@ export default function HomeScreen() {
         vehicleService.getVehiclesByUser(authUser.userId),
         bookingService.getBookingsByCustomer(authUser.userId)
       ]);
-      
+
       setVehicles(vehicleData);
       hasFetchedVehicles.current = true;
 
@@ -121,7 +121,7 @@ export default function HomeScreen() {
         const vehicleBookings = bookingData
           .filter(b => b.vehicleId === vehicle.id && b.status === 'COMPLETED')
           .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
-        
+
         if (vehicleBookings.length > 0) {
           serviceMap[vehicle.id] = vehicleBookings[0].bookingDate;
         } else {
@@ -198,13 +198,13 @@ export default function HomeScreen() {
 
   const getCentersWithDistance = <T extends any>(centers: T[]): T[] => {
     if (!userLocation) return centers;
-    
+
     return [...centers].map((center: any) => {
       if (center.latitude && center.longitude) {
         const dist = calculateDistance(
-          userLocation.coords.latitude, 
-          userLocation.coords.longitude, 
-          center.latitude, 
+          userLocation.coords.latitude,
+          userLocation.coords.longitude,
+          center.latitude,
           center.longitude
         );
         return { ...center, calculatedDistance: dist };
@@ -221,152 +221,154 @@ export default function HomeScreen() {
   const sortedNearbyCenters = useMemo(() => {
     return getCentersWithDistance(filteredNearbyCenters);
   }, [filteredNearbyCenters, userLocation]);
-  
+
   // Now nearbyCenters comes from the API and is already sorted by distance!
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
         <HomeHeader />
-        <SearchBar 
-          onFilterPress={() => setIsFilterVisible(true)} 
+        <SearchBar
+          onFilterPress={() => setIsFilterVisible(true)}
           value=""
-          onChangeText={() => {}}
+          onChangeText={() => { }}
           onFocus={() => {
             router.push({ pathname: '/book', params: { focus: 'true' } });
           }}
         />
-        <ScrollView 
-          style={styles.flex1} 
+        <ScrollView
+          style={styles.flex1}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#E84E0F']} />}
         >
           <PromoBanner pendingBookings={pendingBookings} />
 
-              {/* My Vehicles Section */}
-              <View style={styles.vehiclesSection}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>My Vehicles</Text>
-                  {!isLoadingVehicles && vehicles.length > 0 && (
-                    <TouchableOpacity 
-                      style={styles.rowCenter}
-                      onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
-                    >
-                      <Text style={styles.addText}>Add New</Text>
-                      <View style={styles.addButtonCircle}>
-                        <Ionicons name="add" size={18} color="white" />
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {isLoadingVehicles ? (
-                  <ActivityIndicator color="#E84E0F" />
-                ) : vehicles.length > 0 ? (
-                  <FlatList
-                    data={vehicles}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity onPress={() => router.push(`/vehicle-details/${item.id}`)}>
-                        <VehicleCard 
-                          image={item.imageUrl || ''}
-                          name={`${item.brand || ''} ${item.model || ''}`}
-                          plate={item.plateNumber}
-                          type={item.vehicleType}
-                          lastService={vehicleLastServiceMap[item.id] || item.lastServiceDate || 'N/A'}
-                        />
-                      </TouchableOpacity>
-                    )}
-                  />
-                ) : (
-                  <View style={styles.emptyVehiclesContainer}>
-                    <TouchableOpacity 
-                      onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
-                      style={styles.addVehiclePlaceholder}
-                    >
-                      <View style={styles.addPlaceholderIconContainer}>
-                        <Ionicons name="add" size={32} color="#E84E0F" />
-                      </View>
-                      <Text style={styles.addPlaceholderTitle}>Add New Vehicle</Text>
-                      <Text style={styles.addPlaceholderSubtitle}>
-                        Add your vehicle here for smooth bookings
-                      </Text>
-                    </TouchableOpacity>
+          {/* My Vehicles Section */}
+          <View style={styles.vehiclesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>My Vehicles</Text>
+              {!isLoadingVehicles && vehicles.length > 0 && (
+                <TouchableOpacity
+                  style={styles.rowCenter}
+                  onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+                >
+                  <Text style={styles.addText}>Add New</Text>
+                  <View style={styles.addButtonCircle}>
+                    <Ionicons name="add" size={18} color="white" />
                   </View>
-                )}
-              </View>
+                </TouchableOpacity>
+              )}
+            </View>
 
-              <View style={styles.trustedSection}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Trusted Service Centers</Text>
-                </View>
-                
-                {isLoadingTrusted ? (
-                  <ActivityIndicator color="#E84E0F" />
-                ) : sortedTrustedCenters.length > 0 ? (
-                  <FlatList
-                    data={sortedTrustedCenters}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item) => item.centerId || item.id || Math.random().toString()}
-                    contentContainerStyle={{ paddingRight: 20 }}
-                    ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
-                    renderItem={({ item }) => (
-                      <ServiceCenterCard 
-                        {...item} 
-                        id={item.centerId || item.id}
-                        calculatedDistance={item.calculatedDistance}
-                        hideServedFor={true}
-                      />
-                    )}
-                  />
-                ) : (
-                  <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
-                    You haven't visited any service centers yet.
-                  </Text>
-                )}
-              </View>
-
-              {/* Nearby Service Centers Section */}
-              <View style={styles.nearbySection}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Nearby Service Centers</Text>
-                  <TouchableOpacity onPress={() => router.push('/book')}>
-                    <Text style={styles.viewAllText}>View All</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                {isLoadingNearby ? (
-                  <ActivityIndicator color="#E84E0F" size="large" style={{ marginVertical: 20 }} />
-                ) : nearbyError ? (
-                  <View style={{ alignItems: 'center', padding: 20 }}>
-                    <Text style={{ color: '#EF4444', marginBottom: 10 }}>{nearbyError}</Text>
-                    <TouchableOpacity 
-                      style={{ backgroundColor: '#E84E0F', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
-                      onPress={() => userLocation && fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude)}
-                    >
-                      <Text style={{ color: 'white', fontWeight: '600' }}>Retry</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : sortedNearbyCenters.length > 0 ? (
-                  sortedNearbyCenters.map((center: any) => (
-                    <ServiceCenterCard 
-                      key={`nearby-${center.centerId || center.id}`}
-                      {...center}
-                      id={center.centerId || center.id}
-                      variant="compact"
-                      calculatedDistance={center.calculatedDistance}
+            {isLoadingVehicles ? (
+              <ActivityIndicator color="#E84E0F" />
+            ) : vehicles.length > 0 ? (
+              <FlatList
+                data={vehicles}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity onPress={() => router.push(`/vehicle-details/${item.id}`)}>
+                    <VehicleCard
+                      image={item.imageUrl || ''}
+                      name={`${item.brand || ''} ${item.model || ''}`}
+                      plate={item.plateNumber}
+                      type={item.vehicleType}
+                      lastService={vehicleLastServiceMap[item.id] || item.lastServiceDate || 'N/A'}
                     />
-                  ))
-                ) : (
-                  <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
-                    {nearbyCenters.length > 0 
-                      ? "No service centers match your filters." 
-                      : (!userLocation ? "Location access needed to find nearby centers." : "No service centers found within 15 km.")}
-                  </Text>
+                  </TouchableOpacity>
                 )}
+              />
+            ) : (
+              <View style={styles.emptyVehiclesContainer}>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+                  style={styles.addVehiclePlaceholder}
+                >
+                  <View style={styles.addPlaceholderIconContainer}>
+                    <Ionicons name="add" size={32} color="#E84E0F" />
+                  </View>
+                  <Text style={styles.addPlaceholderTitle}>Add New Vehicle</Text>
+                  <Text style={styles.addPlaceholderSubtitle}>
+                    Add your vehicle here for smooth bookings
+                  </Text>
+                </TouchableOpacity>
               </View>
+            )}
+          </View>
+
+          <View style={styles.trustedSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Trusted Service Centers</Text>
+            </View>
+
+            {isLoadingTrusted ? (
+              <ActivityIndicator color="#E84E0F" />
+            ) : sortedTrustedCenters.length > 0 ? (
+              <FlatList
+                data={sortedTrustedCenters}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.centerId || Math.random().toString()}
+                contentContainerStyle={{ paddingRight: 20 }}
+                ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+                renderItem={({ item }: { item: any }) => (
+                  <ServiceCenterCard
+                    {...item}
+                    id={item.centerId}
+                    location={item.address || ''}
+                    calculatedDistance={item.calculatedDistance}
+                    hideServedFor={true}
+                  />
+                )}
+              />
+            ) : (
+              <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
+                You haven't visited any service centers yet.
+              </Text>
+            )}
+          </View>
+
+          {/* Nearby Service Centers Section */}
+          <View style={styles.nearbySection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Nearby Service Centers</Text>
+              <TouchableOpacity onPress={() => router.push('/book')}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingNearby ? (
+              <ActivityIndicator color="#E84E0F" size="large" style={{ marginVertical: 20 }} />
+            ) : nearbyError ? (
+              <View style={{ alignItems: 'center', padding: 20 }}>
+                <Text style={{ color: '#EF4444', marginBottom: 10 }}>{nearbyError}</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#E84E0F', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                  onPress={() => userLocation && fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude)}
+                >
+                  <Text style={{ color: 'white', fontWeight: '600' }}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : sortedNearbyCenters.length > 0 ? (
+              sortedNearbyCenters.map((center: any) => (
+                <ServiceCenterCard
+                  key={`nearby-${center.centerId}`}
+                  {...center}
+                  id={center.centerId}
+                  location={center.address || ''}
+                  variant="compact"
+                  calculatedDistance={center.calculatedDistance}
+                />
+              ))
+            ) : (
+              <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
+                {nearbyCenters.length > 0
+                  ? "No service centers match your filters."
+                  : (!userLocation ? "Location access needed to find nearby centers." : "No service centers found within 15 km.")}
+              </Text>
+            )}
+          </View>
         </ScrollView>
 
         <FilterBottomSheet
@@ -462,11 +464,11 @@ const styles = StyleSheet.create({
   addVehiclePlaceholder: {
     width: 256,
     height: 210,
-    backgroundColor: 'rgba(255, 247, 237, 0.5)',
+    backgroundColor: '#F8FAFC',
     borderRadius: 24,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#FDBA74',
+    borderColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,

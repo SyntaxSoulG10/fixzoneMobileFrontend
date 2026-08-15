@@ -152,7 +152,7 @@ export default function VehicleDetailsScreen() {
                     LKR {(item.estimatedCost || 0).toLocaleString()}
                   </Text>
                   <Text style={[styles.historyStatus, { color: item.status === 'COMPLETED' ? "#10B981" : "#F59E0B" }]}>
-                    {item.status.replace('_', ' ')}
+                    {item.status === 'CONFIRMED' ? 'Ready for Service' : item.status.replace('_', ' ')}
                   </Text>
                 </View>
               </View>
