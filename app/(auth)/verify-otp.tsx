@@ -14,6 +14,7 @@ export default function VerifyOtpScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const email = (params.email as string) || '';
+  const mode = (params.mode as string) || 'verify_email';
   const { updateAuthUser, logout } = useAuth();
 
   const [code, setCode] = useState('');
@@ -21,6 +22,10 @@ export default function VerifyOtpScreen() {
   const [isResending, setIsResending] = useState(false);
 
   const handleBack = async () => {
+    if (mode === 'reset_password') {
+      router.replace('/(auth)/forgot-password');
+      return;
+    }
     await logout();
     router.replace('/(auth)/login');
   };
@@ -29,6 +34,15 @@ export default function VerifyOtpScreen() {
     if (code.length !== 5) return;
     setIsLoading(true);
     try {
+      if (mode === 'reset_password') {
+        // Navigate to reset-password screen passing email and otp token
+        router.push({
+          pathname: '/(auth)/reset-password',
+          params: { email, token: code }
+        });
+        return;
+      }
+
       await authService.verifyOtp(email, code);
       Toast.show({
         type: 'success',
@@ -53,7 +67,11 @@ export default function VerifyOtpScreen() {
   const handleResend = async () => {
     setIsResending(true);
     try {
-      await authService.resendOtp(email);
+      if (mode === 'reset_password') {
+        await authService.forgotPassword(email);
+      } else {
+        await authService.resendOtp(email);
+      }
       Toast.show({
         type: 'info',
         text1: 'OTP Sent',

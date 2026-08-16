@@ -40,8 +40,8 @@ export default function ChangePasswordScreen() {
       Alert.alert('Required Field', 'Please enter your new password.');
       return;
     }
-    if (newPassword.length < 6) {
-      Alert.alert('Invalid Password', 'New password must be at least 6 characters long.');
+    if (newPassword.length < 8) {
+      Alert.alert('Invalid Password', 'New password must be at least 8 characters long.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -128,11 +128,11 @@ export default function ChangePasswordScreen() {
                 onChangeText={setCurrentPassword}
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
+              <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={{ padding: 4 }}>
                 <Ionicons 
-                  name={showCurrentPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={20} 
-                  color="#9CA3AF" 
+                  name={showCurrentPassword ? "eye-outline" : "eye-off-outline"} 
+                  size={22} 
+                  color={showCurrentPassword ? "#E84E0F" : "#9CA3AF"} 
                 />
               </TouchableOpacity>
             </View>
@@ -145,23 +145,22 @@ export default function ChangePasswordScreen() {
               <Ionicons name="key-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Enter new password (min. 6 chars)"
+                placeholder="Enter new password (min. 8 chars)"
                 placeholderTextColor="#9CA3AF"
                 secureTextEntry={!showNewPassword}
                 value={newPassword}
                 onChangeText={setNewPassword}
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)}>
+              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={{ padding: 4 }}>
                 <Ionicons 
-                  name={showNewPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={20} 
-                  color="#9CA3AF" 
+                  name={showNewPassword ? "eye-outline" : "eye-off-outline"} 
+                  size={22} 
+                  color={showNewPassword ? "#E84E0F" : "#9CA3AF"} 
                 />
               </TouchableOpacity>
             </View>
           </View>
-
           {/* Confirm Password Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirm New Password</Text>
@@ -176,11 +175,11 @@ export default function ChangePasswordScreen() {
                 onChangeText={setConfirmPassword}
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={{ padding: 4 }}>
                 <Ionicons 
-                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={20} 
-                  color="#9CA3AF" 
+                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
+                  size={22} 
+                  color={showConfirmPassword ? "#E84E0F" : "#9CA3AF"} 
                 />
               </TouchableOpacity>
             </View>

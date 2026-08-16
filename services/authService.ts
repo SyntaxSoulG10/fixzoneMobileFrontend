@@ -75,4 +75,10 @@ export const authService = {
       body: JSON.stringify({ email }),
     });
   },
+  resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
+    return request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    });
+  },
 };
