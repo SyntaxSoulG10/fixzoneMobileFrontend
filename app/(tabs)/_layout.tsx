@@ -2,13 +2,9 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
-import NotificationPoller from '../../components/NotificationPoller';
-
 export default function TabLayout() {
   return (
-    <>
-      <NotificationPoller />
-      <Tabs
+    <Tabs
         screenOptions={{
         tabBarActiveTintColor: '#000000', // Black as per the UI image
         tabBarInactiveTintColor: '#6B7280',
@@ -70,6 +66,5 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-    </>
   );
 }

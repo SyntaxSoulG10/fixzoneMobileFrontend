@@ -28,35 +28,42 @@ export default function NotificationPoller() {
     const poll = async () => {
       try {
         const notifications = await notificationService.getNotifications();
-        
+
         // Find unread notifications
         const unread = notifications.filter(n => !n.isRead);
-        
+
+        const parseNotificationTime = (dateStr: string) => {
+          if (!dateStr) return 0;
+          const formatted = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : `${dateStr}Z`;
+          const time = new Date(formatted).getTime();
+          return isNaN(time) ? new Date(dateStr).getTime() : time;
+        };
+
         if (isInitialFetch.current) {
-          // On initial app launch, silently mark past notifications (> 2 min old) as shown
-          const now = Date.now();
+          // On app launch, record all existing unread notification IDs so old notifications never pop up Toasts repeatedly
           unread.forEach(n => {
-            const createdTime = new Date(n.createdAt).getTime();
-            if ((now - createdTime) > 2 * 60 * 1000) {
-              globalShownNotificationIds.add(n.id);
-            }
+            globalShownNotificationIds.add(n.id);
           });
           isInitialFetch.current = false;
+          return;
         }
 
-        // Show Toast ONCE for any new unread notification
+        // Show Toast ONCE for any unread notification arriving in real-time or recently created
         unread.forEach(n => {
           if (!globalShownNotificationIds.has(n.id)) {
             globalShownNotificationIds.add(n.id);
-            
+
             try {
               Vibration.vibrate();
             } catch (e) {
               // Ignore vibration error
             }
-            
+
+            const rawType = (n.type || '').toLowerCase();
+            const toastType = ['success', 'error', 'warning', 'info'].includes(rawType) ? rawType : 'info';
+
             Toast.show({
-              type: 'info',
+              type: toastType,
               text1: n.title,
               text2: n.message,
               position: 'top',
@@ -73,10 +80,10 @@ export default function NotificationPoller() {
 
     // Initial check immediately on mount
     poll();
-    
+
     // Poll every 4 seconds for instant real-time updates
     const intervalId = setInterval(poll, 4000);
-    
+
     return () => {
       triggerCheck = null;
       clearInterval(intervalId);

@@ -12,6 +12,7 @@ import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/auth_context';
 import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { imageKitService } from '../../services/imageKitService';
 import { getDaysSinceService } from '../../utils/date_utils';
 import { getVehicleIcon } from '../../utils/vehicle_utils';
 
@@ -213,13 +214,20 @@ export default function VehiclesScreen() {
     }
 
     try {
+      let finalImageUrl: string | undefined = undefined;
+      if (vehicleImage && !vehicleImage.startsWith('http')) {
+        finalImageUrl = await imageKitService.uploadToImageKit(vehicleImage, `vehicle_${plate}.jpg`);
+      } else if (vehicleImage) {
+        finalImageUrl = vehicleImage;
+      }
+
       if (editingVehicle) {
         await vehicleService.updateVehicle(editingVehicle.id, {
           brand: finalBrand,
           model,
           vehicleType: finalVType,
           plateNumber: plate,
-          ...(vehicleImageBase64 ? { imageData: vehicleImageBase64 } : {})
+          ...(finalImageUrl ? { imageUrl: finalImageUrl } : {})
         });
         Alert.alert('Success', 'Vehicle updated!');
       } else {
@@ -229,7 +237,7 @@ export default function VehiclesScreen() {
           model,
           vehicleType: finalVType,
           plateNumber: plate,
-          ...(vehicleImageBase64 ? { imageData: vehicleImageBase64 } : {})
+          ...(finalImageUrl ? { imageUrl: finalImageUrl } : {})
         });
         Alert.alert('Success', 'Vehicle added!');
       }
@@ -355,15 +363,6 @@ export default function VehiclesScreen() {
               <View style={styles.vehicleInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.brand} {vehicle.model}</Text>
-                  {(() => {
-                    const status = getServiceStatus(vehicle.lastServiceDate);
-                    return (
-                      <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-                        <View style={[styles.statusDot, { backgroundColor: status.dotColor }]} />
-                        <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
-                      </View>
-                    );
-                  })()}
                 </View>
                 <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
                 

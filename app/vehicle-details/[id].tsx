@@ -18,6 +18,10 @@ export default function VehicleDetailsScreen() {
   const router = useRouter();
   const { user: authUser } = useAuth();
   
+  const handleBack = () => {
+    router.replace('/(tabs)/vehicles');
+  };
+
   const [vehicle, setVehicle] = React.useState<VehicleResponse | null>(null);
   const [vehicleHistory, setVehicleHistory] = React.useState<BookingResponseDTO[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -80,7 +84,7 @@ export default function VehicleDetailsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerSide} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.headerSide} onPress={handleBack}>
           <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vehicle Details</Text>

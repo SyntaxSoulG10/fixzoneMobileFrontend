@@ -8,6 +8,7 @@ import AppButton from '../ui/AppButton';
 import AppDropdown from '../ui/AppDropdown';
 import { vehicleService } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
+import { imageKitService } from '../../services/imageKitService';
 
 interface AddVehicleModalProps {
   visible: boolean;
@@ -69,17 +70,11 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
 
     setIsSaving(true);
     try {
-      let savedImageUri: string | undefined = undefined;
+      let imageUrl: string | undefined = undefined;
       if (vehicleImage && !vehicleImage.startsWith('http')) {
-        try {
-          const filename = `vehicle_${Date.now()}.jpg`;
-          const sourceFile = new File(vehicleImage);
-          const destinationFile = new File(Paths.document, filename);
-          sourceFile.copy(destinationFile);
-          savedImageUri = destinationFile.uri;
-        } catch (imgErr) {
-          savedImageUri = vehicleImage;
-        }
+        imageUrl = await imageKitService.uploadToImageKit(vehicleImage, `vehicle_${plate}.jpg`);
+      } else if (vehicleImage) {
+        imageUrl = vehicleImage;
       }
 
       await vehicleService.createVehicle({
@@ -88,7 +83,7 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
         model,
         vehicleType: finalVType,
         plateNumber: plate,
-        imageUrl: savedImageUri,
+        imageUrl: imageUrl,
       });
 
       Alert.alert('Success', 'Vehicle added!');

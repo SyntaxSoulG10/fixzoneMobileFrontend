@@ -17,11 +17,21 @@ export default function NotificationsScreen() {
     }, [])
   );
 
+  const parseDate = (dateStr: string) => {
+    if (!dateStr) return 0;
+    const isoStr = dateStr.replace(' ', 'T');
+    const time = new Date(isoStr).getTime();
+    if (!isNaN(time)) return time;
+    const fallback = new Date(dateStr).getTime();
+    return isNaN(fallback) ? 0 : fallback;
+  };
+
   const fetchNotifications = async () => {
     try {
       setIsLoading(true);
       const data = await notificationService.getNotifications();
-      const sorted = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      // Strict descending sort: latest notification (highest timestamp) first, oldest at the bottom
+      const sorted = [...data].sort((a, b) => parseDate(b.createdAt) - parseDate(a.createdAt));
       setNotifications(sorted);
     } catch (e) {
       console.error('Failed to fetch notifications', e);
@@ -34,14 +44,17 @@ export default function NotificationsScreen() {
     const title = (notif.title || '').toLowerCase();
     const type = (notif.type || '').toLowerCase();
 
+    if (title.includes('service started') || title.includes('in progress') || title.includes('work started')) {
+      return { name: 'build', color: '#3B82F6', bg: '#EFF6FF' };
+    }
+    if (title.includes('service completed') || title.includes('completed')) {
+      return { name: 'checkmark-circle', color: '#10B981', bg: '#ECFDF5' };
+    }
     if (title.includes('payment') || title.includes('paid')) {
-      return { name: 'checkmark-circle', color: '#F97316', bg: '#FFF7ED' };
+      return { name: 'card', color: '#F97316', bg: '#FFF7ED' };
     }
     if (title.includes('booking') || title.includes('rescheduled') || type === 'booking') {
-      return { name: 'calendar', color: '#3B82F6', bg: '#EFF6FF' };
-    }
-    if (title.includes('account') || title.includes('activated') || title.includes('completed')) {
-      return { name: 'checkmark-circle', color: '#22C55E', bg: '#F0FDF4' };
+      return { name: 'calendar', color: '#6366F1', bg: '#EEF2FF' };
     }
     if (type === 'alert' || title.includes('cancel') || title.includes('warning')) {
       return { name: 'alert-circle', color: '#EF4444', bg: '#FEF2F2' };
@@ -77,7 +90,9 @@ export default function NotificationsScreen() {
   };
 
   const isToday = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const timestamp = parseDate(dateStr);
+    if (!timestamp) return false;
+    const d = new Date(timestamp);
     const today = new Date();
     return d.getDate() === today.getDate() &&
       d.getMonth() === today.getMonth() &&
@@ -87,12 +102,18 @@ export default function NotificationsScreen() {
   const todayNotifs = notifications.filter(n => isToday(n.createdAt));
   const earlierNotifs = notifications.filter(n => !isToday(n.createdAt));
 
+  const formatNotifTime = (dateStr: string) => {
+    const timestamp = parseDate(dateStr);
+    if (!timestamp) return '';
+    const d = new Date(timestamp);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   const renderCard = (notif: NotificationDTO) => {
     const iconData = getIcon(notif);
     const isRead = notif.isRead;
     const isExpanded = expandedIds.includes(notif.id);
-    const dateObj = new Date(notif.createdAt);
-    const displayDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+    const displayTime = formatNotifTime(notif.createdAt);
 
     return (
       <TouchableOpacity 
@@ -122,7 +143,7 @@ export default function NotificationsScreen() {
               <Text style={styles.seeMoreText}>
                 {isExpanded ? 'See Less' : 'See More'}
               </Text>
-              <Text style={styles.notifTime}>{displayDate}</Text>
+              <Text style={styles.notifTime}>{displayTime}</Text>
             </View>
           </View>
 

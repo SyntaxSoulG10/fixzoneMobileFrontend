@@ -26,6 +26,20 @@ export default function SelectScheduleScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const handleBack = () => {
+    const targetId = centerId || (center as any)?.id || (center as any)?.centerId;
+    if (targetId) {
+      router.replace({
+        pathname: '/service-center/[id]',
+        params: { id: targetId, from: 'book' }
+      });
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/book');
+    }
+  };
+
   const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -279,7 +293,7 @@ export default function SelectScheduleScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
+        <TouchableOpacity onPress={handleBack} style={styles.headerIcon}>
           <Ionicons name="chevron-back" size={28} color="#1F2937" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>

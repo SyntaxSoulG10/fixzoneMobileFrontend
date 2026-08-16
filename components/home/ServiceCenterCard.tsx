@@ -47,7 +47,8 @@ export default function ServiceCenterCard({
       params: {
         id,
         name,
-        distance: calculatedDistance !== undefined ? calculatedDistance.toFixed(1) : undefined
+        distance: calculatedDistance !== undefined ? calculatedDistance.toFixed(1) : undefined,
+        from: 'book'
       },
     });
   };

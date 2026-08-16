@@ -38,18 +38,25 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      if (!isSilent && bookings.length === 0) setIsLoading(true);
+      if (!isSilent) setIsLoading(true);
       const data = await bookingService.getBookingsByCustomer(authUser.userId);
       const sorted = [...data].sort((a, b) => 
         new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
       );
-      setBookings(sorted);
+      setBookings(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(sorted)) return prev;
+        return sorted;
+      });
     } catch (e) {
       console.error('Failed to fetch bookings', e);
     } finally {
       if (!isSilent) setIsLoading(false);
     }
-  }, [authUser?.userId, bookings.length]);
+  }, [authUser?.userId]);
+
+  const refreshBookings = useCallback(async () => {
+    await fetchBookings(false);
+  }, [fetchBookings]);
 
   useEffect(() => {
     fetchBookings(false);
@@ -112,9 +119,11 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const pendingBookings = bookings.filter(b => 
-    b.status === 'PENDING' || b.status === 'CONFIRMED' || b.status === 'PENDING_PAYMENT' || b.status === 'IN_PROGRESS'
-  );
+  const pendingBookings = React.useMemo(() => {
+    return bookings.filter(b => 
+      b.status === 'PENDING' || b.status === 'CONFIRMED' || b.status === 'PENDING_PAYMENT' || b.status === 'IN_PROGRESS'
+    );
+  }, [bookings]);
 
   return (
     <BookingContext.Provider value={{ 
@@ -125,7 +134,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       completePayment,
       pendingBookings,
       isLoading,
-      refreshBookings: () => fetchBookings(false)
+      refreshBookings
     }}>
       {children}
     </BookingContext.Provider>

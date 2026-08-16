@@ -177,24 +177,6 @@ export default function AuthScreen() {
         disabled={isSubmitting}
       />
 
-      <View style={styles.dividerContainer}>
-        <View style={styles.line} />
-        <Text style={styles.orText}>{mode === 'login' ? 'or login with' : 'or continue with'}</Text>
-        <View style={styles.line} />
-      </View>
-
-      {mode === 'login' ? (
-        <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Ionicons name="finger-print" size={32} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.googleBtn}>
-          <Ionicons name="logo-google" size={24} color="#EA4335" />
-          <Text style={styles.googleBtnText}>Sign Up with Google</Text>
-        </TouchableOpacity>
-      )}
 
       <View style={styles.bottomContainer}>
         <Text style={styles.bottomText}>
@@ -245,58 +227,13 @@ const styles = StyleSheet.create({
   btn: {
     marginBottom: 20,
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#000',
-  },
-  orText: {
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
-  },
-  socialContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  socialBtn: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 30,
-    height: 44,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 20,
-  },
-  googleBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#000',
-    marginLeft: 8,
-  },
+
   bottomContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 20,
-    marginTop: 'auto',
+    paddingVertical: 10,
+    marginTop: 8,
   },
   bottomText: {
     fontSize: 14,

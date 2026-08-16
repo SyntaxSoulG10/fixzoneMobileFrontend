@@ -11,22 +11,46 @@ import { UserProvider } from "../context/UserContext";
 import { BookingProvider } from "../context/BookingContext";
 import Toast, { BaseToast } from 'react-native-toast-message';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import NotificationPoller from '../components/NotificationPoller';
 
 const toastConfig = {
   info: (props: any) => (
     <BaseToast
       {...props}
-      style={{ borderLeftColor: '#E84E0F', height: 80 }}
+      style={{ borderLeftColor: '#3B82F6', height: 80 }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
-      text1Style={{
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 2
-      }}
-      text2Style={{
-        fontSize: 14,
-        color: '#4B5563'
-      }}
+      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
+      text2Style={{ fontSize: 14, color: '#4B5563' }}
+      text2NumberOfLines={2}
+    />
+  ),
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#10B981', height: 80 }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
+      text2Style={{ fontSize: 14, color: '#4B5563' }}
+      text2NumberOfLines={2}
+    />
+  ),
+  warning: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#F59E0B', height: 80 }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
+      text2Style={{ fontSize: 14, color: '#4B5563' }}
+      text2NumberOfLines={2}
+    />
+  ),
+  error: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#EF4444', height: 80 }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
+      text2Style={{ fontSize: 14, color: '#4B5563' }}
       text2NumberOfLines={2}
     />
   )
@@ -85,8 +109,6 @@ function RootLayoutNav() {
   );
 }
 
-
-
 export default function Layout() {
   return (
     <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}>
@@ -94,6 +116,7 @@ export default function Layout() {
         <UserProvider>
           <BookingProvider>
             <RootLayoutNav />
+            <NotificationPoller />
             <Toast config={toastConfig} />
           </BookingProvider>
         </UserProvider>

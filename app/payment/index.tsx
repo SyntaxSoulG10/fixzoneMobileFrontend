@@ -4,8 +4,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 import { useAuth } from '../../context/auth_context';
+import { useBookings } from '../../context/BookingContext';
 import { useStripe } from '@stripe/stripe-react-native';
 import { paymentService } from '../../services/paymentService';
+import { checkNotificationsNow } from '../../components/NotificationPoller';
 
 const { width } = Dimensions.get('window');
 
@@ -13,6 +15,7 @@ export default function InitialPaymentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user: authUser } = useAuth();
+  const { refreshBookings } = useBookings();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   // Extract data from params
@@ -120,6 +123,9 @@ export default function InitialPaymentScreen() {
         // Wait 2 seconds before retrying (webhook might be processing)
         await new Promise(res => setTimeout(res, 2000));
       }
+
+      await refreshBookings();
+      checkNotificationsNow();
 
       if (isPaid) {
         router.replace({

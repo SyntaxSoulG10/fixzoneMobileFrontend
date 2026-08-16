@@ -16,8 +16,12 @@ const { width } = Dimensions.get('window');
 type VehicleType = 'bike' | 'car' | 'van' | 'lorry';
 
 export default function ServiceCenterDetails() {
-  const { id, distance } = useLocalSearchParams<{ id: string; distance?: string }>();
+  const { id, distance, from } = useLocalSearchParams<{ id: string; distance?: string; from?: string }>();
   const router = useRouter();
+
+  const handleBack = () => {
+    router.replace('/(tabs)/book');
+  };
 
   const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +105,7 @@ export default function ServiceCenterDetails() {
       <StatusBar style="dark" />
       {/* Custom Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
+        <TouchableOpacity onPress={handleBack} style={styles.headerIcon}>
           <Ionicons name="chevron-back" size={28} color="#1F2937" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>

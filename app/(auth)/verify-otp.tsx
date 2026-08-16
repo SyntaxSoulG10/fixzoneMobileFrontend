@@ -31,9 +31,11 @@ export default function VerifyOtpScreen() {
     try {
       await authService.verifyOtp(email, code);
       Toast.show({
-        type: 'info',
-        text1: 'Verification Successful',
-        text2: 'Your email has been verified.',
+        type: 'success',
+        text1: 'Welcome to FixZone! 🎉',
+        text2: 'Your account has been verified successfully.',
+        position: 'top',
+        visibilityTime: 5000,
       });
       // Update auth state to trigger navigation
       updateAuthUser({ emailVerified: true });
@@ -84,7 +86,7 @@ export default function VerifyOtpScreen() {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="o o o o o"
+          placeholder="• • • • •"
           placeholderTextColor={COLORS.textMuted}
           keyboardType="number-pad"
           maxLength={5}

@@ -38,7 +38,7 @@ export const vehicleService = {
   },
 
   updateVehicle: async (vehicleId: string, data: Partial<VehicleCreateRequest>): Promise<VehicleResponse> => {
-    return request<VehicleResponse>(`/vehicles/${vehicleId}`, {
+    return request<VehicleResponse>(`/customer/vehicle/${vehicleId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useBookings } from '../../context/BookingContext';
@@ -24,12 +24,19 @@ export default function HistoryScreen() {
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const [statusHistory, setStatusHistory] = useState<BookingStatusHistoryDTO[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
       refreshBookings();
     }, [refreshBookings])
   );
+
+  const handlePullToRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshBookings();
+    setIsRefreshing(false);
+  };
 
   React.useEffect(() => {
     const fetchVehicles = async () => {
@@ -44,14 +51,24 @@ export default function HistoryScreen() {
     fetchVehicles();
   }, [authUser?.userId]);
 
-  const filteredBookings = bookings.filter(booking => {
-    // Hide bookings that are still pending payment
-    if (booking.status === 'PENDING_PAYMENT') return false;
+  // Keep open summary modal updated live when background polling detects status changes (CONFIRMED -> IN_PROGRESS -> COMPLETED)
+  React.useEffect(() => {
+    if (isSummaryVisible && selectedBooking) {
+      const latest = bookings.find(b => b.bookingId === selectedBooking.bookingId);
+      if (latest && (latest.status !== selectedBooking.status || latest.updatedAt !== selectedBooking.updatedAt)) {
+        setSelectedBooking(latest);
+        bookingService.getStatusHistory(latest.bookingId)
+          .then(setStatusHistory)
+          .catch(err => console.error('Error refreshing status history:', err));
+      }
+    }
+  }, [bookings, isSummaryVisible, selectedBooking]);
 
+  const filteredBookings = bookings.filter(booking => {
     if (activeFilter === 'All') return true;
     const status = booking.status.toUpperCase();
     if (activeFilter === 'Upcoming') {
-      return status === 'CONFIRMED' || status === 'PENDING';
+      return status === 'CONFIRMED' || status === 'PENDING' || status === 'PENDING_PAYMENT';
     }
     if (activeFilter === 'In Progress') {
       return status === 'IN_PROGRESS';
@@ -280,7 +297,18 @@ export default function HistoryScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handlePullToRefresh}
+            colors={['#E84E0F']}
+            tintColor="#E84E0F"
+          />
+        }
+      >
         {Object.keys(groupedBookings).sort((a, b) => {
           const dateA = new Date(a);
           const dateB = new Date(b);

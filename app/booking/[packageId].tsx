@@ -34,9 +34,23 @@ const EVENING_SLOTS: TimeSlot[] = [
 ];
 
 export default function BookServiceScreen() {
-  const { id, packageId, packageName, packagePrice } = useLocalSearchParams();
+  const { id, packageId, packageName, packagePrice } = useLocalSearchParams<{ id?: string; packageId?: string; packageName?: string; packagePrice?: string }>();
   const router = useRouter();
   const { user: authUser } = useAuth();
+
+  const handleBack = () => {
+    const targetId = id || (center as any)?.id || (center as any)?.centerId;
+    if (targetId) {
+      router.replace({
+        pathname: '/service-center/[id]',
+        params: { id: targetId, from: 'book' }
+      });
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/book');
+    }
+  };
 
   const [center, setCenter] = useState<any>(null);
   const [pkg, setPkg] = useState<any>(null);
@@ -204,7 +218,7 @@ export default function BookServiceScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>

@@ -12,6 +12,7 @@ import { COLORS } from '../constants/colors';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/auth_context';
 import { authService } from '../services/authService';
+import { imageKitService } from '../services/imageKitService';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +25,7 @@ export default function ProfileScreen() {
   const [name, setName] = useState(authUser?.fullName || localUser.name);
   const [mobile, setMobile] = useState(authUser?.phone || localUser.mobile);
   const [email, setEmail] = useState(authUser?.email || localUser.email);
-  const [profileImage, setProfileImage] = useState(authUser?.profilePictureUrl || localUser.profileImage);
+  const [profileImage, setProfileImage] = useState<string | null>(authUser?.profilePictureUrl || localUser.profileImage);
   const [isSaving, setIsSaving] = useState(false);
   
   const getGreeting = () => {
@@ -99,29 +100,26 @@ export default function ProfileScreen() {
     
     setIsSaving(true);
     try {
-      // 1. Update Profile (Name and Phone)
+      let finalImageUrl = profileImage;
+
+      // 1. Upload new image directly to ImageKit CDN if changed
+      if (profileImage && profileImage !== authUser?.profilePictureUrl && !profileImage.startsWith('http')) {
+        finalImageUrl = await imageKitService.uploadToImageKit(profileImage, `profile_${authUser?.userId || Date.now()}.jpg`);
+      }
+
+      // 2. Update Profile (Name and Phone)
       if (authUser?.userId) {
         await authService.updateProfile(authUser.userId, name, mobile);
         
-        // 2. Update backend if image changed
-        if (profileImage !== authUser.profilePictureUrl) {
-          if (profileImage && profileImage.startsWith('file://')) {
-            const file = new File(profileImage);
-            const base64 = await file.base64();
-            const extension = profileImage.split('.').pop()?.toLowerCase() || 'jpg';
-            const mimeType = extension === 'png' ? 'image/png' : (extension === 'webp' ? 'image/webp' : 'image/jpeg');
-            const imageData = `data:${mimeType};base64,${base64}`;
-            await authService.updateProfileImage(authUser.userId, imageData);
-          } else if (profileImage) {
-            await authService.updateProfileImage(authUser.userId, profileImage);
-          }
+        if (finalImageUrl && finalImageUrl !== authUser.profilePictureUrl) {
+          await authService.updateProfileImage(authUser.userId, finalImageUrl);
         }
 
         // 3. Sync with AuthContext
         updateAuthUser({ 
           fullName: name, 
           phone: mobile, 
-          profilePictureUrl: profileImage || authUser.profilePictureUrl 
+          profilePictureUrl: finalImageUrl || authUser.profilePictureUrl 
         });
       }
 
