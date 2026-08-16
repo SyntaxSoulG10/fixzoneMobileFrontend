@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { bookingService } from '../../services/bookingService';
 import { useAuth } from '../../context/auth_context';
 
 const { width } = Dimensions.get('window');
@@ -17,13 +18,13 @@ interface TimeSlot {
 const MORNING_SLOTS: TimeSlot[] = [
   { id: 'm1', time: '08:00 AM', status: 'Available' },
   { id: 'm2', time: '09:00 AM', status: 'Available' },
-  { id: 'm3', time: '10:00 AM', status: 'Busy' },
+  { id: 'm3', time: '10:00 AM', status: 'Available' },
   { id: 'm4', time: '11:00 AM', status: 'Available' },
 ];
 
 const AFTERNOON_SLOTS: TimeSlot[] = [
   { id: 'a1', time: '12:00 PM', status: 'Available' },
-  { id: 'a2', time: '02:00 PM', status: 'Busy' },
+  { id: 'a2', time: '02:00 PM', status: 'Available' },
   { id: 'a3', time: '04:00 PM', status: 'Available' },
 ];
 
@@ -40,6 +41,8 @@ export default function RescheduleScreen() {
 
   const booking = bookings.find(b => b.bookingId === bookingId);
   const [userVehicles, setUserVehicles] = useState<VehicleResponse[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState<boolean>(false);
 
   React.useEffect(() => {
     const fetchVehicles = async () => {
@@ -59,18 +62,74 @@ export default function RescheduleScreen() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
+  // Helper to format "08:00 AM" to "08:00" for backend checking
+  const formatSlotTime = (time: string) => {
+    const [timePart, ampm] = time.split(' ');
+    let [hours, minutes] = timePart.split(':');
+    let hoursNum = parseInt(hours);
+    if (ampm === 'PM' && hoursNum !== 12) hoursNum += 12;
+    if (ampm === 'AM' && hoursNum === 12) hoursNum = 0;
+    return `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
+  };
+
+  const isSlotAvailable = useCallback((timeStr: string) => {
+    if (!booking || !selectedDate) return true;
+    const backendFormat = formatSlotTime(timeStr);
+
+    // If selected date and slot match current booking, allow it
+    const isSameDate = selectedDate.toISOString().split('T')[0] === booking.bookingDate;
+    const isSameTime = booking.bookingTime && booking.bookingTime.startsWith(backendFormat);
+    if (isSameDate && isSameTime) return true;
+
+    // Check if slot starts with backend format e.g. "08:00-09:00"
+    return availableSlots.some(s => s.startsWith(backendFormat));
+  }, [availableSlots, booking, selectedDate]);
+
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!booking?.centerId || !selectedDate) return;
+      try {
+        setIsLoadingSlots(true);
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        const slots = await bookingService.getAvailableSlots(booking.centerId, dateStr);
+        setAvailableSlots(slots);
+      } catch (err) {
+        console.error('Failed to fetch available slots in reschedule:', err);
+      } finally {
+        setIsLoadingSlots(false);
+      }
+    };
+    fetchSlots();
+  }, [selectedDate, booking?.centerId]);
+
   const dates = useMemo(() => {
-    const arr = [];
+    const arr: Date[] = [];
     const today = new Date();
-    // Rescheduling rules often require a future date (at least 3 days from now as per user prompt logic)
-    // For prototype, we'll just show the next 30 days
-    for (let i = 0; i < 30; i++) {
-      const date = new Date();
-      date.setDate(today.getDate() + i);
-      arr.push(date);
+    today.setHours(0, 0, 0, 0);
+
+    const userSubOrTrialEnd = (authUser as any)?.subscriptionEndsAt || (authUser as any)?.trialEndsAt;
+    let maxAllowedDate: Date;
+
+    if (userSubOrTrialEnd) {
+      maxAllowedDate = new Date(userSubOrTrialEnd);
+      maxAllowedDate.setHours(23, 59, 59, 999);
+    } else {
+      maxAllowedDate = new Date(today);
+      maxAllowedDate.setDate(today.getDate() + 30);
+      maxAllowedDate.setHours(23, 59, 59, 999);
+    }
+
+    let current = new Date(today);
+    while (arr.length < 20 && current <= maxAllowedDate) {
+      arr.push(new Date(current));
+      current.setDate(current.getDate() + 1);
     }
     return arr;
-  }, []);
+  }, [authUser]);
 
   if (!booking) {
     return (
@@ -88,21 +147,15 @@ export default function RescheduleScreen() {
       const timeStr = allSlots.find(t => t.id === selectedTime)?.time || '';
 
       const newDateStr = selectedDate.toISOString().split('T')[0];
-
-      // Extract time in HH:mm format
-      let hour = parseInt(timeStr.split(':')[0]);
-      const ampm = timeStr.split(' ')[1];
-      if (ampm === 'PM' && hour < 12) hour += 12;
-      if (ampm === 'AM' && hour === 12) hour = 0;
-      const newTimeStr = `${hour.toString().padStart(2, '0')}:00`;
+      const newTimeStr = `${formatSlotTime(timeStr)}:00`;
 
       try {
         await rescheduleBooking(booking.bookingId, newDateStr, newTimeStr);
-        Alert.alert('Success', 'Your booking has been rescheduled.', [
+        Alert.alert('Success', 'Your booking has been rescheduled successfully.', [
           { text: 'OK', onPress: () => router.back() }
         ]);
-      } catch (e) {
-        Alert.alert('Error', 'Failed to reschedule booking. Please try again.');
+      } catch (e: any) {
+        Alert.alert('Cannot Reschedule', e.message || 'Failed to reschedule booking. Please try another time slot.');
       }
     }
   };
@@ -115,7 +168,10 @@ export default function RescheduleScreen() {
     return (
       <TouchableOpacity
         key={date.toISOString()}
-        onPress={() => setSelectedDate(date)}
+        onPress={() => {
+          setSelectedDate(date);
+          setSelectedTime(null);
+        }}
         style={[styles.dateItem, isSelected && styles.dateItemSelected]}
       >
         <Text style={[styles.weekDayText, isSelected && styles.dateTextSelected]}>{weekDay}</Text>
@@ -125,7 +181,8 @@ export default function RescheduleScreen() {
   };
 
   const renderTimeSlot = (slot: TimeSlot) => {
-    const isBusy = slot.status === 'Busy';
+    const isAvailable = isSlotAvailable(slot.time);
+    const isBusy = !isAvailable;
     const isSelected = selectedTime === slot.id;
     return (
       <TouchableOpacity
@@ -146,7 +203,7 @@ export default function RescheduleScreen() {
           isBusy ? styles.statusBusy : styles.statusAvailable,
           isSelected && styles.statusSelected
         ]}>
-          {isSelected ? 'Selected' : slot.status}
+          {isSelected ? 'Selected' : (isBusy ? 'Busy' : 'Available')}
         </Text>
       </TouchableOpacity>
     );

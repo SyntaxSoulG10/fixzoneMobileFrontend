@@ -16,7 +16,7 @@ type FilterStatus = 'All' | 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelle
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { bookings, cancelBooking, isLoading, refreshBookings } = useBookings();
+  const { bookings, cancelBooking, isLoading, refreshBookings, updateSingleBooking } = useBookings();
   const { user: authUser } = useAuth();
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('All');
   const [userVehicles, setUserVehicles] = useState<VehicleResponse[]>([]);
@@ -51,18 +51,49 @@ export default function HistoryScreen() {
     fetchVehicles();
   }, [authUser?.userId]);
 
-  // Keep open summary modal updated live when background polling detects status changes (CONFIRMED -> IN_PROGRESS -> COMPLETED)
+  // Keep open summary modal updated in real-time (status & history timeline polling)
   React.useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
     if (isSummaryVisible && selectedBooking) {
-      const latest = bookings.find(b => b.bookingId === selectedBooking.bookingId);
-      if (latest && (latest.status !== selectedBooking.status || latest.updatedAt !== selectedBooking.updatedAt)) {
-        setSelectedBooking(latest);
-        bookingService.getStatusHistory(latest.bookingId)
-          .then(setStatusHistory)
-          .catch(err => console.error('Error refreshing status history:', err));
-      }
+      const targetId = selectedBooking.bookingId;
+
+      const fetchRealtimeData = async () => {
+        try {
+          const [history, latestBooking] = await Promise.all([
+            bookingService.getStatusHistory(targetId),
+            bookingService.getBookingById(targetId)
+          ]);
+
+          setStatusHistory(prev => {
+            if (JSON.stringify(prev) !== JSON.stringify(history)) {
+              return history;
+            }
+            return prev;
+          });
+
+          if (latestBooking) {
+            updateSingleBooking(latestBooking);
+            setSelectedBooking(prev => {
+              if (prev && (prev.status !== latestBooking.status || prev.bookingDate !== latestBooking.bookingDate || prev.bookingTime !== latestBooking.bookingTime)) {
+                return latestBooking;
+              }
+              return prev;
+            });
+          }
+        } catch (e) {
+          console.error('Error fetching realtime summary data', e);
+        }
+      };
+
+      // Poll every 2.5 seconds silently for realtime timeline and status updates
+      intervalId = setInterval(fetchRealtimeData, 2500);
     }
-  }, [bookings, isSummaryVisible, selectedBooking]);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isSummaryVisible, selectedBooking?.bookingId, updateSingleBooking]);
 
   const filteredBookings = bookings.filter(booking => {
     if (activeFilter === 'All') return true;
@@ -159,6 +190,28 @@ export default function HistoryScreen() {
         }
       ]
     );
+  };
+  const getPackageBullets = (booking: BookingResponseDTO) => {
+    let desc = booking.packageDescription;
+
+    if (!desc) {
+      desc = MOCK_SERVICE_CENTERS.find(c => c.id === booking.centerId)?.packages?.find(p => p.id === booking.packageId)?.description;
+    }
+
+    if (!desc) {
+      return [
+        'Full System & Engine Inspection',
+        'Professional Care & Oil Check',
+        'Quality Guaranteed & Road Testing'
+      ];
+    }
+
+    const items = desc
+      .split(/[\n;•]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    return items.length > 0 ? items : [desc];
   };
 
   const openSummary = async (booking: BookingResponseDTO) => {
@@ -297,8 +350,8 @@ export default function HistoryScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -349,6 +402,14 @@ export default function HistoryScreen() {
             {selectedBooking && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.modalContent}>
+                  {/* Current Status Badge */}
+                  <View style={styles.summarySection}>
+                    <Text style={styles.sectionLabel}>Current Status</Text>
+                    <View style={styles.statusBadgeContainer}>
+                      <Text style={styles.statusBadgeText}>{selectedBooking.status.replace(/_/g, ' ')}</Text>
+                    </View>
+                  </View>
+
                   {/* Center Info */}
                   <View style={styles.summarySection}>
                     <Text style={styles.sectionLabel}>Service Center</Text>
@@ -378,24 +439,42 @@ export default function HistoryScreen() {
                   </View>
 
                   <View style={styles.summarySection}>
-                    <Text style={styles.sectionLabel}>Package</Text>
-                    <Text style={styles.sectionValue}>{selectedBooking.packageName}</Text>
-                    <Text style={[styles.sectionSubValue, { marginTop: 4, lineHeight: 20 }]}>
-                      {MOCK_SERVICE_CENTERS.find(c => c.id === selectedBooking.centerId)?.packages?.find(p => p.id === selectedBooking.packageId)?.description ||
-                        'Standard comprehensive service package for your vehicle, ensuring optimal performance and safety.'}
-                    </Text>
+                    <Text style={styles.sectionLabel}>Package Details</Text>
+                    <Text style={[styles.sectionValue, { marginBottom: 8 }]}>{selectedBooking.packageName}</Text>
+                    <View style={styles.bulletListContainer}>
+                      {getPackageBullets(selectedBooking).map((bullet, idx) => (
+                        <View key={idx} style={styles.bulletItemRow}>
+                          <Text style={styles.bulletDot}>•</Text>
+                          <Text style={styles.bulletText}>{bullet}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
 
-                  <View style={styles.summarySection}>
-                    <Text style={styles.sectionLabel}>Estimated Cost</Text>
-                    <Text style={[styles.sectionValue, { color: '#E84E0F' }]}>LKR {(selectedBooking.estimatedCost || 0).toLocaleString()}</Text>
-                  </View>
+                  {/* Payment & 40% Deposit Breakdown */}
+                  <View style={[styles.summarySection, { backgroundColor: '#F8FAFC', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginTop: 8 }]}>
+                    <Text style={[styles.sectionLabel, { marginBottom: 10, color: '#0F172A', fontWeight: '700', fontSize: 13 }]}>Payment Breakdown</Text>
+                    
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Total Package Price (100%)</Text>
+                      <Text style={{ fontSize: 13, color: '#0F172A', fontWeight: '700' }}>
+                        LKR {(selectedBooking.estimatedCost || 0).toLocaleString()}
+                      </Text>
+                    </View>
 
-                  <View style={styles.summarySection}>
-                    <Text style={styles.sectionLabel}>Initial Payment Paid</Text>
-                    <Text style={[styles.sectionValue, { color: '#10B981' }]}>
-                      LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.1)).toLocaleString()}
-                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '600' }}>Initial Advance Paid (40%)</Text>
+                      <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '800' }}>
+                        LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
+                      <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '600' }}>Balance Due at Center (60%)</Text>
+                      <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '800' }}>
+                        LKR {(((selectedBooking.estimatedCost || 0) - (selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)))).toLocaleString()}
+                      </Text>
+                    </View>
                   </View>
 
                   <View style={styles.summarySection}>
@@ -412,7 +491,10 @@ export default function HistoryScreen() {
                           let iconName = "checkmark";
                           let iconColor = "#10B981";
 
-                          if (item.status === 'PENDING_PAYMENT') {
+                          if (item.statusDisplay?.includes('Rescheduled') || item.changedBy === 'CUSTOMER_RESCHEDULE') {
+                            iconName = "calendar";
+                            iconColor = "#8B5CF6";
+                          } else if (item.status === 'PENDING_PAYMENT' || item.statusDisplay === 'Booking Created') {
                             iconName = "document-text";
                             iconColor = "#3B82F6";
                           } else if (item.status === 'CONFIRMED') {
@@ -909,6 +991,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     marginTop: 1,
+    fontWeight: '500',
+  },
+  statusBadgeContainer: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  statusBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#E84E0F',
+  },
+  bulletListContainer: {
+    marginTop: 4,
+    paddingLeft: 2,
+  },
+  bulletItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  bulletDot: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#E84E0F',
+    marginRight: 8,
+    lineHeight: 20,
+  },
+  bulletText: {
+    fontSize: 13,
+    color: '#475569',
+    flex: 1,
+    lineHeight: 20,
     fontWeight: '500',
   },
 });

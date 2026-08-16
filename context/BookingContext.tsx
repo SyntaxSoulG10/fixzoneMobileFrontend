@@ -11,6 +11,7 @@ interface BookingContextType {
   pendingBookings: BookingResponseDTO[];
   isLoading: boolean;
   refreshBookings: () => Promise<void>;
+  updateSingleBooking: (updatedBooking: BookingResponseDTO) => void;
 }
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
@@ -47,7 +48,11 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         if (JSON.stringify(prev) === JSON.stringify(sorted)) return prev;
         return sorted;
       });
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === 'SESSION_EXPIRED') {
+        setBookings([]);
+        return;
+      }
       console.error('Failed to fetch bookings', e);
     } finally {
       if (!isSilent) setIsLoading(false);
@@ -57,6 +62,17 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const refreshBookings = useCallback(async () => {
     await fetchBookings(false);
   }, [fetchBookings]);
+
+  const updateSingleBooking = useCallback((updatedBooking: BookingResponseDTO) => {
+    setBookings(prev => {
+      const idx = prev.findIndex(b => b.bookingId === updatedBooking.bookingId);
+      if (idx === -1) return prev;
+      if (JSON.stringify(prev[idx]) === JSON.stringify(updatedBooking)) return prev;
+      const next = [...prev];
+      next[idx] = updatedBooking;
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     fetchBookings(false);
@@ -134,7 +150,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       completePayment,
       pendingBookings,
       isLoading,
-      refreshBookings
+      refreshBookings,
+      updateSingleBooking
     }}>
       {children}
     </BookingContext.Provider>

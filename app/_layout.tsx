@@ -4,57 +4,117 @@ import { useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { AuthProvider, useAuth } from "../context/auth_context";
 import { useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import CustomDrawer from "../components/navigation/CustomDrawer";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { UserProvider } from "../context/UserContext";
 import { BookingProvider } from "../context/BookingContext";
-import Toast, { BaseToast } from 'react-native-toast-message';
+import Toast from 'react-native-toast-message';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import NotificationPoller from '../components/NotificationPoller';
+import { StatusBar } from 'expo-status-bar';
+
+const CustomToastCard = ({ text1, text2, type, onPress }: { text1?: string; text2?: string; type: string; onPress?: () => void }) => {
+  let iconName: keyof typeof Ionicons.glyphMap = 'notifications';
+  let iconColor = '#3B82F6';
+  let iconBg = '#EFF6FF';
+  let accentColor = '#3B82F6';
+
+  if (type === 'success') {
+    iconName = 'checkmark-circle';
+    iconColor = '#10B981';
+    iconBg = '#ECFDF5';
+    accentColor = '#10B981';
+  } else if (type === 'warning') {
+    iconName = 'alert-circle';
+    iconColor = '#F59E0B';
+    iconBg = '#FFFBEB';
+    accentColor = '#F59E0B';
+  } else if (type === 'error') {
+    iconName = 'close-circle';
+    iconColor = '#EF4444';
+    iconBg = '#FEF2F2';
+    accentColor = '#EF4444';
+  }
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[toastStyles.toastContainer, { borderLeftColor: accentColor }]}
+    >
+      <View style={[toastStyles.iconContainer, { backgroundColor: iconBg }]}>
+        <Ionicons name={iconName} size={24} color={iconColor} />
+      </View>
+      
+      <View style={toastStyles.textContainer}>
+        {!!text1 && <Text style={toastStyles.titleText} numberOfLines={1}>{text1}</Text>}
+        {!!text2 && <Text style={toastStyles.messageText} numberOfLines={2}>{text2}</Text>}
+      </View>
+
+      <TouchableOpacity style={toastStyles.closeButton} onPress={() => Toast.hide()}>
+        <Ionicons name="close" size={18} color="#94A3B8" />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+};
 
 const toastConfig = {
-  info: (props: any) => (
-    <BaseToast
-      {...props}
-      style={{ borderLeftColor: '#3B82F6', height: 80 }}
-      contentContainerStyle={{ paddingHorizontal: 15 }}
-      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
-      text2Style={{ fontSize: 14, color: '#4B5563' }}
-      text2NumberOfLines={2}
-    />
-  ),
-  success: (props: any) => (
-    <BaseToast
-      {...props}
-      style={{ borderLeftColor: '#10B981', height: 80 }}
-      contentContainerStyle={{ paddingHorizontal: 15 }}
-      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
-      text2Style={{ fontSize: 14, color: '#4B5563' }}
-      text2NumberOfLines={2}
-    />
-  ),
-  warning: (props: any) => (
-    <BaseToast
-      {...props}
-      style={{ borderLeftColor: '#F59E0B', height: 80 }}
-      contentContainerStyle={{ paddingHorizontal: 15 }}
-      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
-      text2Style={{ fontSize: 14, color: '#4B5563' }}
-      text2NumberOfLines={2}
-    />
-  ),
-  error: (props: any) => (
-    <BaseToast
-      {...props}
-      style={{ borderLeftColor: '#EF4444', height: 80 }}
-      contentContainerStyle={{ paddingHorizontal: 15 }}
-      text1Style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 2 }}
-      text2Style={{ fontSize: 14, color: '#4B5563' }}
-      text2NumberOfLines={2}
-    />
-  )
+  info: (props: any) => <CustomToastCard {...props} type="info" onPress={props.onPress} text1={props.text1} text2={props.text2} />,
+  success: (props: any) => <CustomToastCard {...props} type="success" onPress={props.onPress} text1={props.text1} text2={props.text2} />,
+  warning: (props: any) => <CustomToastCard {...props} type="warning" onPress={props.onPress} text1={props.text1} text2={props.text2} />,
+  error: (props: any) => <CustomToastCard {...props} type="error" onPress={props.onPress} text1={props.text1} text2={props.text2} />,
 };
+
+const toastStyles = StyleSheet.create({
+  toastContainer: {
+    width: '92%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 5,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 8,
+    marginTop: 8,
+  },
+  iconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  textContainer: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  titleText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  messageText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#475569',
+    lineHeight: 18,
+  },
+  closeButton: {
+    padding: 4,
+    marginLeft: 4,
+  },
+});
 
 function RootLayoutNav() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -115,6 +175,7 @@ export default function Layout() {
       <AuthProvider>
         <UserProvider>
           <BookingProvider>
+            <StatusBar style="dark" />
             <RootLayoutNav />
             <NotificationPoller />
             <Toast config={toastConfig} />

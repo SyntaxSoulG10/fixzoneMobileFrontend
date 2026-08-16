@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService, LoginRequest, LoginResponse, RegisterRequest } from '../services/authService';
+import { setUnauthorizedListener } from '../services/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -23,6 +24,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setUnauthorizedListener(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+      setError('Session expired. Please log in again.');
+    });
+
     const checkAuth = async () => {
       try {
         const storedUser = await AsyncStorage.getItem('user');
@@ -38,6 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     checkAuth();
+
+    return () => {
+      setUnauthorizedListener(null);
+    };
   }, []);
 
   const login = async (credentials: LoginRequest) => {

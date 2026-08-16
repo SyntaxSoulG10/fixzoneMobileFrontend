@@ -11,6 +11,7 @@ export interface BookingResponseDTO {
   status: string;
   serviceCenterName: string;
   packageName: string;
+  packageDescription?: string;
   estimatedCost?: number;
   bookingFee?: number;
 }

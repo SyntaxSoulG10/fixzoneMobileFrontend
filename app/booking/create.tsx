@@ -51,16 +51,29 @@ export default function SelectScheduleScreen() {
   const [isAddVehicleVisible, setIsAddVehicleVisible] = useState(false);
 
   const dates = useMemo(() => {
-    const arr = [];
+    const arr: Date[] = [];
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to start of day
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      arr.push(date);
+    today.setHours(0, 0, 0, 0);
+
+    const userSubOrTrialEnd = (user as any)?.subscriptionEndsAt || (user as any)?.trialEndsAt;
+    let maxAllowedDate: Date;
+
+    if (userSubOrTrialEnd) {
+      maxAllowedDate = new Date(userSubOrTrialEnd);
+      maxAllowedDate.setHours(23, 59, 59, 999);
+    } else {
+      maxAllowedDate = new Date(today);
+      maxAllowedDate.setDate(today.getDate() + 30);
+      maxAllowedDate.setHours(23, 59, 59, 999);
+    }
+
+    let current = new Date(today);
+    while (arr.length < 20 && current <= maxAllowedDate) {
+      arr.push(new Date(current));
+      current.setDate(current.getDate() + 1);
     }
     return arr;
-  }, []);
+  }, [user]);
 
   const currentMonthYear = useMemo(() => {
     return (selectedDate || new Date()).toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -86,7 +99,7 @@ export default function SelectScheduleScreen() {
       ]);
       setCenter(centerData);
       setVehicles(vehicleData);
-      
+
       // Update selection: preserve current selection if it exists in new data
       setSelectedVehicle(prev => {
         if (prev && vehicleData.some(v => v.id === prev)) return prev;
@@ -116,7 +129,7 @@ export default function SelectScheduleScreen() {
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
       const slots = await bookingService.getAvailableSlots(centerId, dateStr);
       setAvailableSlots(slots);
-      
+
       // Clear selection if it's no longer available
       if (selectedTime && !slots.includes(selectedTime.split(' ')[0])) {
         setSelectedTime(null);
@@ -135,15 +148,15 @@ export default function SelectScheduleScreen() {
     const [timePart, ampm] = time.split(' ');
     let [hours, minutes] = timePart.split(':');
     let hoursNum = parseInt(hours);
-    
+
     if (ampm === 'PM' && hoursNum !== 12) hoursNum += 12;
     if (ampm === 'AM' && hoursNum === 12) hoursNum = 0;
-    
+
     const backendFormat = `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
-    
+
     // Backend returns "08:00-09:00", so we check if any slot starts with our time
     const isAvailable = availableSlots.some(slot => slot.startsWith(backendFormat));
-    
+
     return {
       id: time,
       time: time,
@@ -162,6 +175,10 @@ export default function SelectScheduleScreen() {
   const handleProceed = async () => {
     if (!selectedVehicle) {
       Alert.alert('Selection Required', 'Please select a vehicle first.');
+      return;
+    }
+    if (!selectedDate) {
+      Alert.alert('Selection Required', 'Please select a date.');
       return;
     }
     if (!selectedTime) {
@@ -185,10 +202,10 @@ export default function SelectScheduleScreen() {
 
       // Proceed to payment with the newly created (soft-locked) booking
       const selectedVehicleObj = vehicles.find(v => v.id === selectedVehicle);
-      
+
       router.push({
         pathname: '/payment',
-        params: { 
+        params: {
           bookingId: booking.bookingId,
           id: centerId,
           packageId: packageId,
@@ -224,18 +241,18 @@ export default function SelectScheduleScreen() {
         disabled={isLeaveDate}
         onPress={() => setSelectedDate(date)}
         style={[
-          styles.dateItem, 
+          styles.dateItem,
           isSelected && styles.dateItemSelected,
           isLeaveDate && styles.dateItemDisabled
         ]}
       >
         <Text style={[
-          styles.dayName, 
+          styles.dayName,
           isSelected && styles.textWhite,
           isLeaveDate && styles.textDisabled
         ]}>{dayName}</Text>
         <Text style={[
-          styles.dayNum, 
+          styles.dayNum,
           isSelected && styles.textWhite,
           isLeaveDate && styles.textDisabled
         ]}>{dayNum}</Text>
@@ -267,7 +284,7 @@ export default function SelectScheduleScreen() {
           {slot.time}
         </Text>
         <Text style={[
-          styles.slotStatus, 
+          styles.slotStatus,
           isSelected ? styles.textWhite : (isBusy ? styles.textError : styles.textSuccess)
         ]}>
           {isSelected ? 'Selected' : slot.status}
@@ -290,7 +307,7 @@ export default function SelectScheduleScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.headerIcon}>
@@ -304,7 +321,7 @@ export default function SelectScheduleScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+
         {/* Select Vehicle */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -315,8 +332,8 @@ export default function SelectScheduleScreen() {
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleList}>
             {vehicles.map(v => (
-              <TouchableOpacity 
-                key={v.id} 
+              <TouchableOpacity
+                key={v.id}
                 onPress={() => setSelectedVehicle(v.id)}
                 style={styles.vehicleItem}
               >
@@ -324,10 +341,10 @@ export default function SelectScheduleScreen() {
                   {v.imageUrl ? (
                     <Image source={{ uri: v.imageUrl }} style={styles.vehicleImage} />
                   ) : (
-                    <Ionicons 
-                      name={getVehicleIcon(v.vehicleType)} 
-                      size={40} 
-                      color={selectedVehicle === v.id ? "#F97316" : "#9CA3AF"} 
+                    <Ionicons
+                      name={getVehicleIcon(v.vehicleType)}
+                      size={40}
+                      color={selectedVehicle === v.id ? "#F97316" : "#9CA3AF"}
                     />
                   )}
                   {selectedVehicle === v.id && (
@@ -387,8 +404,8 @@ export default function SelectScheduleScreen() {
           <Text style={styles.estimatedLabel}>ESTIMATED TOTAL</Text>
           <Text style={styles.estimatedPrice}>LKR {price.toLocaleString()}</Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.proceedBtn, (isProcessing || !isReady) && styles.proceedBtnDisabled]} 
+        <TouchableOpacity
+          style={[styles.proceedBtn, (isProcessing || !isReady) && styles.proceedBtnDisabled]}
           onPress={handleProceed}
           disabled={isProcessing || !isReady}
         >
@@ -400,9 +417,9 @@ export default function SelectScheduleScreen() {
         </TouchableOpacity>
       </View>
 
-      <AddVehicleModal 
-        visible={isAddVehicleVisible} 
-        onClose={() => setIsAddVehicleVisible(false)} 
+      <AddVehicleModal
+        visible={isAddVehicleVisible}
+        onClose={() => setIsAddVehicleVisible(false)}
         onSuccess={() => {
           setIsAddVehicleVisible(false);
           loadData();
@@ -441,7 +458,7 @@ const styles = StyleSheet.create({
   calendarHeader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 30, marginBottom: 20 },
   monthYear: { fontSize: 18, fontWeight: '700', color: '#111827' },
   dateList: { paddingHorizontal: 20, gap: 15 },
-  dateItem: { width: 60, height: 85, borderRadius: 20, backgroundColor: '#fff', borderVertical: 1, borderColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
+  dateItem: { width: 60, height: 85, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
   dateItemSelected: { backgroundColor: '#F97316', elevation: 8, shadowColor: '#F97316', shadowOpacity: 0.3 },
   dayName: { fontSize: 14, color: '#9CA3AF', fontWeight: '600' },
   dayNum: { fontSize: 22, fontWeight: '800', color: '#111827', marginTop: 2 },

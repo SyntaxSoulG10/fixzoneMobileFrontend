@@ -2,6 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const BASE_URL = 'http://10.172.239.1:8081/api';
 
+// Global session expiration listener callback
+type UnauthorizedListener = () => void;
+let unauthorizedListener: UnauthorizedListener | null = null;
+
+export function setUnauthorizedListener(listener: UnauthorizedListener | null) {
+  unauthorizedListener = listener;
+}
+
 // Simple in-memory cache
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION_MS = 1000 * 60 * 2; // 2 minutes
@@ -48,6 +56,19 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   }
 
   if (!response.ok) {
+    // Check for 401 Unauthorized or 403 Forbidden (Expired / Invalid JWT token)
+    if (response.status === 401 || response.status === 403) {
+      console.warn(`HTTP ${response.status} detected: Session expired or invalid. Clearing token...`);
+      await AsyncStorage.multiRemove(['token', 'user', 'userRole']);
+      cache.clear();
+
+      if (unauthorizedListener) {
+        unauthorizedListener();
+      }
+
+      throw new Error('SESSION_EXPIRED');
+    }
+
     const errorMsg = data.message || data.error || `Server error: ${response.status}`;
     const details = data.details ? ` — ${data.details}` : '';
     throw new Error(`${errorMsg}${details}`);

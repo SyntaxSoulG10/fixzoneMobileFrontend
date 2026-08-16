@@ -3,6 +3,7 @@ import { useAuth } from '../context/auth_context';
 import { notificationService } from '../services/notificationService';
 import Toast from 'react-native-toast-message';
 import { Vibration } from 'react-native';
+import { useRouter } from 'expo-router';
 
 let triggerCheck: (() => void) | null = null;
 
@@ -18,6 +19,7 @@ export const checkNotificationsNow = () => {
 export default function NotificationPoller() {
   const { isAuthenticated, user } = useAuth();
   const isInitialFetch = useRef(true);
+  const router = useRouter();
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -68,10 +70,18 @@ export default function NotificationPoller() {
               text2: n.message,
               position: 'top',
               visibilityTime: 6000,
+              onPress: () => {
+                Toast.hide();
+                const target = n.targetUrl === '/bookings' ? '/(tabs)/history' : (n.targetUrl || '/notifications');
+                router.push(target as any);
+              }
             });
           }
         });
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.message === 'SESSION_EXPIRED') {
+          return;
+        }
         console.log('Error polling notifications:', error);
       }
     };

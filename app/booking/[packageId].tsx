@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Dimensions, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { bookingService } from '../../services/bookingService';
 import { getVehicleIcon } from '../../utils/vehicle_utils';
 
 const { width } = Dimensions.get('window');
@@ -18,13 +19,13 @@ interface TimeSlot {
 const MORNING_SLOTS: TimeSlot[] = [
   { id: 'm1', time: '08:00 AM', status: 'Available' },
   { id: 'm2', time: '09:00 AM', status: 'Available' },
-  { id: 'm3', time: '10:00 AM', status: 'Busy' },
+  { id: 'm3', time: '10:00 AM', status: 'Available' },
   { id: 'm4', time: '11:00 AM', status: 'Available' },
 ];
 
 const AFTERNOON_SLOTS: TimeSlot[] = [
   { id: 'a1', time: '12:00 PM', status: 'Available' },
-  { id: 'a2', time: '02:00 PM', status: 'Busy' },
+  { id: 'a2', time: '02:00 PM', status: 'Available' },
   { id: 'a3', time: '04:00 PM', status: 'Available' },
 ];
 
@@ -55,6 +56,8 @@ export default function BookServiceScreen() {
   const [center, setCenter] = useState<any>(null);
   const [pkg, setPkg] = useState<any>(null);
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -69,6 +72,42 @@ export default function BookServiceScreen() {
     }, [])
   );
 
+  const formatSlotTime = (time: string) => {
+    const [timePart, ampm] = time.split(' ');
+    let [hours, minutes] = timePart.split(':');
+    let hoursNum = parseInt(hours);
+    if (ampm === 'PM' && hoursNum !== 12) hoursNum += 12;
+    if (ampm === 'AM' && hoursNum === 12) hoursNum = 0;
+    return `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
+  };
+
+  const isSlotAvailable = useCallback((timeStr: string) => {
+    if (!selectedDate) return true;
+    const backendFormat = formatSlotTime(timeStr);
+    return availableSlots.some(s => s.startsWith(backendFormat));
+  }, [availableSlots, selectedDate]);
+
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!id || !selectedDate) return;
+      try {
+        setIsLoadingSlots(true);
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        const slots = await bookingService.getAvailableSlots(id as string, dateStr);
+        setAvailableSlots(slots);
+      } catch (err) {
+        console.error('Failed to fetch available slots in package booking:', err);
+      } finally {
+        setIsLoadingSlots(false);
+      }
+    };
+    fetchSlots();
+  }, [selectedDate, id]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -77,16 +116,16 @@ export default function BookServiceScreen() {
           const userVehicles = await vehicleService.getVehiclesByUser(authUser.userId);
           setVehicles(userVehicles);
         }
-        
+
         // Use passed params
         setCenter({ id, name: "FixZone Service Center" });
-        setPkg({ 
-            id: packageId, 
-            name: packageName || "Selected Package", 
-            price: Number(packagePrice) || 0,
-            features: ["Full Inspection", "Professional Care", "Quality Guaranteed"]
+        setPkg({
+          id: packageId,
+          name: packageName || "Selected Package",
+          price: Number(packagePrice) || 0,
+          features: ["Full Inspection", "Professional Care", "Quality Guaranteed"]
         });
-        
+
       } catch (e) {
         console.error('Error fetching booking data', e);
       } finally {
@@ -97,15 +136,29 @@ export default function BookServiceScreen() {
   }, [id, packageId, authUser?.userId]);
 
   const dates = useMemo(() => {
-    const arr = [];
+    const arr: Date[] = [];
     const today = new Date();
-    for (let i = 0; i < 30; i++) {
-      const date = new Date();
-      date.setDate(today.getDate() + i);
-      arr.push(date);
+    today.setHours(0, 0, 0, 0);
+
+    const userSubOrTrialEnd = (authUser as any)?.subscriptionEndsAt || (authUser as any)?.trialEndsAt;
+    let maxAllowedDate: Date;
+
+    if (userSubOrTrialEnd) {
+      maxAllowedDate = new Date(userSubOrTrialEnd);
+      maxAllowedDate.setHours(23, 59, 59, 999);
+    } else {
+      maxAllowedDate = new Date(today);
+      maxAllowedDate.setDate(today.getDate() + 30);
+      maxAllowedDate.setHours(23, 59, 59, 999);
+    }
+
+    let current = new Date(today);
+    while (arr.length < 20 && current <= maxAllowedDate) {
+      arr.push(new Date(current));
+      current.setDate(current.getDate() + 1);
     }
     return arr;
-  }, []);
+  }, [authUser]);
 
   const isReady = selectedDate && selectedTime && selectedVehicle;
 
@@ -114,7 +167,7 @@ export default function BookServiceScreen() {
       const allSlots = [...MORNING_SLOTS, ...AFTERNOON_SLOTS, ...EVENING_SLOTS];
       const timeStr = allSlots.find(t => t.id === selectedTime)?.time || '';
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-      
+
       const selectedVehicleObj = vehicles.find(v => v.id === selectedVehicle);
 
       router.push({
@@ -141,23 +194,23 @@ export default function BookServiceScreen() {
     const isToday = new Date().toDateString() === date.toDateString();
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={date.toISOString()}
         disabled={isLeaveDate}
         onPress={() => setSelectedDate(isSelected ? null : date)}
         style={[
-          styles.dateItem, 
+          styles.dateItem,
           isSelected && styles.dateItemSelected,
           isLeaveDate && styles.dateItemDisabled
         ]}
       >
         <Text style={[
-          styles.weekDayText, 
+          styles.weekDayText,
           isSelected && styles.dateTextSelected,
           isLeaveDate && styles.textDisabled
         ]}>{weekDay}</Text>
         <Text style={[
-          styles.dateText, 
+          styles.dateText,
           isSelected && styles.dateTextSelected,
           isLeaveDate && styles.textDisabled
         ]}>{day}</Text>
@@ -171,7 +224,8 @@ export default function BookServiceScreen() {
   };
 
   const renderTimeSlot = (slot: TimeSlot) => {
-    const isBusy = slot.status === 'Busy';
+    const isAvailable = isSlotAvailable(slot.time);
+    const isBusy = !isAvailable;
     const isSelected = selectedTime === slot.id;
     return (
       <TouchableOpacity
@@ -188,11 +242,11 @@ export default function BookServiceScreen() {
           {slot.time}
         </Text>
         <Text style={[
-          styles.timeSlotStatus, 
+          styles.timeSlotStatus,
           isBusy ? styles.statusBusy : styles.statusAvailable,
           isSelected && styles.statusSelected
         ]}>
-          {isSelected ? 'Selected' : slot.status}
+          {isSelected ? 'Selected' : (isBusy ? 'Busy' : 'Available')}
         </Text>
       </TouchableOpacity>
     );
@@ -228,14 +282,14 @@ export default function BookServiceScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={{ flex: 1 }}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-              
+
               {/* Selected Package */}
               <View style={styles.packageSelectedCard}>
                 <View style={styles.packageHeader}>
@@ -261,14 +315,14 @@ export default function BookServiceScreen() {
                 <Ionicons name="information-circle-outline" size={24} color="#E84E0F" />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.disclaimerText}>
-                    Disclaimer: Prices are estimates. Final cost may change after inspection. 
+                    Disclaimer: Prices are estimates. Final cost may change after inspection.
                   </Text>
                   <Text style={[styles.disclaimerText, { marginTop: 4 }]}>
                     Note: You have to pay 10% for booking.
                   </Text>
                 </View>
               </View>
-              
+
               {/* 1. SELECT VEHICLE (Now from DB) */}
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
@@ -282,7 +336,7 @@ export default function BookServiceScreen() {
                     vehicles.map((vehicle) => {
                       const isSelected = selectedVehicle === vehicle.id;
                       return (
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           key={vehicle.id}
                           onPress={() => setSelectedVehicle(isSelected ? null : vehicle.id)}
                           style={styles.vehicleItemContainer}
@@ -328,7 +382,7 @@ export default function BookServiceScreen() {
                 <View style={styles.timeCategoryHeader}>
                   <Text style={styles.timeCategoryName}>Select Time</Text>
                 </View>
-                
+
                 <Text style={styles.timeSubHeader}>Morning</Text>
                 <View style={styles.timeSlotsGrid}>
                   {MORNING_SLOTS.map(renderTimeSlot)}
@@ -351,8 +405,8 @@ export default function BookServiceScreen() {
           <Text style={styles.totalLabel}>TOTAL</Text>
           <Text style={styles.totalValue}>LKR {pkg.price.toLocaleString()}</Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.proceedButton, !isReady && styles.proceedButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.proceedButton, !isReady && styles.proceedButtonDisabled]}
           onPress={handleProceed}
           disabled={!isReady}
         >
@@ -412,6 +466,7 @@ const styles = StyleSheet.create({
   },
   vehicleNameText: { fontSize: 11, color: '#9CA3AF', fontWeight: '700', textAlign: 'center' },
   vehicleNameTextSelected: { color: '#E84E0F' },
+  calendarHeader: { marginBottom: 15 },
   calendarMonth: { fontSize: 16, fontWeight: '800', color: '#111827', marginBottom: 15 },
   datePickerScroll: { paddingRight: 20 },
   dateItem: { width: 50, height: 70, alignItems: 'center', justifyContent: 'center', borderRadius: 15, marginRight: 15, backgroundColor: '#F9FAFB' },
@@ -423,6 +478,7 @@ const styles = StyleSheet.create({
   dateItemDisabled: { backgroundColor: '#F3F4F6', opacity: 0.6 },
   textDisabled: { color: '#D1D5DB' },
   closedLabel: { fontSize: 8, fontWeight: '800', color: '#EF4444', marginTop: 4 },
+  timeCategoryHeader: { marginBottom: 15 },
   timeCategoryName: { fontSize: 16, fontWeight: '800', color: '#111827', marginBottom: 15 },
   timeSubHeader: { fontSize: 14, fontWeight: '700', color: '#6B7280', marginTop: 15, marginBottom: 10 },
   timeSlotsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
