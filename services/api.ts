@@ -56,9 +56,19 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   }
 
   if (!response.ok) {
-    // Check for 401 Unauthorized or 403 Forbidden (Expired / Invalid JWT token)
-    if (response.status === 401 || response.status === 403) {
-      console.warn(`HTTP ${response.status} detected: Session expired or invalid. Clearing token...`);
+    const errorMsg = data.message || data.error || `Server error: ${response.status}`;
+    const details = data.details ? ` — ${data.details}` : '';
+    const fullErrorMsg = `${errorMsg}${details}`;
+
+    // Check for 401/403 or invalid deleted user token
+    const isSessionInvalid = 
+      response.status === 401 || 
+      response.status === 403 ||
+      fullErrorMsg.includes('User not found') ||
+      fullErrorMsg.includes('Customer not found');
+
+    if (isSessionInvalid) {
+      console.warn(`Invalid session detected (${fullErrorMsg}). Clearing token...`);
       await AsyncStorage.multiRemove(['token', 'user', 'userRole']);
       cache.clear();
 
@@ -69,9 +79,7 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
       throw new Error('SESSION_EXPIRED');
     }
 
-    const errorMsg = data.message || data.error || `Server error: ${response.status}`;
-    const details = data.details ? ` — ${data.details}` : '';
-    throw new Error(`${errorMsg}${details}`);
+    throw new Error(fullErrorMsg);
   }
 
   if (isGet) {

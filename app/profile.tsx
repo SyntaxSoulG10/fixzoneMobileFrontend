@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
@@ -19,7 +19,7 @@ const { width } = Dimensions.get('window');
 export default function ProfileScreen() {
   const router = useRouter();
   const { user: localUser, updateUser } = useUser();
-  const { user: authUser, updateAuthUser, logout } = useAuth();
+  const { user: authUser, updateAuthUser, refreshProfile, logout } = useAuth();
 
   // Form State
   const [name, setName] = useState(authUser?.fullName || localUser.name);
@@ -27,6 +27,21 @@ export default function ProfileScreen() {
   const [email, setEmail] = useState(authUser?.email || localUser.email);
   const [profileImage, setProfileImage] = useState<string | null>(authUser?.profilePictureUrl || localUser.profileImage);
   const [isSaving, setIsSaving] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshProfile();
+    }, [])
+  );
+
+  React.useEffect(() => {
+    if (authUser) {
+      if (authUser.fullName) setName(authUser.fullName);
+      if (authUser.phone) setMobile(authUser.phone);
+      if (authUser.email) setEmail(authUser.email);
+      if (authUser.profilePictureUrl) setProfileImage(authUser.profilePictureUrl);
+    }
+  }, [authUser]);
   
   const getGreeting = () => {
     const hour = new Date().getHours();

@@ -6,6 +6,7 @@ export interface NotificationDTO {
   message: string;
   type: string;
   isRead: boolean;
+  isArchived?: boolean;
   createdAt: string;
   recipientId: string;
   targetUrl?: string;
@@ -14,6 +15,22 @@ export interface NotificationDTO {
 export const notificationService = {
   getNotifications: async (): Promise<NotificationDTO[]> => {
     return request<NotificationDTO[]>('/notifications');
+  },
+
+  getArchivedNotifications: async (): Promise<NotificationDTO[]> => {
+    return request<NotificationDTO[]>('/notifications/archived');
+  },
+
+  archiveNotification: async (id: string): Promise<NotificationDTO> => {
+    return request<NotificationDTO>(`/notifications/${id}/archive`, {
+      method: 'PATCH',
+    });
+  },
+
+  unarchiveNotification: async (id: string): Promise<NotificationDTO> => {
+    return request<NotificationDTO>(`/notifications/${id}/unarchive`, {
+      method: 'PATCH',
+    });
   },
 
   markAsRead: async (id: string): Promise<NotificationDTO> => {

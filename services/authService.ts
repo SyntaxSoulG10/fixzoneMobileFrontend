@@ -51,6 +51,9 @@ export const authService = {
       body: JSON.stringify({ firstName, secondName, phoneNumber: phone }),
     });
   },
+  getProfile: async (): Promise<{ firstName: string; secondName: string; email: string; phoneNumber: string; profilePictureUrl: string }> => {
+    return request('/customer/profile');
+  },
   verifyOtp: async (email: string, otpCode: string): Promise<{ message: string }> => {
     return request<{ message: string }>('/auth/verify-email', {
       method: 'POST',
