@@ -82,7 +82,10 @@ export default function ChangePasswordScreen() {
             setIsForgotLoading(true);
             try {
               await authService.forgotPassword(user.email);
-              Alert.alert('Email Sent', 'Password reset instructions have been sent to your email address.');
+              router.push({
+                pathname: '/(auth)/set-new-password',
+                params: { email: user?.email }
+              });
             } catch (e: any) {
               Alert.alert('Error', 'Failed to send password reset email. Please try again.');
             } finally {

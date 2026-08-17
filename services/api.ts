@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const BASE_URL = 'http://10.172.239.1:8081/api';
+export const BASE_URL = 'http://10.15.161.1:8081/api';
 
 // Global session expiration listener callback
 type UnauthorizedListener = () => void;
