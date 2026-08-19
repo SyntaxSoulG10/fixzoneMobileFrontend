@@ -14,7 +14,7 @@ import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { imageKitService } from '../../services/imageKitService';
 import { getDaysSinceService } from '../../utils/date_utils';
-import { getVehicleIcon } from '../../utils/vehicle_utils';
+import { getVehicleIcon, formatLicenseNumber, validateLicenseNumber } from '../../utils/vehicle_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -96,6 +96,7 @@ export default function VehiclesScreen() {
   const [customBrand, setCustomBrand] = useState('');
   const [model, setModel] = useState('');
   const [plate, setPlate] = useState('');
+  const [plateError, setPlateError] = useState<string | null>(null);
   const [vehicleImage, setVehicleImage] = useState<string | null>(null);
   const [vehicleImageBase64, setVehicleImageBase64] = useState<string | null>(null);
 
@@ -122,6 +123,7 @@ export default function VehiclesScreen() {
   };
 
   const openModal = (vehicle?: VehicleResponse) => {
+    setPlateError(null);
     if (vehicle) {
       const hasPending = pendingBookings.some(b => b.vehicleId === vehicle.id);
       
@@ -191,6 +193,12 @@ export default function VehiclesScreen() {
 
     if (!finalVType || !finalBrand || !model || !plate) {
       Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+
+    const plateErr = validateLicenseNumber(plate);
+    if (plateErr) {
+      setPlateError(plateErr);
       return;
     }
 
@@ -463,8 +471,16 @@ export default function VehiclesScreen() {
               label="License Number"
               placeholder="e.g. ABC 1234"
               value={plate}
-              onChangeText={setPlate}
+              onChangeText={(text) => {
+                const formatted = formatLicenseNumber(text);
+                setPlate(formatted);
+                if (plateError) {
+                  setPlateError(validateLicenseNumber(formatted));
+                }
+              }}
+              maxLength={10}
               autoCapitalize="characters"
+              error={plateError || undefined}
             />
 
             <TouchableOpacity style={styles.imagePlaceholder} onPress={pickVehicleImage}>

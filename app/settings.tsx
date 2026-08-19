@@ -1,28 +1,35 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { getNotificationPopupEnabled, setNotificationPopupEnabled } from '../utils/notification_settings';
 
 interface SettingItemProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  subtitle?: string;
   onPress?: () => void;
   isLast?: boolean;
+  rightElement?: React.ReactNode;
 }
 
-const SettingItem = ({ icon, label, onPress, isLast }: SettingItemProps) => (
+const SettingItem = ({ icon, label, subtitle, onPress, isLast, rightElement }: SettingItemProps) => (
   <TouchableOpacity 
     style={[styles.settingItem, !isLast && styles.borderBottom]} 
     onPress={onPress}
+    disabled={!onPress && !rightElement}
   >
     <View style={styles.itemLeft}>
       <View style={styles.iconContainer}>
         <Ionicons name={icon} size={22} color="#E84E0F" />
       </View>
-      <Text style={styles.itemLabel}>{label}</Text>
+      <View style={{ flex: 1, paddingRight: 10 }}>
+        <Text style={styles.itemLabel}>{label}</Text>
+        {subtitle && <Text style={styles.itemSubtitle}>{subtitle}</Text>}
+      </View>
     </View>
-    <Ionicons name="chevron-forward" size={24} color="#D1D5DB" />
+    {rightElement ? rightElement : <Ionicons name="chevron-forward" size={24} color="#D1D5DB" />}
   </TouchableOpacity>
 );
 
@@ -39,7 +46,9 @@ interface SettingItemData {
   id: string;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  subtitle?: string;
   route?: string;
+  isToggle?: boolean;
 }
 
 interface SettingSectionData {
@@ -51,6 +60,18 @@ interface SettingSectionData {
 export default function SettingsScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [popupEnabled, setPopupEnabled] = useState(true);
+
+  useEffect(() => {
+    getNotificationPopupEnabled().then(enabled => {
+      setPopupEnabled(enabled);
+    });
+  }, []);
+
+  const handleTogglePopup = async (val: boolean) => {
+    setPopupEnabled(val);
+    await setNotificationPopupEnabled(val);
+  };
 
   const settingSections: SettingSectionData[] = [
     {
@@ -66,6 +87,13 @@ export default function SettingsScreen() {
       title: 'Notification Preference',
       items: [
         { id: 'push-notif', icon: 'notifications-outline', label: 'Push Notification', route: '/notifications' },
+        { 
+          id: 'notif-popup', 
+          icon: 'chatbox-ellipses-outline', 
+          label: 'Notification Pop-up', 
+          subtitle: 'Show banner alerts & vibration on screen',
+          isToggle: true 
+        },
       ],
     },
     {
@@ -99,7 +127,7 @@ export default function SettingsScreen() {
         items: matchingItems,
       };
     }).filter(section => section.items.length > 0);
-  }, [searchQuery]);
+  }, [searchQuery, settingSections]);
 
   const handleItemPress = (item: SettingItemData) => {
     if (item.id === 'language') {
@@ -153,8 +181,19 @@ export default function SettingsScreen() {
                   key={item.id}
                   icon={item.icon}
                   label={item.label}
+                  subtitle={item.subtitle}
                   isLast={index === section.items.length - 1}
-                  onPress={() => handleItemPress(item)}
+                  onPress={item.isToggle ? () => handleTogglePopup(!popupEnabled) : () => handleItemPress(item)}
+                  rightElement={
+                    item.isToggle ? (
+                      <Switch
+                        value={popupEnabled}
+                        onValueChange={handleTogglePopup}
+                        trackColor={{ false: '#E5E7EB', true: '#FFEDD5' }}
+                        thumbColor={popupEnabled ? '#E84E0F' : '#9CA3AF'}
+                      />
+                    ) : undefined
+                  }
                 />
               ))}
             </SettingSection>
@@ -245,6 +284,7 @@ const styles = StyleSheet.create({
   itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   iconContainer: {
     width: 36,
@@ -259,6 +299,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+  },
+  itemSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+    marginTop: 2,
   },
   emptyContainer: {
     alignItems: 'center',

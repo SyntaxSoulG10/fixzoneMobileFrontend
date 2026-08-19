@@ -4,6 +4,7 @@ import { notificationService } from '../services/notificationService';
 import Toast from 'react-native-toast-message';
 import { Vibration } from 'react-native';
 import { useRouter } from 'expo-router';
+import { initNotificationPopupSetting, getNotificationPopupEnabledSync } from '../utils/notification_settings';
 
 let triggerCheck: (() => void) | null = null;
 
@@ -20,6 +21,10 @@ export default function NotificationPoller() {
   const { isAuthenticated, user } = useAuth();
   const isInitialFetch = useRef(true);
   const router = useRouter();
+
+  useEffect(() => {
+    initNotificationPopupSetting();
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -50,10 +55,17 @@ export default function NotificationPoller() {
           return;
         }
 
-        // Show Toast ONCE for any unread notification arriving in real-time or recently created
+        // Process unread notifications arriving in real-time or recently created
         unread.forEach(n => {
           if (!globalShownNotificationIds.has(n.id)) {
+            // Always record ID to prevent duplicate handling across polls
             globalShownNotificationIds.add(n.id);
+
+            // Check if user has enabled banner pop-up notifications
+            const popupsEnabled = getNotificationPopupEnabledSync();
+            if (!popupsEnabled) {
+              return; // Skip Toast and Vibration, but notification remains saved and in inbox
+            }
 
             try {
               Vibration.vibrate();

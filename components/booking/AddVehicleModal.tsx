@@ -9,6 +9,7 @@ import AppDropdown from '../ui/AppDropdown';
 import { vehicleService } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
 import { imageKitService } from '../../services/imageKitService';
+import { formatLicenseNumber, validateLicenseNumber } from '../../utils/vehicle_utils';
 
 interface AddVehicleModalProps {
   visible: boolean;
@@ -38,6 +39,7 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
   const [model, setModel] = useState('');
   const [fuel, setFuel] = useState('');
   const [plate, setPlate] = useState('');
+  const [plateError, setPlateError] = useState<string | null>(null);
   const [vehicleImage, setVehicleImage] = useState<string | null>(null);
 
   const pickVehicleImage = async () => {
@@ -63,6 +65,12 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
 
     if (!finalVType || !finalBrand || !model || !plate) {
       Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+
+    const plateErr = validateLicenseNumber(plate);
+    if (plateErr) {
+      setPlateError(plateErr);
       return;
     }
 
@@ -158,8 +166,16 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
             label="License Number"
             placeholder="e.g. ABC 1234"
             value={plate}
-            onChangeText={setPlate}
+            onChangeText={(text) => {
+              const formatted = formatLicenseNumber(text);
+              setPlate(formatted);
+              if (plateError) {
+                setPlateError(validateLicenseNumber(formatted));
+              }
+            }}
+            maxLength={10}
             autoCapitalize="characters"
+            error={plateError || undefined}
           />
 
           <TouchableOpacity style={styles.imagePlaceholder} onPress={pickVehicleImage}>
