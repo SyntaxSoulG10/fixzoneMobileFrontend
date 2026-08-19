@@ -101,7 +101,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <ScreenContainer scrollable={mode === 'signup'}>
+    <ScreenContainer scrollable={true}>
       <View style={styles.header}>
         <Image 
           source={require('../../assets/images/fixzone-logo.png')} 

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const BASE_URL = 'http://10.15.161.1:8081/api';
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fixzone-backend.onrender.com/api';
 
 // Global session expiration listener callback
 type UnauthorizedListener = () => void;
@@ -20,6 +20,7 @@ export async function clearCache() {
 
 export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
+  console.log(`[API Request] ${options.method || 'GET'} ${url}`);
   
   const method = (options.method || 'GET').toUpperCase();
   const isGet = method === 'GET';
@@ -42,10 +43,17 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    console.error(`[API Network Error] ${url}:`, err);
+    throw new Error(`Network error connecting to backend: ${err.message || 'Unable to reach server'}`);
+  }
+
 
   const text = await response.text();
   let data;

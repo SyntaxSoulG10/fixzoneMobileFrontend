@@ -12,8 +12,9 @@ import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/auth_context';
 import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { bookingService } from '../../services/bookingService';
 import { imageKitService } from '../../services/imageKitService';
-import { getDaysSinceService } from '../../utils/date_utils';
+import { getDaysSinceService, getLastServiceDate } from '../../utils/date_utils';
 import { getVehicleIcon, formatLicenseNumber, validateLicenseNumber } from '../../utils/vehicle_utils';
 
 const { width } = Dimensions.get('window');
@@ -56,6 +57,7 @@ export default function VehiclesScreen() {
   const { user: authUser } = useAuth();
   const { pendingBookings } = useBookings();
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
+  const [vehicleLastServiceMap, setVehicleLastServiceMap] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -73,8 +75,17 @@ export default function VehiclesScreen() {
     if (!authUser?.userId) return;
     try {
       setIsLoading(true);
-      const data = await vehicleService.getVehiclesByUser(authUser.userId);
-      setVehicles(data);
+      const [vehicleData, bookingData] = await Promise.all([
+        vehicleService.getVehiclesByUser(authUser.userId),
+        bookingService.getBookingsByCustomer(authUser.userId)
+      ]);
+      setVehicles(vehicleData);
+
+      const serviceMap: Record<string, string> = {};
+      vehicleData.forEach(v => {
+        serviceMap[v.id] = getLastServiceDate(v.id, bookingData, v.lastServiceDate);
+      });
+      setVehicleLastServiceMap(serviceMap);
     } catch (e) {
       console.error('Failed to fetch vehicles', e);
     } finally {
@@ -376,7 +387,7 @@ export default function VehiclesScreen() {
                 
                 <View style={styles.serviceInfoRow}>
                   <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                  <Text style={styles.lastServiceText}>Last: {vehicle.lastServiceDate || 'N/A'}</Text>
+                  <Text style={styles.lastServiceText}>Last: {vehicleLastServiceMap[vehicle.id] || vehicle.lastServiceDate || 'N/A'}</Text>
                 </View>
               </View>
             </View>

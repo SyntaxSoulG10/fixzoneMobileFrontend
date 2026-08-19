@@ -7,7 +7,7 @@ import { COLORS } from '../../constants/colors';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService, BookingResponseDTO } from '../../services/bookingService';
 import { useAuth } from '../../context/auth_context';
-import { getDaysSinceService } from '../../utils/date_utils';
+import { getDaysSinceService, getLastServiceDate } from '../../utils/date_utils';
 import { getVehicleIcon } from '../../utils/vehicle_utils';
 
 const { width } = Dimensions.get('window');
@@ -50,17 +50,9 @@ export default function VehicleDetailsScreen() {
   }, [id, authUser?.userId]);
 
   const lastServiceDate = React.useMemo(() => {
-    if (vehicleHistory.length > 0) {
-      const completed = vehicleHistory
-        .filter(b => b.status === 'COMPLETED')
-        .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
-      
-      if (completed.length > 0) {
-        return completed[0].bookingDate;
-      }
-    }
-    return vehicle?.lastServiceDate || '';
-  }, [vehicleHistory, vehicle]);
+    if (!id) return vehicle?.lastServiceDate || '';
+    return getLastServiceDate(id as string, vehicleHistory, vehicle?.lastServiceDate);
+  }, [id, vehicleHistory, vehicle]);
   
   const daysSince = getDaysSinceService(lastServiceDate);
 

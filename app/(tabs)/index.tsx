@@ -14,7 +14,7 @@ import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService } from '../../services/bookingService';
 import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
-import { getDaysSinceService } from '../../utils/date_utils';
+import { getDaysSinceService, getLastServiceDate } from '../../utils/date_utils';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../../utils/location_utils';
 import { applyFilters, extractFilterOptions } from '../../utils/filter_utils';
@@ -115,18 +115,9 @@ export default function HomeScreen() {
       setVehicles(vehicleData);
       hasFetchedVehicles.current = true;
 
-      // Calculate last service date for each vehicle from bookings
       const serviceMap: Record<string, string> = {};
       vehicleData.forEach(vehicle => {
-        const vehicleBookings = bookingData
-          .filter(b => b.vehicleId === vehicle.id && b.status === 'COMPLETED')
-          .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
-
-        if (vehicleBookings.length > 0) {
-          serviceMap[vehicle.id] = vehicleBookings[0].bookingDate;
-        } else {
-          serviceMap[vehicle.id] = vehicle.lastServiceDate || '';
-        }
+        serviceMap[vehicle.id] = getLastServiceDate(vehicle.id, bookingData, vehicle.lastServiceDate);
       });
       setVehicleLastServiceMap(serviceMap);
     } catch (e) {
