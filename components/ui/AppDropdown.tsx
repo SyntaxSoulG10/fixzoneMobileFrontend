@@ -18,6 +18,8 @@ interface AppDropdownProps {
   options: string[];
   onSelect: (val: string) => void;
   error?: string;
+  disabled?: boolean;
+  onDisabledPress?: () => void;
 }
 
 const AppDropdown: React.FC<AppDropdownProps> = ({
@@ -27,12 +29,24 @@ const AppDropdown: React.FC<AppDropdownProps> = ({
   options,
   onSelect,
   error,
+  disabled = false,
+  onDisabledPress,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const handleSelect = (item: string) => {
     onSelect(item);
     setModalVisible(false);
+  };
+
+  const handlePress = () => {
+    if (disabled) {
+      if (onDisabledPress) {
+        onDisabledPress();
+      }
+      return;
+    }
+    setModalVisible(true);
   };
 
   return (
@@ -44,9 +58,10 @@ const AppDropdown: React.FC<AppDropdownProps> = ({
           styles.inputContainer,
           modalVisible && styles.inputFocused,
           !!error && styles.inputError,
+          disabled && styles.inputDisabled,
         ]}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
+        onPress={handlePress}
+        activeOpacity={disabled ? 0.9 : 0.8}
       >
         <Text style={[styles.input, !value && styles.placeholderText]}>
           {value || placeholder}
@@ -134,6 +149,10 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: COLORS.error,
+  },
+  inputDisabled: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E7EB',
   },
   input: {
     flex: 1,

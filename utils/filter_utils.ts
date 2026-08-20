@@ -16,11 +16,12 @@ export function extractFilterOptions(centers: ServiceCenterDTO[]) {
       });
     }
 
-    // Collect service types (package names)
+    // Collect service types (filtered from package type, fallback to name)
     if (center.servicePackages) {
       center.servicePackages.forEach(pkg => {
-        if (pkg.name) {
-          serviceTypes.add(pkg.name);
+        const pkgType = pkg.type || (pkg as any).packageType || pkg.name;
+        if (pkgType) {
+          serviceTypes.add(pkgType);
         }
       });
     }
@@ -40,15 +41,14 @@ export function applyFilters(
 ): ServiceCenterDTO[] {
   let result = [...centers];
 
-  // 1. Text Search Filter
+  // 1. Text Search Filter (Center Name, Address, Package Name & Package Description)
   if (searchQuery && searchQuery.trim().length > 0) {
     const q = searchQuery.toLowerCase().trim();
     result = result.filter(
       c =>
         c.name?.toLowerCase().includes(q) ||
         c.address?.toLowerCase().includes(q) ||
-        c.managerName?.toLowerCase().includes(q) ||
-        c.servicePackages?.some(p => p.name?.toLowerCase().includes(q) || (p as any).description?.toLowerCase().includes(q))
+        c.servicePackages?.some(p => p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q))
     );
   }
 
@@ -61,12 +61,15 @@ export function applyFilters(
     });
   }
 
-  // 3. Filter by Service Type
+  // 3. Filter by Service Type (Matches package type or package name)
   if (filters.serviceType) {
     const target = filters.serviceType.toLowerCase();
     result = result.filter(c => {
       if (!c.servicePackages || c.servicePackages.length === 0) return false;
-      return c.servicePackages.some(p => p.name?.toLowerCase() === target);
+      return c.servicePackages.some(p => {
+        const pType = (p.type || (p as any).packageType || p.name)?.toLowerCase();
+        return pType === target;
+      });
     });
   }
 
@@ -92,10 +95,8 @@ export function applyFilters(
   // 5. Filter by Availability (Status)
   if (filters.availability) {
     if (filters.availability === 'Open Now') {
-      // Very basic check - just require it to be active for now
       result = result.filter(c => c.isActive !== false);
     }
-    // "24/7" could look for '24' in opening hours, etc.
     if (filters.availability === '24/7') {
       result = result.filter(c => c.openingHours && c.openingHours.includes('24'));
     }

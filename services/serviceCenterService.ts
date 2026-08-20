@@ -14,6 +14,7 @@ export interface ServicePackageDTO {
   imageUrl?: string;
   isRecommended?: boolean;
   vehicleType?: string;
+  type?: string;
 }
 
 export interface ServiceCenterDTO {

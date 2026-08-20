@@ -11,7 +11,7 @@ export default function CustomDrawer(props: any) {
   const { logout, user: authUser } = useAuth();
   const { user } = useUser();
   
-  const displayName = authUser?.fullName?.split(' ')[0] || user.name.split(' ')[0];
+  const displayName = authUser?.fullName || user.name;
   const displayPhone = authUser?.phone || user.mobile;
   const displayImage = authUser?.profilePictureUrl || user.profileImage;
 

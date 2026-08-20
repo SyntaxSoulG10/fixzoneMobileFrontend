@@ -68,7 +68,7 @@ export default function InvoiceScreen() {
   }
 
   const isCompleted = booking.status === 'COMPLETED';
-  const pkg = center.servicePackages.find(p => p.packageId === booking.packageId);
+  const pkg = center.servicePackages?.find(p => p.packageId === booking.packageId || p.id === booking.packageId);
 
   const formattedDate = new Date(booking.bookingDate).toLocaleDateString('en-US', { 
     month: 'long', 
@@ -106,7 +106,7 @@ export default function InvoiceScreen() {
             <View>
               <Text style={styles.detailLabel}>Service Center</Text>
               <Text style={styles.detailValue}>{center.name}</Text>
-              <Text style={styles.detailSubValue}>{center.location}</Text>
+              <Text style={styles.detailSubValue}>{center.address}</Text>
             </View>
             <Ionicons name="business" size={24} color="#E84E0F" />
           </View>

@@ -16,6 +16,7 @@ import { bookingService } from '../../services/bookingService';
 import { imageKitService } from '../../services/imageKitService';
 import { getDaysSinceService, getLastServiceDate } from '../../utils/date_utils';
 import { getVehicleIcon, formatLicenseNumber, validateLicenseNumber } from '../../utils/vehicle_utils';
+import { ALL_VEHICLE_TYPE_NAMES, getBrandsForVehicleType } from '../../constants/vehicle_data';
 
 const { width } = Dimensions.get('window');
 
@@ -23,13 +24,13 @@ const getServiceStatus = (lastServiceDate?: string) => {
   if (!lastServiceDate || lastServiceDate === 'N/A') {
     return { label: 'No History', color: '#6B7280', bgColor: '#F3F4F6', dotColor: '#9CA3AF' };
   }
-  
+
   const days = getDaysSinceService(lastServiceDate);
-  
+
   if (days === undefined) {
     return { label: 'No History', color: '#6B7280', bgColor: '#F3F4F6', dotColor: '#9CA3AF' };
   }
-  
+
   if (days <= 180) {
     return { label: 'Up to date', color: '#059669', bgColor: '#ECFDF5', dotColor: '#10B981' };
   } else if (days <= 365) {
@@ -39,15 +40,8 @@ const getServiceStatus = (lastServiceDate?: string) => {
   }
 };
 
-// Form data from complete-profile
-const vehicleTypes = ['Car', 'Bike', 'Three Wheels', 'Van', 'Lorry', 'Others'];
-const brandMap: Record<string, string[]> = {
-  'Car': ['Toyota', 'Honda', 'Nissan', 'BMW', 'Suzuki', 'Kia', 'Other'],
-  'Bike': ['Yamaha', 'Honda', 'Suzuki', 'Bajaj', 'TVS', 'Hero', 'Other'],
-  'Three Wheels': ['Bajaj', 'TVS', 'Piaggio', 'Other'],
-  'Van': ['Nissan', 'Toyota', 'Ford', 'Other'],
-  'Lorry': ['Isuzu', 'Mitsubishi', 'Tata', 'Ashok Leyland', 'Other'],
-};
+// Form data from vehicle categories
+const vehicleTypes = [...ALL_VEHICLE_TYPE_NAMES, 'Others'];
 
 const DEFAULT_VEHICLE_IMAGE = require('../../assets/images/honda_civic_red.jpg');
 
@@ -137,7 +131,7 @@ export default function VehiclesScreen() {
     setPlateError(null);
     if (vehicle) {
       const hasPending = pendingBookings.some(b => b.vehicleId === vehicle.id);
-      
+
       if (hasPending) {
         Alert.alert(
           'Cannot Edit',
@@ -148,24 +142,26 @@ export default function VehiclesScreen() {
       }
 
       setEditingVehicle(vehicle);
-      
+
       // Normalize vehicleType
-      let loadedType = 'Car';
-      if (vehicle.vehicleType) {
+      let loadedType = vehicleTypes.find(t => t.toLowerCase() === (vehicle.vehicleType || '').toLowerCase()) || 'Car';
+      if (!vehicleTypes.includes(loadedType) && vehicle.vehicleType) {
         const vt = vehicle.vehicleType.toLowerCase();
-        if (vt.includes('bike') || vt.includes('motor')) loadedType = 'Bike';
-        else if (vt.includes('wheel') || vt.includes('tuk')) loadedType = 'Three Wheels';
-        else if (vt.includes('van')) loadedType = 'Van';
-        else if (vt.includes('lorry') || vt.includes('truck')) loadedType = 'Lorry';
-        else if (vt.includes('other')) loadedType = 'Others';
+        if (vt.includes('bike') || vt.includes('motor')) loadedType = 'Motorcycle / Bike';
+        else if (vt.includes('wheel') || vt.includes('tuk')) loadedType = 'Three-Wheeler';
+        else if (vt.includes('van')) loadedType = 'Van / Minivan';
+        else if (vt.includes('lorry') || vt.includes('truck')) loadedType = 'Lorry / Truck';
+        else if (vt.includes('scooter')) loadedType = 'Scooter';
+        else loadedType = 'Others';
       }
       setVType(loadedType);
 
       // Normalize brand
       let loadedBrand = 'Other';
-      if (vehicle.brand && brandMap[loadedType]) {
+      const availableBrands = getBrandsForVehicleType(loadedType);
+      if (vehicle.brand && availableBrands.length > 0) {
         const vb = vehicle.brand.toLowerCase();
-        const matched = brandMap[loadedType].find(b => b.toLowerCase() === vb);
+        const matched = availableBrands.find(b => b.toLowerCase() === vb);
         if (matched) {
           loadedBrand = matched;
         } else {
@@ -219,10 +215,10 @@ export default function VehiclesScreen() {
     }
 
     setIsSaving(true);
-    
+
     // Client-side duplicate check
-    const isDuplicate = vehicles.some(v => 
-      v.plateNumber.toUpperCase().replace(/\s/g, '') === plate.toUpperCase().replace(/\s/g, '') && 
+    const isDuplicate = vehicles.some(v =>
+      v.plateNumber.toUpperCase().replace(/\s/g, '') === plate.toUpperCase().replace(/\s/g, '') &&
       v.id !== editingVehicle?.id
     );
 
@@ -262,7 +258,7 @@ export default function VehiclesScreen() {
       }
       setIsModalVisible(false);
       await fetchVehicles();
-      
+
       if (backOnSave === 'true') {
         router.back();
       }
@@ -280,7 +276,7 @@ export default function VehiclesScreen() {
 
   const handleDelete = (id: string) => {
     const hasPending = pendingBookings.some(b => b.vehicleId === id);
-    
+
     if (hasPending) {
       Alert.alert(
         'Cannot Delete',
@@ -295,8 +291,8 @@ export default function VehiclesScreen() {
       'Are you sure you want to remove this vehicle?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -312,11 +308,11 @@ export default function VehiclesScreen() {
   };
 
   return (
-    <ScreenContainer scrollable={false}>
+    <ScreenContainer scrollable={false} style={{ flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.headerSide} 
+        <TouchableOpacity
+          style={styles.headerSide}
           onPress={() => router.back()}
         >
           <Ionicons name="chevron-back" size={28} color="#000" />
@@ -325,13 +321,14 @@ export default function VehiclesScreen() {
         <View style={styles.headerSide} />
       </View>
 
-      <ScrollView 
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {!isLoading && vehicles.length === 0 ? (
           <View style={{ alignItems: 'center', width: '100%', paddingVertical: 16 }}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => openModal()}
               style={{
                 width: 256,
@@ -371,47 +368,47 @@ export default function VehiclesScreen() {
         ) : (
           vehicles.map((vehicle) => (
             <View key={vehicle.id} style={styles.vehicleCard}>
-            <View style={styles.cardMain}>
-              {vehicle.imageUrl ? (
-                <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} />
-              ) : (
-                <View style={[styles.vehicleImage, styles.vectorPlaceholder]}>
-                  <Ionicons name={getVehicleIcon(vehicle.vehicleType)} size={40} color="#F97316" />
-                </View>
-              )}
-              <View style={styles.vehicleInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.brand} {vehicle.model}</Text>
-                </View>
-                <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
-                
-                <View style={styles.serviceInfoRow}>
-                  <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                  <Text style={styles.lastServiceText}>Last: {vehicleLastServiceMap[vehicle.id] || vehicle.lastServiceDate || 'N/A'}</Text>
-                </View>
-              </View>
-            </View>
+              <View style={styles.cardMain}>
+                {vehicle.imageUrl ? (
+                  <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} />
+                ) : (
+                  <View style={[styles.vehicleImage, styles.vectorPlaceholder]}>
+                    <Ionicons name={getVehicleIcon(vehicle.vehicleType)} size={40} color="#F97316" />
+                  </View>
+                )}
+                <View style={styles.vehicleInfo}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.brand} {vehicle.model}</Text>
+                  </View>
+                  <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
 
-            <View style={styles.cardFooter}>
-              <TouchableOpacity 
-                style={styles.detailsBtn} 
-                onPress={() => router.push(`/vehicle-details/${vehicle.id}`)}
-              >
-                <Text style={styles.detailsBtnText}>View Details</Text>
-                <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
-              </TouchableOpacity>
-              
-              <View style={styles.actionGroup}>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => openModal(vehicle)}>
-                  <Ionicons name="create-outline" size={20} color="#6B7280" />
+                  <View style={styles.serviceInfoRow}>
+                    <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                    <Text style={styles.lastServiceText}>Last: {vehicleLastServiceMap[vehicle.id] || vehicle.lastServiceDate || 'N/A'}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.cardFooter}>
+                <TouchableOpacity
+                  style={styles.detailsBtn}
+                  onPress={() => router.push(`/vehicle-details/${vehicle.id}`)}
+                >
+                  <Text style={styles.detailsBtnText}>View Details</Text>
+                  <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => handleDelete(vehicle.id)}>
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                </TouchableOpacity>
+
+                <View style={styles.actionGroup}>
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => openModal(vehicle)}>
+                    <Ionicons name="create-outline" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => handleDelete(vehicle.id)}>
+                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        )))}
+          )))}
       </ScrollView>
 
       {/* FAB */}
@@ -438,6 +435,7 @@ export default function VehiclesScreen() {
               options={vehicleTypes}
               onSelect={(val) => {
                 setVType(val);
+                setBrand('');
                 if (val !== 'Others') setCustomVType('');
               }}
             />
@@ -453,9 +451,13 @@ export default function VehiclesScreen() {
 
             <AppDropdown
               label="Brand"
-              placeholder="Select Brand"
+              placeholder={!vType ? 'Select vehicle type first' : 'Select Brand'}
               value={brand}
-              options={brandMap[vType] || ['Other']}
+              options={getBrandsForVehicleType(vType)}
+              disabled={!vType}
+              onDisabledPress={() => {
+                Alert.alert('Selection Required', 'Please select a vehicle type first.');
+              }}
               onSelect={(val) => {
                 setBrand(val);
                 if (val !== 'Other') setCustomBrand('');
@@ -479,8 +481,8 @@ export default function VehiclesScreen() {
             />
 
             <AppInput
-              label="License Number"
-              placeholder="e.g. ABC 1234"
+              label="Vehicle Plate Number"
+              placeholder="e.g.BCZ-1234"
               value={plate}
               onChangeText={(text) => {
                 const formatted = formatLicenseNumber(text);

@@ -30,6 +30,12 @@ export const vehicleService = {
     });
   },
 
+  getVehicleById: async (vehicleId: string): Promise<VehicleResponse> => {
+    return request<VehicleResponse>(`/customer/vehicle/${vehicleId}`, {
+      method: 'GET',
+    });
+  },
+
   createVehicle: async (data: VehicleCreateRequest): Promise<VehicleResponse> => {
     return request<VehicleResponse>('/customer/vehicle', {
       method: 'POST',

@@ -34,20 +34,20 @@ export const formatLicenseNumber = (text: string): string => {
 export const validateLicenseNumber = (text: string): string | null => {
   const trimmed = text.trim();
   if (!trimmed) {
-    return 'License number is required';
+    return 'Vehicle plate number is required';
   }
   if (trimmed.length < 4) {
-    return 'License number must be at least 4 characters';
+    return 'Vehicle plate number must be at least 4 characters';
   }
   if (trimmed.length > 10) {
-    return 'License number cannot exceed 10 characters';
+    return 'Vehicle plate number cannot exceed 10 characters';
   }
   if (/[^A-Z0-9 -]/.test(trimmed)) {
     return 'Only English letters, numbers, spaces and hyphens allowed';
   }
   const digitCount = (trimmed.match(/\d/g) || []).length;
   if (digitCount < 2) {
-    return 'Enter a valid licence number';
+    return 'Enter a valid vehicle plate number';
   }
   return null;
 };
