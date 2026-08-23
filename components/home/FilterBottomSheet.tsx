@@ -17,6 +17,7 @@ import AppButton from '../ui/AppButton';
 const { height } = Dimensions.get('window');
 
 const DISTANCE_OPTIONS = ['Nearby (5km)', '15km', '20km', '25km'];
+const PRICE_OPTIONS = ['Low to High', 'High to Low'];
 const AVAILABILITY_OPTIONS = ['Open Now', '24/7', 'Available Today'];
 
 interface FilterBottomSheetProps {
@@ -32,8 +33,9 @@ interface FilterBottomSheetProps {
 export interface FilterState {
   distance: string;
   vehicleType: string;
-  serviceType: string;
+  price: string;
   availability: string;
+  serviceType?: string;
 }
 
 export default function FilterBottomSheet({
@@ -43,7 +45,6 @@ export default function FilterBottomSheet({
   onReset,
   initialFilters,
   availableVehicles = ['Car', 'Bike', 'Van', 'Lorry'], // Fallbacks
-  availableServices = ['General Service', 'Engine Repair', 'Electrical', 'Tire Service'], // Fallbacks
 }: FilterBottomSheetProps) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const insets = useSafeAreaInsets();
@@ -120,7 +121,7 @@ export default function FilterBottomSheet({
               </View>
 
               {/* Vehicle Type Section */}
-              {availableVehicles.length > 0 && (
+              {availableVehicles && availableVehicles.length > 0 && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Vehicle Type</Text>
                   <View style={styles.chipGroup}>
@@ -129,15 +130,13 @@ export default function FilterBottomSheet({
                 </View>
               )}
 
-              {/* Service Type Section */}
-              {availableServices.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Service Type</Text>
-                  <View style={styles.chipGroup}>
-                    {availableServices.map((option) => renderChip('serviceType', option))}
-                  </View>
+              {/* Price Filter Section (Low to High / High to Low) */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Price</Text>
+                <View style={styles.chipGroup}>
+                  {PRICE_OPTIONS.map((option) => renderChip('price', option))}
                 </View>
-              )}
+              </View>
 
               {/* Availability Section */}
               <View style={styles.section}>
@@ -159,7 +158,7 @@ export default function FilterBottomSheet({
                   setFilters({
                     distance: '',
                     vehicleType: '',
-                    serviceType: '',
+                    price: '',
                     availability: '',
                   });
                 }}

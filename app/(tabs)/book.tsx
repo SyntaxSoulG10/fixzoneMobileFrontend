@@ -27,7 +27,7 @@ export default function BookScreen() {
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
     vehicleType: '',
-    serviceType: '',
+    price: '',
     availability: '',
   });
 
@@ -53,7 +53,7 @@ export default function BookScreen() {
     setFilters({
       distance: '',
       vehicleType: '',
-      serviceType: '',
+      price: '',
       availability: '',
     });
   };

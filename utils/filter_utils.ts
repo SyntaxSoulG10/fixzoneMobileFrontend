@@ -61,15 +61,16 @@ export function applyFilters(
     });
   }
 
-  // 3. Filter by Service Type (Matches package type or package name)
-  if (filters.serviceType) {
-    const target = filters.serviceType.toLowerCase();
-    result = result.filter(c => {
-      if (!c.servicePackages || c.servicePackages.length === 0) return false;
-      return c.servicePackages.some(p => {
-        const pType = (p.type || (p as any).packageType || p.name)?.toLowerCase();
-        return pType === target;
-      });
+  // 3. Price Filter (Low to High / High to Low)
+  if (filters.price) {
+    result.sort((a, b) => {
+      const getMinPrice = (c: ServiceCenterDTO) => {
+        if (!c.servicePackages || c.servicePackages.length === 0) return 0;
+        return Math.min(...c.servicePackages.map(p => p.price || (p as any).basePrice || 0));
+      };
+      const priceA = getMinPrice(a);
+      const priceB = getMinPrice(b);
+      return filters.price === 'Low to High' ? priceA - priceB : priceB - priceA;
     });
   }
 

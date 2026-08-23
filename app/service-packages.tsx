@@ -68,7 +68,7 @@ export default function ServicePackagesScreen() {
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
     vehicleType: '',
-    serviceType: '',
+    price: '',
     availability: '',
   });
 
@@ -180,12 +180,6 @@ export default function ServicePackagesScreen() {
 
       if (center.servicePackages && center.servicePackages.length > 0) {
         center.servicePackages.forEach((pkg, index) => {
-          // Check package service type filter
-          if (filters.serviceType) {
-            const pType = (pkg.type || (pkg as any).packageType || pkg.name)?.toLowerCase();
-            if (pType !== filters.serviceType.toLowerCase()) return;
-          }
-
           // Parse features array strictly from type column or features array
           let featList: string[] = [];
           if (pkg.features && Array.isArray(pkg.features) && pkg.features.length > 0) {
@@ -223,6 +217,13 @@ export default function ServicePackagesScreen() {
 
     // Apply Sorting
     return items.sort((a, b) => {
+      if (filters.price === 'Low to High') {
+        return a.price - b.price;
+      }
+      if (filters.price === 'High to Low') {
+        return b.price - a.price;
+      }
+
       const isAsc = sortDirection === 'asc';
       if (sortDistance && sortPrice) {
         const dA = a.distanceKm ?? 9999;
@@ -587,7 +588,7 @@ export default function ServicePackagesScreen() {
           setFilters({
             distance: '',
             vehicleType: '',
-            serviceType: '',
+            price: '',
             availability: '',
           });
         }}

@@ -31,7 +31,7 @@ export default function HomeScreen() {
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
     vehicleType: '',
-    serviceType: '',
+    price: '',
     availability: '',
   });
 
@@ -162,7 +162,7 @@ export default function HomeScreen() {
     setFilters({
       distance: '',
       vehicleType: '',
-      serviceType: '',
+      price: '',
       availability: '',
     });
   };
