@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform, ActivityIndicator, SafeAreaView, Share, Alert } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Linking, Dimensions, Platform, ActivityIndicator, Share, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -16,8 +17,12 @@ const { width } = Dimensions.get('window');
 type VehicleType = 'bike' | 'car' | 'van' | 'lorry';
 
 export default function ServiceCenterDetails() {
-  const { id, distance, from } = useLocalSearchParams<{ id: string; distance?: string; from?: string }>();
+  const { id, distance, from, packageId } = useLocalSearchParams<{ id: string; distance?: string; from?: string; packageId?: string }>();
   const router = useRouter();
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [packagesSectionY, setPackagesSectionY] = useState(0);
+  const hasScrolledRef = useRef(false);
 
   const handleBack = () => {
     router.replace('/(tabs)/book');
@@ -31,6 +36,28 @@ export default function ServiceCenterDetails() {
       loadCenter(id);
     }
   }, [id]);
+
+  const packageCardOffsets = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    hasScrolledRef.current = false;
+  }, [packageId]);
+
+  const scrollToPackages = (yPos: number) => {
+    if (!packageId || hasScrolledRef.current || yPos <= 0 || !scrollViewRef.current) return;
+    hasScrolledRef.current = true;
+    setTimeout(() => {
+      const cardY = packageCardOffsets.current[packageId] || 0;
+      const targetY = yPos + cardY - 16;
+      scrollViewRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
+    }, 250);
+  };
+
+  useEffect(() => {
+    if (packageId && packagesSectionY > 0) {
+      scrollToPackages(packagesSectionY);
+    }
+  }, [packageId, packagesSectionY]);
 
   const loadCenter = async (centerId: string) => {
     try {
@@ -112,10 +139,18 @@ export default function ServiceCenterDetails() {
           <Text style={styles.headerTitle} numberOfLines={1}>{center.name}</Text>
           <Text style={styles.headerSubtitle}>Select Service Package</Text>
         </View>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        ref={scrollViewRef} 
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => {
+          if (packageId && packagesSectionY > 0 && !hasScrolledRef.current) {
+            scrollToPackages(packagesSectionY);
+          }
+        }}
+      >
         {/* Hero Image */}
         <View style={styles.heroContainer}>
           <Image 
@@ -193,7 +228,14 @@ export default function ServiceCenterDetails() {
         </ScrollView>
 
         {/* Section Title */}
-        <View style={styles.sectionTitleContainer}>
+        <View 
+          style={styles.sectionTitleContainer}
+          onLayout={(e) => {
+            const y = e.nativeEvent.layout.y;
+            setPackagesSectionY(y);
+            scrollToPackages(y);
+          }}
+        >
           <Text style={styles.sectionTitle}>Available Packages</Text>
         </View>
 
@@ -215,7 +257,25 @@ export default function ServiceCenterDetails() {
             pointerEvents={center.status !== 'APPROVED' ? 'none' : 'auto'}
           >
             {center.servicePackages && center.servicePackages.length > 0 ? (
-              center.servicePackages.map(pkg => <PackageCard key={pkg.packageId || pkg.name} pkg={pkg} centerId={center.centerId} />)
+              center.servicePackages.map(pkg => {
+                const pkgKey = pkg.packageId || pkg.id;
+                return (
+                  <PackageCard
+                    key={pkgKey || pkg.name}
+                    pkg={pkg}
+                    centerId={center.centerId}
+                    highlightPackageId={packageId}
+                    onLayoutY={(y) => {
+                      if (pkgKey) {
+                        packageCardOffsets.current[pkgKey] = y;
+                        if (packageId && (packageId === pkgKey) && packagesSectionY > 0) {
+                          scrollToPackages(packagesSectionY);
+                        }
+                      }
+                    }}
+                  />
+                );
+              })
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>No packages available for this center.</Text>
@@ -233,9 +293,10 @@ export default function ServiceCenterDetails() {
   );
 }
 
-function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: string }) {
+function PackageCard({ pkg, centerId, highlightPackageId, onLayoutY }: { pkg: ServicePackageDTO; centerId: string; highlightPackageId?: string; onLayoutY?: (y: number) => void }) {
   const router = useRouter();
   const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const isHighlighted = !!highlightPackageId && (pkg.packageId === highlightPackageId || pkg.id === highlightPackageId);
   
   const price = typeof pkg.price === 'number' ? pkg.price : Number(pkg.basePrice || pkg.price) || 0;
   const durationInMins = (pkg as any).estimatedDurationMins || 60;
@@ -243,17 +304,23 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
   const durationText = durationHours > 0 ? `${durationHours} hrs` : `${durationInMins} mins`;
 
   const features = useMemo(() => {
-    if (pkg.features && pkg.features.length > 0) return pkg.features;
-    if (pkg.description) {
-      return pkg.description.split(',').map(item => item.trim()).filter(item => item.length > 0);
+    if (pkg.features && Array.isArray(pkg.features) && pkg.features.length > 0) return pkg.features;
+    if (pkg.type && typeof pkg.type === 'string' && pkg.type.trim().length > 0) {
+      if (pkg.type.includes(',') || pkg.type.includes(';')) {
+        return pkg.type.split(/[,;]/).map(item => item.trim()).filter(item => item.length > 0);
+      }
+      return [pkg.type.trim()];
     }
-    return ['Quality Service Inspection'];
-  }, [pkg.features, pkg.description]);
+    return [];
+  }, [pkg.features, pkg.type]);
 
   const packagePlaceholder = 'https://images.unsplash.com/photo-1625047509168-a7026f36de04?q=80&w=400&auto=format&fit=crop';
 
   return (
-    <View style={styles.pkgCard}>
+    <View 
+      onLayout={(e) => onLayoutY?.(e.nativeEvent.layout.y)}
+      style={[styles.pkgCard, isHighlighted && styles.pkgCardHighlighted]}
+    >
       <View style={styles.pkgImageWrapper}>
         <Image 
           source={{ uri: pkg.imageUrl || packagePlaceholder }} 
@@ -274,13 +341,15 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
       
       <View style={styles.pkgBody}>
         <Text style={styles.pkgName}>{pkg.name}</Text>
-        <Text style={styles.pkgSubtitle}>Premium Service Package</Text>
+        {!!pkg.description && (
+          <Text style={styles.pkgSubtitle}>{pkg.description}</Text>
+        )}
 
         <View style={styles.featuresList}>
           {features.slice(0, showAllFeatures ? features.length : 3).map((f, i) => (
             <View key={i} style={styles.featureItem}>
               <View style={styles.checkIcon}>
-                <Ionicons name="checkmark-sharp" size={14} color="#FFF" />
+                <Ionicons name="checkmark-sharp" size={12} color="#FFF" />
               </View>
               <Text style={styles.featureText}>{f}</Text>
             </View>
@@ -308,7 +377,6 @@ function PackageCard({ pkg, centerId }: { pkg: ServicePackageDTO; centerId: stri
             style={styles.bookBtn}
           >
             <Text style={styles.bookBtnText}>Select Package</Text>
-            <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 8 }} />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -322,16 +390,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 20,
     backgroundColor: '#fff',
-    marginTop: Platform.OS === 'android' ? Constants.statusBarHeight : 0,
   },
   headerIcon: {
-    width: 44,
-    height: 44,
+    width: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   headerTitleContainer: {
     flex: 1,
@@ -339,13 +406,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#111827',
   },
   headerSubtitle: {
     fontSize: 12,
     color: '#6B7280',
-    marginTop: 2,
+    marginTop: 1,
   },
   heroContainer: {
     width: '100%',
@@ -460,24 +527,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   packagesList: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    alignItems: 'center',
   },
   pkgCard: {
+    width: '100%',
+    maxWidth: 350,
+    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    marginBottom: 24,
+    borderRadius: 18,
+    marginBottom: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#F3F4F6',
   },
+  pkgCardHighlighted: {
+    borderColor: '#E84E0F',
+    borderWidth: 2,
+    shadowColor: '#E84E0F',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
   pkgImageWrapper: {
     position: 'relative',
-    height: 160,
+    height: 110,
     width: '100%',
   },
   pkgImage: {
@@ -494,12 +573,12 @@ const styles = StyleSheet.create({
   },
   priceBadge: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 10,
+    right: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -507,81 +586,82 @@ const styles = StyleSheet.create({
   },
   priceBadgeText: {
     color: '#E84E0F',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
   },
   durationBadge: {
     position: 'absolute',
-    bottom: 12,
-    left: 16,
+    bottom: 8,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
     gap: 4,
   },
   durationBadgeText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   pkgBody: {
-    padding: 20,
+    padding: 14,
   },
   pkgName: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
   },
   pkgSubtitle: {
-    fontSize: 13,
-    color: '#9CA3AF',
+    fontSize: 12,
+    color: '#64748B',
     marginTop: 2,
     fontWeight: '500',
+    lineHeight: 16,
   },
   featuresList: {
-    marginTop: 16,
-    gap: 12,
+    marginTop: 10,
+    gap: 8,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   checkIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
   },
   featureText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#374151',
     fontWeight: '600',
   },
   moreToggleBtn: {
-    marginTop: 4,
+    marginTop: 2,
   },
   moreText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#E84E0F',
     fontWeight: '700',
   },
   bookBtn: {
-    marginTop: 24,
+    marginTop: 14,
     flexDirection: 'row',
-    borderRadius: 16,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bookBtnText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
   },
   emptyState: {

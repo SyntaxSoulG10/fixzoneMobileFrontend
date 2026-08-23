@@ -101,6 +101,7 @@ export default function SettingsScreen() {
       title: 'Security & Privacy',
       items: [
         { id: 'privacy', icon: 'shield-checkmark-outline', label: 'Privacy Policy', route: '/privacy' },
+        { id: 'business-policy', icon: 'briefcase-outline', label: 'Business Policy', route: '/business-policy' },
       ],
     },
     {

@@ -128,7 +128,8 @@ function RootLayoutNav() {
     const isVerifyScreen = segments.join('/') === '(auth)/verify-otp';
     const isPasswordResetScreen = 
       segments.join('/') === '(auth)/set-new-password' || 
-      segments.join('/') === '(auth)/reset-password';
+      segments.join('/') === '(auth)/reset-password' ||
+      segments.join('/') === '(auth)/verify-otp';
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace("/(auth)/login");
@@ -167,6 +168,8 @@ function RootLayoutNav() {
         <Drawer.Screen name="service-center/[id]" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="about" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="support" options={{ drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="privacy" options={{ drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="business-policy" options={{ drawerItemStyle: { display: 'none' } }} />
       </Drawer>
     </GestureHandlerRootView>
   );

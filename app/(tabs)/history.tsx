@@ -9,6 +9,7 @@ import { useAuth } from '../../context/auth_context';
 import { Modal, ActivityIndicator } from 'react-native';
 import { MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 import { checkNotificationsNow } from '../../components/NotificationPoller';
+import { downloadInvoicePDF } from '../../services/pdfService';
 
 const { width } = Dimensions.get('window');
 
@@ -95,6 +96,23 @@ export default function HistoryScreen() {
     };
   }, [isSummaryVisible, selectedBooking?.bookingId, updateSingleBooking]);
 
+  const getFilterCount = (filter: FilterStatus) => {
+    if (filter === 'All') return bookings.length;
+    if (filter === 'Upcoming') {
+      return bookings.filter(b => {
+        const s = b.status.toUpperCase();
+        return s === 'CONFIRMED' || s === 'PENDING' || s === 'PENDING_PAYMENT';
+      }).length;
+    }
+    if (filter === 'Cancelled') {
+      return bookings.filter(b => {
+        const s = b.status.toUpperCase();
+        return s === 'CANCELLED' || s === 'EXPIRED';
+      }).length;
+    }
+    return bookings.filter(b => b.status.toUpperCase() === filter.toUpperCase()).length;
+  };
+
   const filteredBookings = bookings.filter(booking => {
     if (activeFilter === 'All') return true;
     const status = booking.status.toUpperCase();
@@ -104,10 +122,16 @@ export default function HistoryScreen() {
     if (activeFilter === 'In Progress') {
       return status === 'IN_PROGRESS';
     }
+    if (activeFilter === 'Cancelled') {
+      return status === 'CANCELLED' || status === 'EXPIRED';
+    }
     return status === activeFilter.toUpperCase();
   }).sort((a, b) => {
     const dateA = new Date(`${a.bookingDate}T${a.bookingTime || '00:00:00'}`);
     const dateB = new Date(`${b.bookingDate}T${b.bookingTime || '00:00:00'}`);
+    if (activeFilter === 'Upcoming') {
+      return dateA.getTime() - dateB.getTime();
+    }
     return dateB.getTime() - dateA.getTime();
   });
 
@@ -235,11 +259,20 @@ export default function HistoryScreen() {
     const isInProgress = booking.status === 'IN_PROGRESS';
     const isPending = booking.status === 'PENDING' || booking.status === 'CONFIRMED' || booking.status === 'PENDING_PAYMENT';
     const isUpcomingOrActive = isPending || isInProgress;
-    const isCancelled = booking.status === 'CANCELLED';
+    const isCancelledOrExpired = booking.status === 'CANCELLED' || booking.status === 'EXPIRED';
 
     const dateObj = new Date(booking.bookingDate);
     const day = dateObj.getDate();
     const month = dateObj.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+
+    const isTodayBooking = (() => {
+      if (!booking.bookingDate) return false;
+      const parts = booking.bookingDate.split('-').map(Number);
+      if (parts.length < 3) return false;
+      const [y, m, d] = parts;
+      const today = new Date();
+      return today.getFullYear() === y && today.getMonth() === m - 1 && today.getDate() === d;
+    })();
 
     return (
       <TouchableOpacity
@@ -248,65 +281,102 @@ export default function HistoryScreen() {
         onPress={() => openSummary(booking)}
         activeOpacity={0.9}
       >
-        <View style={styles.cardBody}>
-          <View style={styles.titleRow}>
-            <View style={styles.titleContent}>
-              <Text style={styles.bookingTitle} numberOfLines={1}>
-                {booking.packageName || 'Service'}
-              </Text>
-              <View style={[
-                styles.statusBadge,
-                isInProgress ? styles.inProgressBadge :
-                  (isPending ? styles.pendingBadge :
-                    (isCancelled ? styles.cancelledBadge : styles.completedBadge))
+        <View style={styles.cardMainRow}>
+          {/* Left Column: Date Badge with vertical divider */}
+          <View style={styles.dateCol}>
+            <Text style={styles.dateDay}>{day}</Text>
+            <Text style={styles.dateMonth}>{month}</Text>
+          </View>
+
+          {/* Right Column: Details & Actions */}
+          <View style={styles.cardRightCol}>
+            {/* Package Name */}
+            <Text style={styles.bookingTitle} numberOfLines={1}>
+              {booking.packageName || 'Service'}
+            </Text>
+
+            {/* Status Badge directly below Package Name */}
+            <View style={[
+              styles.statusBadge,
+              isInProgress ? styles.inProgressBadge :
+                (isPending ? styles.pendingBadge :
+                  (isCancelledOrExpired ? styles.cancelledBadge : styles.completedBadge))
+            ]}>
+              <Text style={[
+                styles.statusText,
+                isInProgress ? styles.inProgressText :
+                  (isPending ? styles.pendingText :
+                    (isCancelledOrExpired ? styles.cancelledText : styles.completedText))
               ]}>
-                <Text style={[
-                  styles.statusText,
-                  isInProgress ? styles.inProgressText :
-                    (isPending ? styles.pendingText :
-                      (isCancelled ? styles.cancelledText : styles.completedText))
-                ]}>
-                  {booking.status === 'CONFIRMED' ? 'Ready for Service' : booking.status.replace('_', ' ')}
+                {(booking.status === 'CONFIRMED' ? 'READY FOR SERVICE' : booking.status.replace(/_/g, ' ')).toUpperCase()}
+              </Text>
+            </View>
+
+            {/* Vehicle Info */}
+            <View style={styles.vehicleRow}>
+              <Ionicons name="car-sport-outline" size={15} color="#64748B" />
+              <Text style={styles.vehicleText} numberOfLines={1}>
+                {vehicle ? `${vehicle.brand} ${vehicle.model} • ${vehicle.plateNumber}` : 'Your Vehicle'}
+              </Text>
+            </View>
+
+            {/* Arrival Notice Banner */}
+            {booking.status === 'CONFIRMED' && isTodayBooking && (
+              <View style={styles.arrivalNoticeBanner}>
+                <Ionicons name="information-circle-outline" size={14} color="#E84E0F" />
+                <Text style={styles.arrivalNoticeText}>
+                  Please arrive 10 mins before your appointment for your convenience.
                 </Text>
               </View>
-            </View>
-            <View style={styles.dateBadge}>
-              <Text style={styles.dateDay}>{day}</Text>
-              <Text style={styles.dateMonth}>{month}</Text>
-            </View>
-          </View>
+            )}
 
-          <View style={styles.vehicleRow}>
-            <Ionicons name="car-sport" size={16} color="#6B7280" />
-            <Text style={styles.vehicleText}>
-              {vehicle ? `${vehicle.brand} ${vehicle.model} • ${vehicle.plateNumber}` : 'Your Vehicle'}
-            </Text>
-          </View>
+            {/* Actions Row */}
+            {(booking.status === 'CONFIRMED' || booking.status === 'PENDING') && (
+              <View style={styles.cardActionsRow}>
+                <TouchableOpacity
+                  style={styles.cardRescheduleBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleReschedule(booking);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="calendar-outline" size={15} color="#334155" />
+                  <Text style={styles.cardRescheduleText}>Reschedule</Text>
+                </TouchableOpacity>
 
-          {(booking.status === 'CONFIRMED' || booking.status === 'PENDING') && (
-            <View style={styles.cardActionsRow}>
-              <TouchableOpacity
-                style={styles.cardRescheduleBtn}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleReschedule(booking);
-                }}
-              >
-                <Ionicons name="calendar-outline" size={14} color="#334155" />
-                <Text style={styles.cardRescheduleText}>Reschedule</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.cardCancelBtn}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleCancel(booking);
-                }}
-              >
-                <Ionicons name="close-circle-outline" size={14} color="#64748B" />
-                <Text style={styles.cardCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                <TouchableOpacity
+                  style={styles.cardCancelBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleCancel(booking);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="close-circle-outline" size={15} color="#334155" />
+                  <Text style={styles.cardCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Completed Service Divider & Download Invoice Link */}
+            {booking.status === 'COMPLETED' && (
+              <View style={styles.completedInvoiceContainer}>
+                <View style={styles.cardDivider} />
+                <TouchableOpacity
+                  style={styles.invoiceLinkBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    downloadInvoicePDF(booking);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.invoiceLinkText}>Download Invoice</Text>
+                  <Ionicons name="document-text" size={16} color="#E84E0F" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -324,29 +394,47 @@ export default function HistoryScreen() {
       </View>
 
       {/* Filters */}
-      <View>
+      <View style={styles.filterContainer}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScrollContent}
         >
-          {(['All', 'Upcoming', 'In Progress', 'Completed', 'Cancelled'] as FilterStatus[]).map((filter) => (
-            <TouchableOpacity
-              key={filter}
-              onPress={() => setActiveFilter(filter)}
-              style={[
-                styles.filterTab,
-                activeFilter === filter && styles.activeFilterTab
-              ]}
-            >
-              <Text style={[
-                styles.filterTabText,
-                activeFilter === filter && styles.activeFilterTabText
-              ]}>
-                {filter === 'All' ? 'All Services' : filter}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {(['All', 'Upcoming', 'In Progress', 'Completed', 'Cancelled'] as FilterStatus[]).map((filter) => {
+            const isActive = activeFilter === filter;
+            const count = getFilterCount(filter);
+            const labelText = filter === 'All' ? 'All Services' : filter;
+
+            return (
+              <TouchableOpacity
+                key={filter}
+                onPress={() => setActiveFilter(filter)}
+                activeOpacity={0.8}
+                style={[
+                  styles.filterTab,
+                  isActive && styles.activeFilterTab
+                ]}
+              >
+                <Text style={[
+                  styles.filterTabText,
+                  isActive && styles.activeFilterTabText
+                ]}>
+                  {labelText}
+                </Text>
+                <View style={[
+                  styles.countBadge,
+                  isActive && styles.activeCountBadge
+                ]}>
+                  <Text style={[
+                    styles.countText,
+                    isActive && styles.activeCountText
+                  ]}>
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -365,6 +453,9 @@ export default function HistoryScreen() {
         {Object.keys(groupedBookings).sort((a, b) => {
           const dateA = new Date(a);
           const dateB = new Date(b);
+          if (activeFilter === 'Upcoming') {
+            return dateA.getTime() - dateB.getTime();
+          }
           return dateB.getTime() - dateA.getTime();
         }).map(monthYear => (
           <View key={monthYear} style={styles.monthSection}>
@@ -451,31 +542,65 @@ export default function HistoryScreen() {
                     </View>
                   </View>
 
-                  {/* Payment & 40% Deposit Breakdown */}
-                  <View style={[styles.summarySection, { backgroundColor: '#F8FAFC', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginTop: 8 }]}>
-                    <Text style={[styles.sectionLabel, { marginBottom: 10, color: '#0F172A', fontWeight: '700', fontSize: 13 }]}>Payment Breakdown</Text>
-                    
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Total Package Price (100%)</Text>
-                      <Text style={{ fontSize: 13, color: '#0F172A', fontWeight: '700' }}>
-                        LKR {(selectedBooking.estimatedCost || 0).toLocaleString()}
-                      </Text>
-                    </View>
+                  {/* Payment Breakdown (Conditional for Cancelled Bookings) */}
+                  {selectedBooking.status === 'CANCELLED' ? (
+                    <View style={[styles.summarySection, { backgroundColor: '#FEF2F2', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#FCA5A5', marginTop: 8 }]}>
+                      <Text style={[styles.sectionLabel, { marginBottom: 10, color: '#991B1B', fontWeight: '700', fontSize: 13 }]}>Cancellation Price Breakdown</Text>
 
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '600' }}>Initial Advance Paid (40%)</Text>
-                      <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '800' }}>
-                        LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()}
-                      </Text>
-                    </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Total Package Price</Text>
+                        <Text style={{ fontSize: 13, color: '#0F172A', fontWeight: '700' }}>
+                          LKR {(selectedBooking.estimatedCost || 0).toLocaleString()}
+                        </Text>
+                      </View>
 
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
-                      <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '600' }}>Balance Due at Center (60%)</Text>
-                      <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '800' }}>
-                        LKR {(((selectedBooking.estimatedCost || 0) - (selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)))).toLocaleString()}
-                      </Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '600' }}>Advance Paid</Text>
+                        <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '800' }}>
+                          LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()}
+                        </Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ fontSize: 13, color: '#DC2626', fontWeight: '600' }}>Penalty Applied</Text>
+                        <Text style={{ fontSize: 13, color: '#DC2626', fontWeight: '800' }}>
+                          - LKR {(selectedBooking.cancellationPenalty || 0).toLocaleString()}
+                        </Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#FCA5A5' }}>
+                        <Text style={{ fontSize: 13, color: '#059669', fontWeight: '700' }}>Refunded Amount</Text>
+                        <Text style={{ fontSize: 14, color: '#059669', fontWeight: '900' }}>
+                          LKR {Math.max(0, (selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)) - (selectedBooking.cancellationPenalty || 0)).toLocaleString()}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  ) : (
+                    <View style={[styles.summarySection, { backgroundColor: '#F8FAFC', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginTop: 8 }]}>
+                      <Text style={[styles.sectionLabel, { marginBottom: 10, color: '#0F172A', fontWeight: '700', fontSize: 13 }]}>Payment Breakdown</Text>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Total Package Price (100%)</Text>
+                        <Text style={{ fontSize: 13, color: '#0F172A', fontWeight: '700' }}>
+                          LKR {(selectedBooking.estimatedCost || 0).toLocaleString()}
+                        </Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '600' }}>Initial Advance Paid (40%)</Text>
+                        <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '800' }}>
+                          LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()}
+                        </Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
+                        <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '600' }}>Balance Due at Center (60%)</Text>
+                        <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '800' }}>
+                          LKR {(((selectedBooking.estimatedCost || 0) - (selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)))).toLocaleString()}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
 
                   <View style={styles.summarySection}>
                     <Text style={styles.sectionLabel}>Status History & Timeline</Text>
@@ -534,6 +659,20 @@ export default function HistoryScreen() {
                   </View>
 
                   <View style={styles.modalActions}>
+                    {selectedBooking.status === 'COMPLETED' && (
+                      <TouchableOpacity
+                        style={styles.fullInvoiceBtn}
+                        onPress={() => {
+                          setIsSummaryVisible(false);
+                          downloadInvoicePDF(selectedBooking);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="download-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={styles.fullInvoiceBtnText}>Download Invoice (PDF)</Text>
+                      </TouchableOpacity>
+                    )}
+
                     {(selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING') && (
                       <View style={styles.modalSecondaryActions}>
                         <TouchableOpacity
@@ -587,32 +726,66 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111827',
   },
+  filterContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
   filterScrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 10,
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   filterTab: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#E84E0F',
-    marginRight: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginRight: 4,
+    gap: 6,
   },
   activeFilterTab: {
     backgroundColor: '#E84E0F',
+    borderColor: '#E84E0F',
+    shadowColor: '#E84E0F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   filterTabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#E84E0F',
+    color: '#64748B',
   },
   activeFilterTabText: {
-    color: '#fff',
+    color: '#FFFFFF',
+  },
+  countBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  countText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  activeCountText: {
+    color: '#FFFFFF',
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -640,56 +813,61 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    marginBottom: 20,
-    elevation: 4,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
     overflow: 'hidden',
   },
-  cardBody: {
-    padding: 16,
-  },
-  titleRow: {
+  cardMainRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  titleContent: {
-    flex: 1,
-    marginRight: 12,
     alignItems: 'flex-start',
+    padding: 12,
   },
-  dateBadge: {
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+  dateCol: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    justifyContent: 'center',
+    paddingRight: 10,
+    marginRight: 10,
+    borderRightWidth: 1,
+    borderRightColor: '#F1F5F9',
+    minWidth: 38,
+    paddingTop: 2,
   },
   dateDay: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '900',
     color: '#E84E0F',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   dateMonth: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#6B7280',
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
     letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  cardRightCol: {
+    flex: 1,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
   },
   statusBadge: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginTop: 4,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 2,
+    marginBottom: 4,
   },
   pendingBadge: {
     backgroundColor: '#FEE2E2',
@@ -704,8 +882,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   pendingText: {
@@ -721,9 +899,9 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   bookingTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#111827',
+    color: '#0F172A',
   },
   vehicleRow: {
     flexDirection: 'row',
@@ -906,18 +1084,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    marginTop: 8,
   },
   cardRescheduleBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    justifyContent: 'center',
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 4,
@@ -928,12 +1105,14 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   cardCancelBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    justifyContent: 'center',
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 4,
@@ -941,7 +1120,7 @@ const styles = StyleSheet.create({
   cardCancelText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#334155',
   },
   timelineContainer: {
     marginTop: 10,
@@ -1031,4 +1210,46 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '500',
   },
+  arrivalNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 4,
+    gap: 6,
+  },
+  arrivalNoticeText: {
+    fontSize: 12,
+    color: '#C2410C',
+    fontWeight: '700',
+    flex: 1,
+  },
+  completedInvoiceContainer: {
+    marginTop: 6,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  invoiceLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  invoiceLinkText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#000000ff',
+  },
 });
+  

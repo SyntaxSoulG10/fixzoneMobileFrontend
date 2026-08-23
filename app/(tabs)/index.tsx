@@ -49,13 +49,17 @@ export default function HomeScreen() {
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.warn('Permission to access location was denied.');
           return;
         }
-        let location = await Location.getCurrentPositionAsync({});
-        setUserLocation(location);
+        let location = await Location.getLastKnownPositionAsync({});
+        if (!location) {
+          location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+        }
+        if (location) setUserLocation(location);
       } catch (e) {
-        console.error('Error requesting location:', e);
+        console.log('Location services unavailable on device');
       }
     };
     fetchLocation();

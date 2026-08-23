@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Platform, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Platform, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -317,7 +318,7 @@ export default function SelectScheduleScreen() {
           <Text style={styles.headerTitle}>Select Schedule</Text>
           <Text style={styles.headerSubtitle}>{center?.name}</Text>
         </View>
-        <View style={{ width: 44 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -435,16 +436,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: Platform.OS === 'android' ? Constants.statusBarHeight : 0,
+    paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
   },
-  headerIcon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  headerTitleContainer: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  headerSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  headerIcon: {
+    width: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: -2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 1,
+  },
   scrollContent: { paddingBottom: 120 },
-  section: { marginTop: 24 },
+  section: { marginTop: 14 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
   sectionTitle: { fontSize: 14, fontWeight: '800', color: '#6B7280', letterSpacing: 0.5 },
   addNewText: { fontSize: 14, color: '#F97316', fontWeight: '700' },

@@ -17,7 +17,7 @@ export default function VehicleDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { user: authUser } = useAuth();
-  
+
   const handleBack = () => {
     router.replace('/(tabs)/vehicles');
   };
@@ -53,7 +53,7 @@ export default function VehicleDetailsScreen() {
     if (!id) return vehicle?.lastServiceDate || '';
     return getLastServiceDate(id as string, vehicleHistory, vehicle?.lastServiceDate);
   }, [id, vehicleHistory, vehicle]);
-  
+
   const daysSince = getDaysSinceService(lastServiceDate);
 
   if (isLoading) {
@@ -98,7 +98,7 @@ export default function VehicleDetailsScreen() {
         <View style={styles.infoSection}>
           <Text style={styles.vehicleName}>{vehicle.brand} {vehicle.model}</Text>
           <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
-          
+
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Ionicons name="time-outline" size={20} color={COLORS.primary} />
@@ -128,31 +128,58 @@ export default function VehicleDetailsScreen() {
           </View>
 
           {vehicleHistory.length > 0 ? (
-            vehicleHistory.map((item, index) => (
-              <View key={item.bookingId} style={styles.historyItem}>
-                <View style={styles.historyIcon}>
-                  <Ionicons 
-                    name={item.status === 'COMPLETED' ? "checkmark-done" : "time-outline"} 
-                    size={20} 
-                    color={item.status === 'COMPLETED' ? "#10B981" : "#F59E0B"} 
-                  />
+            vehicleHistory.map((item) => {
+              const getStatusStyle = (status: string) => {
+                switch (status) {
+                  case 'COMPLETED':
+                    return { bg: '#D1FAE5', text: '#10B981', icon: 'checkmark-done-circle', iconColor: '#10B981' };
+                  case 'IN_PROGRESS':
+                    return { bg: '#DBEAFE', text: '#2563EB', icon: 'construct', iconColor: '#2563EB' };
+                  case 'CONFIRMED':
+                    return { bg: '#FFF7ED', text: '#C2410C', icon: 'checkmark-circle', iconColor: '#E84E0F' };
+                  case 'PENDING':
+                  case 'PENDING_PAYMENT':
+                    return { bg: '#FEE2E2', text: '#EF4444', icon: 'time', iconColor: '#EF4444' };
+                  case 'CANCELLED':
+                    return { bg: '#F3F4F6', text: '#6B7280', icon: 'close-circle', iconColor: '#6B7280' };
+                  default:
+                    return { bg: '#F3F4F6', text: '#64748B', icon: 'information-circle', iconColor: '#64748B' };
+                }
+              };
+
+              const statusConfig = getStatusStyle(item.status);
+              const statusText = item.status === 'CONFIRMED' 
+                ? 'READY FOR SERVICE' 
+                : item.status.replace(/_/g, ' ').toUpperCase();
+
+              return (
+                <View key={item.bookingId} style={styles.historyItem}>
+                  <View style={[styles.historyIcon, { backgroundColor: statusConfig.bg }]}>
+                    <Ionicons
+                      name={statusConfig.icon as any}
+                      size={20}
+                      color={statusConfig.iconColor}
+                    />
+                  </View>
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyType} numberOfLines={1}>{item.packageName || 'Service'}</Text>
+                    <Text style={styles.historyDate}>
+                      {new Date(item.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Text>
+                  </View>
+                  <View style={styles.historyPriceContainer}>
+                    <Text style={styles.historyPrice}>
+                      LKR {(item.estimatedCost || 0).toLocaleString()}
+                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+                      <Text style={[styles.statusBadgeText, { color: statusConfig.text }]}>
+                        {statusText}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.historyInfo}>
-                  <Text style={styles.historyType}>{item.packageName || 'Service'}</Text>
-                  <Text style={styles.historyDate}>
-                    {new Date(item.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Text>
-                </View>
-                <View style={styles.historyPriceContainer}>
-                  <Text style={styles.historyPrice}>
-                    LKR {(item.estimatedCost || 0).toLocaleString()}
-                  </Text>
-                  <Text style={[styles.historyStatus, { color: item.status === 'COMPLETED' ? "#10B981" : "#F59E0B" }]}>
-                    {item.status === 'CONFIRMED' ? 'Ready for Service' : item.status.replace('_', ' ')}
-                  </Text>
-                </View>
-              </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyHistory}>
               <Text style={styles.emptyText}>No service history found for this vehicle.</Text>
@@ -162,10 +189,11 @@ export default function VehicleDetailsScreen() {
 
         <TouchableOpacity 
           style={styles.bookButton}
-          onPress={() => router.push('/(tabs)/book')}
+          onPress={() => router.push({ pathname: '/(tabs)/book', params: { vehicleId: vehicle.id } })}
+          activeOpacity={0.8}
         >
+          <Ionicons name="calendar-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
           <Text style={styles.bookButtonText}>Book New Service</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -347,11 +375,16 @@ const styles = StyleSheet.create({
   historyPriceContainer: {
     alignItems: 'flex-end',
   },
-  historyStatus: {
-    fontSize: 11,
-    fontWeight: '800',
-    marginTop: 2,
-    textTransform: 'uppercase',
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   emptyHistory: {
     padding: 20,
@@ -369,20 +402,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E84E0F',
-    marginHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 16,
-    marginTop: 5,
-    elevation: 4,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 24,
+    elevation: 2,
     shadowColor: '#E84E0F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   bookButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginRight: 10,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

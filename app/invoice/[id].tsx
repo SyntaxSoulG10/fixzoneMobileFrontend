@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { bookingService, BookingResponseDTO } from '../../services/bookingService';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
+import { downloadInvoicePDF } from '../../services/pdfService';
 
 const { width } = Dimensions.get('window');
 
@@ -171,7 +172,11 @@ export default function InvoiceScreen() {
 
         {/* Action Buttons */}
         {isCompleted && (
-          <TouchableOpacity style={styles.downloadButton}>
+          <TouchableOpacity 
+            style={styles.downloadButton}
+            onPress={() => downloadInvoicePDF(booking)}
+            activeOpacity={0.8}
+          >
             <Ionicons name="download-outline" size={20} color="#fff" />
             <Text style={styles.downloadButtonText}>Download Invoice (PDF)</Text>
           </TouchableOpacity>

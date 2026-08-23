@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  TextInput, 
-  ScrollView, 
-  Alert, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform
@@ -15,19 +15,20 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { authService } from '../services/authService';
 import { useAuth } from '../context/auth_context';
+import Toast from 'react-native-toast-message';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotLoading, setIsForgotLoading] = useState(false);
 
@@ -53,7 +54,7 @@ export default function ChangePasswordScreen() {
     try {
       await authService.changePassword(currentPassword, newPassword);
       Alert.alert(
-        'Success', 
+        'Success',
         'Your password has been changed successfully.',
         [{ text: 'OK', onPress: () => router.back() }]
       );
@@ -67,39 +68,32 @@ export default function ChangePasswordScreen() {
 
   const handleForgotPassword = async () => {
     if (!user?.email) {
-      Alert.alert('Notice', 'Email address not found. Please log in again.');
+      router.push('/(auth)/forgot-password');
       return;
     }
 
-    Alert.alert(
-      'Forgot Password?',
-      `Send a password recovery email to ${user.email}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send Email',
-          onPress: async () => {
-            setIsForgotLoading(true);
-            try {
-              await authService.forgotPassword(user.email);
-              router.push({
-                pathname: '/(auth)/set-new-password',
-                params: { email: user?.email }
-              });
-            } catch (e: any) {
-              Alert.alert('Error', 'Failed to send password reset email. Please try again.');
-            } finally {
-              setIsForgotLoading(false);
-            }
-          }
-        }
-      ]
-    );
+    setIsForgotLoading(true);
+    try {
+      await authService.forgotPassword(user.email);
+      Toast.show({
+        type: 'info',
+        text1: 'Verification Code Sent 📧',
+        text2: `A 5-digit OTP code has been sent to ${user.email}`,
+      });
+      router.push({
+        pathname: '/(auth)/verify-otp',
+        params: { email: user.email, mode: 'reset_password' }
+      });
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to send password reset email. Please try again.');
+    } finally {
+      setIsForgotLoading(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
@@ -132,10 +126,10 @@ export default function ChangePasswordScreen() {
                 autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={{ padding: 4 }}>
-                <Ionicons 
-                  name={showCurrentPassword ? "eye-outline" : "eye-off-outline"} 
-                  size={22} 
-                  color={showCurrentPassword ? "#E84E0F" : "#9CA3AF"} 
+                <Ionicons
+                  name={showCurrentPassword ? "eye-outline" : "eye-off-outline"}
+                  size={22}
+                  color={showCurrentPassword ? "#E84E0F" : "#9CA3AF"}
                 />
               </TouchableOpacity>
             </View>
@@ -156,10 +150,10 @@ export default function ChangePasswordScreen() {
                 autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={{ padding: 4 }}>
-                <Ionicons 
-                  name={showNewPassword ? "eye-outline" : "eye-off-outline"} 
-                  size={22} 
-                  color={showNewPassword ? "#E84E0F" : "#9CA3AF"} 
+                <Ionicons
+                  name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                  size={22}
+                  color={showNewPassword ? "#E84E0F" : "#9CA3AF"}
                 />
               </TouchableOpacity>
             </View>
@@ -179,18 +173,18 @@ export default function ChangePasswordScreen() {
                 autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={{ padding: 4 }}>
-                <Ionicons 
-                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
-                  size={22} 
-                  color={showConfirmPassword ? "#E84E0F" : "#9CA3AF"} 
+                <Ionicons
+                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                  size={22}
+                  color={showConfirmPassword ? "#E84E0F" : "#9CA3AF"}
                 />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Forgot Password Link */}
-          <TouchableOpacity 
-            style={styles.forgotBtn} 
+          <TouchableOpacity
+            style={styles.forgotBtn}
             onPress={handleForgotPassword}
             disabled={isForgotLoading}
           >
@@ -202,8 +196,8 @@ export default function ChangePasswordScreen() {
           </TouchableOpacity>
 
           {/* Submit Button */}
-          <TouchableOpacity 
-            style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]} 
+          <TouchableOpacity
+            style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
             onPress={handleChangePassword}
             disabled={isLoading}
           >

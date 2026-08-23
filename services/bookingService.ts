@@ -14,6 +14,7 @@ export interface BookingResponseDTO {
   packageDescription?: string;
   estimatedCost?: number;
   bookingFee?: number;
+  cancellationPenalty?: number;
 }
 
 export interface BookingRequestDTO {

@@ -273,13 +273,13 @@ export default function BookServiceScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#000" />
+          <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Select Schedule</Text>
           <Text style={styles.headerSubtitle}>{center.name}</Text>
         </View>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView
@@ -424,15 +424,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 15,
+    paddingTop: 25,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
   },
-  backButton: { padding: 4 },
-  headerTitleContainer: { alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  backButton: {
+    width: 40,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: -2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginTop: 1,
+  },
   scrollContent: { paddingBottom: 120 },
-  section: { paddingHorizontal: 20, marginTop: 24 },
+  section: { paddingHorizontal: 20, marginTop: 14 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 14, fontWeight: '800', color: '#6B7280', letterSpacing: 0.5 },
   addNewText: { fontSize: 14, color: '#E84E0F', fontWeight: '800' },
@@ -499,7 +517,7 @@ const styles = StyleSheet.create({
   proceedButton: { backgroundColor: '#E84E0F', paddingHorizontal: 30, paddingVertical: 16, borderRadius: 16 },
   proceedButtonDisabled: { backgroundColor: '#F3F4F6' },
   proceedButtonText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  packageSelectedCard: { marginHorizontal: 20, marginTop: 20, padding: 16, borderWidth: 1, borderColor: '#E84E0F', borderRadius: 16, backgroundColor: '#FFF7ED' },
+  packageSelectedCard: { marginHorizontal: 20, marginTop: 10, padding: 16, borderWidth: 1, borderColor: '#E84E0F', borderRadius: 16, backgroundColor: '#FFF7ED' },
   packageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   packageName: { fontSize: 18, fontWeight: '800', color: '#111827' },
   selectedBadge: { backgroundColor: '#E84E0F', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
@@ -509,7 +527,7 @@ const styles = StyleSheet.create({
   packagePriceValue: { fontSize: 18, fontWeight: '900', color: '#E84E0F' },
   featureItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   featureText: { fontSize: 13, color: '#374151', fontWeight: '600', marginLeft: 8 },
-  disclaimerContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 16, alignItems: 'flex-start' },
+  disclaimerContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 10, alignItems: 'flex-start' },
   disclaimerText: { fontSize: 11, color: '#E84E0F', fontWeight: '700', marginLeft: 8, flex: 1 },
   emptyVehicleBtn: { padding: 20, backgroundColor: '#F9FAFB', borderRadius: 16, width: width - 40, alignItems: 'center' },
   emptyVehicleText: { color: '#6B7280', fontWeight: '700' },

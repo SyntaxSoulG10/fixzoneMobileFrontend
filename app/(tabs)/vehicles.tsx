@@ -317,7 +317,7 @@ export default function VehiclesScreen() {
         >
           <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My vehicles</Text>
+        <Text style={styles.headerTitle}>My Vehicles</Text>
         <View style={styles.headerSide} />
       </View>
 

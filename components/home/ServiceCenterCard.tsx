@@ -157,7 +157,6 @@ export default function ServiceCenterCard({
 
         <TouchableOpacity style={styles.detailsButton} onPress={handlePress}>
           <Text style={styles.detailsButtonText}>View Details</Text>
-          <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 6 }} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -171,8 +170,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -183,7 +182,7 @@ const styles = StyleSheet.create({
   },
   compactInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
   },
   compactName: {
     color: '#111827',
@@ -208,7 +207,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: 4,
     marginBottom: 4,
   },
   compactChipRow: {
@@ -238,9 +237,9 @@ const styles = StyleSheet.create({
   // Premium Styles (High Fidelity)
   premiumCard: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 24,
+    borderRadius: 22,
     overflow: 'hidden',
-    marginBottom: 24,
+    marginBottom: 22,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -251,7 +250,7 @@ const styles = StyleSheet.create({
   },
   premiumImageContainer: {
     width: '100%',
-    height: 190,
+    height: 162,
     position: 'relative',
   },
   premiumImage: {
@@ -267,22 +266,22 @@ const styles = StyleSheet.create({
   },
   statusBadgeOverlay: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: 10,
+    left: 10,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   statusBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: '#FFF',
     letterSpacing: 0.5,
   },
   premiumPriceBadge: {
     position: 'absolute',
-    bottom: 48, // Adjusted for the new marginTop of info container
-    right: 12,
+    bottom: 46, // Adjusted for the new marginTop of info container
+    right: 10,
     alignItems: 'flex-end',
   },
   premiumPriceLabel: {
@@ -296,13 +295,13 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   premiumInfoContainer: {
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-    paddingTop: 12,
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+    paddingTop: 10,
     backgroundColor: '#F8FAFC',
-    marginTop: -40, // Shows more image
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    marginTop: -38, // Shows more image
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
   },
   premiumTitleRow: {
     flexDirection: 'row',
@@ -311,7 +310,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   premiumName: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
     flex: 1,
@@ -319,7 +318,7 @@ const styles = StyleSheet.create({
   premiumLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   premiumLocationText: {
     fontSize: 13,
@@ -329,9 +328,9 @@ const styles = StyleSheet.create({
   },
   premiumVehiclesSection: {
     backgroundColor: '#F9FAFB',
-    padding: 6,
+    padding: 4,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   premiumVehicleChips: {
     flexDirection: 'row',
@@ -339,8 +338,8 @@ const styles = StyleSheet.create({
   },
   detailsButton: {
     backgroundColor: '#E84E0F',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 16,
+    height: 40,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
