@@ -7,6 +7,7 @@ import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService } from '../../services/bookingService';
 import { getVehicleIcon } from '../../utils/vehicle_utils';
+import { formatTimeToBackend } from '../../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -24,15 +25,14 @@ const MORNING_SLOTS: TimeSlot[] = [
 ];
 
 const AFTERNOON_SLOTS: TimeSlot[] = [
-  { id: 'a1', time: '12:00 PM', status: 'Available' },
+  { id: 'a1', time: '01:00 PM', status: 'Available' },
   { id: 'a2', time: '02:00 PM', status: 'Available' },
-  { id: 'a3', time: '04:00 PM', status: 'Available' },
+  { id: 'a3', time: '03:00 PM', status: 'Available' },
+  { id: 'a4', time: '04:00 PM', status: 'Available' },
+  { id: 'a5', time: '05:00 PM', status: 'Available' },
 ];
 
-const EVENING_SLOTS: TimeSlot[] = [
-  { id: 'e1', time: '06:00 PM', status: 'Available' },
-  { id: 'e2', time: '07:00 PM', status: 'Available' },
-];
+const EVENING_SLOTS: TimeSlot[] = [];
 
 export default function BookServiceScreen() {
   const { id, packageId, packageName, packagePrice } = useLocalSearchParams<{ id?: string; packageId?: string; packageName?: string; packagePrice?: string }>();
@@ -84,7 +84,7 @@ export default function BookServiceScreen() {
   const isSlotAvailable = useCallback((timeStr: string) => {
     if (!selectedDate) return true;
     const backendFormat = formatSlotTime(timeStr);
-    return availableSlots.some(s => s.startsWith(backendFormat));
+    return availableSlots.some(s => s === timeStr || s.startsWith(backendFormat));
   }, [availableSlots, selectedDate]);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function BookServiceScreen() {
         const day = String(selectedDate.getDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
 
-        const slots = await bookingService.getAvailableSlots(id as string, dateStr);
+        const slots = await bookingService.getAvailableSlots(id as string, dateStr, packageId as string);
         setAvailableSlots(slots);
       } catch (err) {
         console.error('Failed to fetch available slots in package booking:', err);
@@ -106,7 +106,7 @@ export default function BookServiceScreen() {
       }
     };
     fetchSlots();
-  }, [selectedDate, id]);
+  }, [selectedDate, id, packageId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -160,12 +160,19 @@ export default function BookServiceScreen() {
     return arr;
   }, [authUser]);
 
+  const morningSlots = useMemo(() => {
+    return availableSlots.filter(s => s.toUpperCase().includes('AM'));
+  }, [availableSlots]);
+
+  const afternoonSlots = useMemo(() => {
+    return availableSlots.filter(s => s.toUpperCase().includes('PM'));
+  }, [availableSlots]);
+
   const isReady = selectedDate && selectedTime && selectedVehicle;
 
   const handleProceed = () => {
-    if (isReady && selectedDate) {
-      const allSlots = [...MORNING_SLOTS, ...AFTERNOON_SLOTS, ...EVENING_SLOTS];
-      const timeStr = allSlots.find(t => t.id === selectedTime)?.time || '';
+    if (isReady && selectedDate && selectedTime) {
+      const timeStr = formatTimeToBackend(selectedTime);
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
       const selectedVehicleObj = vehicles.find(v => v.id === selectedVehicle);
@@ -197,7 +204,10 @@ export default function BookServiceScreen() {
       <TouchableOpacity
         key={date.toISOString()}
         disabled={isLeaveDate}
-        onPress={() => setSelectedDate(isSelected ? null : date)}
+        onPress={() => {
+          setSelectedDate(isSelected ? null : date);
+          setSelectedTime(null);
+        }}
         style={[
           styles.dateItem,
           isSelected && styles.dateItemSelected,
@@ -223,30 +233,26 @@ export default function BookServiceScreen() {
     );
   };
 
-  const renderTimeSlot = (slot: TimeSlot) => {
-    const isAvailable = isSlotAvailable(slot.time);
-    const isBusy = !isAvailable;
-    const isSelected = selectedTime === slot.id;
+  const renderDynamicSlot = (timeStr: string) => {
+    const isSelected = selectedTime === timeStr;
     return (
       <TouchableOpacity
-        key={slot.id}
-        disabled={isBusy}
-        onPress={() => setSelectedTime(isSelected ? null : slot.id)}
+        key={timeStr}
+        onPress={() => setSelectedTime(isSelected ? null : timeStr)}
         style={[
           styles.timeSlot,
-          isBusy && styles.timeSlotBusy,
           isSelected && styles.timeSlotSelected
         ]}
       >
-        <Text style={[styles.timeSlotTime, isSelected && styles.timeSlotTextSelected, isBusy && styles.timeSlotTextBusy]}>
-          {slot.time}
+        <Text style={[styles.timeSlotTime, isSelected && styles.timeSlotTextSelected]}>
+          {timeStr}
         </Text>
         <Text style={[
           styles.timeSlotStatus,
-          isBusy ? styles.statusBusy : styles.statusAvailable,
+          styles.statusAvailable,
           isSelected && styles.statusSelected
         ]}>
-          {isSelected ? 'Selected' : (isBusy ? 'Busy' : 'Available')}
+          {isSelected ? 'Selected' : 'Available'}
         </Text>
       </TouchableOpacity>
     );
@@ -323,7 +329,7 @@ export default function BookServiceScreen() {
                 </View>
               </View>
 
-              {/* 1. SELECT VEHICLE (Now from DB) */}
+              {/* 1. SELECT VEHICLE */}
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionTitle}>SELECT YOUR VEHICLE</Text>
@@ -383,15 +389,42 @@ export default function BookServiceScreen() {
                   <Text style={styles.timeCategoryName}>Select Time</Text>
                 </View>
 
-                <Text style={styles.timeSubHeader}>Morning</Text>
-                <View style={styles.timeSlotsGrid}>
-                  {MORNING_SLOTS.map(renderTimeSlot)}
-                </View>
+                {!selectedDate ? (
+                  <View style={styles.slotInfoBox}>
+                    <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+                    <Text style={styles.slotInfoText}>Please select a date above to view available time slots.</Text>
+                  </View>
+                ) : isLoadingSlots ? (
+                  <View style={styles.slotLoadingBox}>
+                    <ActivityIndicator size="small" color="#E84E0F" />
+                    <Text style={styles.slotLoadingText}>Checking live availability...</Text>
+                  </View>
+                ) : availableSlots.length === 0 ? (
+                  <View style={styles.slotEmptyBox}>
+                    <Ionicons name="alert-circle-outline" size={22} color="#EF4444" />
+                    <Text style={styles.slotEmptyText}>No available slots for this package on the selected date. Please choose another date.</Text>
+                  </View>
+                ) : (
+                  <>
+                    {morningSlots.length > 0 && (
+                      <>
+                        <Text style={styles.timeSubHeader}>Morning</Text>
+                        <View style={styles.timeSlotsGrid}>
+                          {morningSlots.map(renderDynamicSlot)}
+                        </View>
+                      </>
+                    )}
 
-                <Text style={styles.timeSubHeader}>Afternoon</Text>
-                <View style={styles.timeSlotsGrid}>
-                  {AFTERNOON_SLOTS.map(renderTimeSlot)}
-                </View>
+                    {afternoonSlots.length > 0 && (
+                      <>
+                        <Text style={styles.timeSubHeader}>Afternoon</Text>
+                        <View style={styles.timeSlotsGrid}>
+                          {afternoonSlots.map(renderDynamicSlot)}
+                        </View>
+                      </>
+                    )}
+                  </>
+                )}
               </View>
 
             </ScrollView>
@@ -531,4 +564,10 @@ const styles = StyleSheet.create({
   disclaimerText: { fontSize: 11, color: '#E84E0F', fontWeight: '700', marginLeft: 8, flex: 1 },
   emptyVehicleBtn: { padding: 20, backgroundColor: '#F9FAFB', borderRadius: 16, width: width - 40, alignItems: 'center' },
   emptyVehicleText: { color: '#6B7280', fontWeight: '700' },
+  slotInfoBox: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#F9FAFB', borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' },
+  slotInfoText: { marginLeft: 10, color: '#6B7280', fontWeight: '600', fontSize: 13, flex: 1 },
+  slotLoadingBox: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FFF7ED', borderRadius: 16, borderWidth: 1, borderColor: '#FFEDD5' },
+  slotLoadingText: { marginLeft: 10, color: '#E84E0F', fontWeight: '700', fontSize: 13 },
+  slotEmptyBox: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FEF2F2', borderRadius: 16, borderWidth: 1, borderColor: '#FEE2E2' },
+  slotEmptyText: { marginLeft: 10, color: '#EF4444', fontWeight: '700', fontSize: 13, flex: 1 },
 });

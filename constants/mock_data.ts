@@ -14,7 +14,8 @@ export interface ServicePackage {
   name: string;
   price: number;
   duration: string;
-  features: string[];
+  features?: string[];
+  type?: string;
   image: any;
   isRecommended: boolean;
   vehicleType: VehicleType;

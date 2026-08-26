@@ -368,7 +368,7 @@ function PackageCard({ pkg, centerId, highlightPackageId, onLayoutY }: { pkg: Se
         </View>
 
         <TouchableOpacity 
-          onPress={() => router.push({ pathname: '/booking/create', params: { centerId, packageId: pkg.packageId || '', packageName: pkg.name } })}
+          onPress={() => router.push({ pathname: '/booking/create', params: { centerId, packageId: pkg.packageId || (pkg as any).id || '', packageName: pkg.name } })}
         >
           <LinearGradient
             colors={['#E84E0F', '#F97316']}

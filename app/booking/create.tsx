@@ -11,6 +11,7 @@ import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
 import { bookingService } from '../../services/bookingService';
 import { getVehicleIcon } from '../../utils/vehicle_utils';
+import { formatTimeToBackend } from '../../utils/date_utils';
 import AddVehicleModal from '../../components/booking/AddVehicleModal';
 import { Alert } from 'react-native';
 
@@ -124,54 +125,38 @@ export default function SelectScheduleScreen() {
     }, [loadData])
   );
 
+  const [isLoadingSlots, setIsLoadingSlots] = useState<boolean>(false);
+
   const fetchSlots = useCallback(async () => {
     if (!centerId || !selectedDate) return;
     try {
+      setIsLoadingSlots(true);
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-      const slots = await bookingService.getAvailableSlots(centerId, dateStr);
+      const validPkgId = packageId && packageId.trim() !== '' ? packageId : undefined;
+      const slots = await bookingService.getAvailableSlots(centerId, dateStr, validPkgId);
       setAvailableSlots(slots);
 
-      // Clear selection if it's no longer available
-      if (selectedTime && !slots.includes(selectedTime.split(' ')[0])) {
+      if (selectedTime && !slots.includes(selectedTime)) {
         setSelectedTime(null);
       }
     } catch (err) {
       console.error('Failed to fetch slots:', err);
+    } finally {
+      setIsLoadingSlots(false);
     }
-  }, [centerId, selectedDate, selectedTime]);
+  }, [centerId, selectedDate, packageId, selectedTime]);
 
   useEffect(() => {
     fetchSlots();
-  }, [selectedDate, centerId]);
+  }, [selectedDate, centerId, packageId]);
 
-  const generateSlotData = (time: string): TimeSlot => {
-    // Convert "01:00 PM" to "13:00" for backend comparison
-    const [timePart, ampm] = time.split(' ');
-    let [hours, minutes] = timePart.split(':');
-    let hoursNum = parseInt(hours);
+  const morningSlots = useMemo(() => {
+    return availableSlots.filter(s => s.toUpperCase().includes('AM'));
+  }, [availableSlots]);
 
-    if (ampm === 'PM' && hoursNum !== 12) hoursNum += 12;
-    if (ampm === 'AM' && hoursNum === 12) hoursNum = 0;
-
-    const backendFormat = `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
-
-    // Backend returns "08:00-09:00", so we check if any slot starts with our time
-    const isAvailable = availableSlots.some(slot => slot.startsWith(backendFormat));
-
-    return {
-      id: time,
-      time: time,
-      status: selectedTime === time ? 'Selected' : (isAvailable ? 'Available' : 'Busy')
-    };
-  };
-
-  const morningSlots: TimeSlot[] = [
-    '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM'
-  ].map(generateSlotData);
-
-  const afternoonSlots: TimeSlot[] = [
-    '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM'
-  ].map(generateSlotData);
+  const afternoonSlots = useMemo(() => {
+    return availableSlots.filter(s => s.toUpperCase().includes('PM'));
+  }, [availableSlots]);
 
   const handleProceed = async () => {
     if (!selectedVehicle) {
@@ -190,7 +175,7 @@ export default function SelectScheduleScreen() {
     try {
       setIsProcessing(true);
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-      const timeStr = selectedTime.split(' ')[0]; // "09:00 AM" -> "09:00"
+      const timeStr = formatTimeToBackend(selectedTime);
 
       const booking = await bookingService.createBooking({
         centerId: centerId!,
@@ -266,29 +251,25 @@ export default function SelectScheduleScreen() {
     );
   };
 
-  const renderTimeSlot = (slot: TimeSlot) => {
-    const isSelected = selectedTime === slot.time;
-    const isBusy = slot.status === 'Busy';
-
+  const renderDynamicSlot = (timeStr: string) => {
+    const isSelected = selectedTime === timeStr;
     return (
       <TouchableOpacity
-        key={slot.id}
-        disabled={isBusy}
-        onPress={() => setSelectedTime(slot.time)}
+        key={timeStr}
+        onPress={() => setSelectedTime(isSelected ? null : timeStr)}
         style={[
           styles.slotItem,
-          isSelected && styles.slotItemSelected,
-          isBusy && styles.slotItemBusy
+          isSelected && styles.slotItemSelected
         ]}
       >
-        <Text style={[styles.slotTime, isSelected && styles.textWhite, isBusy && styles.textDisabled]}>
-          {slot.time}
+        <Text style={[styles.slotTime, isSelected && styles.textWhite]}>
+          {timeStr}
         </Text>
         <Text style={[
           styles.slotStatus,
-          isSelected ? styles.textWhite : (isBusy ? styles.textError : styles.textSuccess)
+          isSelected ? styles.textWhite : styles.textSuccess
         ]}>
-          {isSelected ? 'Selected' : slot.status}
+          {isSelected ? 'Selected' : 'Available'}
         </Text>
       </TouchableOpacity>
     );
@@ -374,27 +355,50 @@ export default function SelectScheduleScreen() {
 
         {/* Time Slots */}
         <View style={styles.section}>
-          <View style={styles.timeCategory}>
-            <View style={styles.categoryTitleRow}>
-              <Ionicons name="sunny-outline" size={22} color="#F97316" />
-              <Text style={styles.categoryName}>Morning</Text>
-              <Text style={styles.timeRange}>08:00 - 11:59</Text>
+          {!selectedDate ? (
+            <View style={{ padding: 16, backgroundColor: '#F9FAFB', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+              <Text style={{ marginLeft: 10, color: '#6B7280', fontSize: 13, fontWeight: '600' }}>Please select a date to view available time slots.</Text>
             </View>
-            <View style={styles.slotsGrid}>
-              {morningSlots.map(renderTimeSlot)}
+          ) : isLoadingSlots ? (
+            <View style={{ padding: 16, backgroundColor: '#FFF7ED', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#F97316" />
+              <Text style={{ marginLeft: 10, color: '#F97316', fontSize: 13, fontWeight: '700' }}>Checking live slot availability...</Text>
             </View>
-          </View>
+          ) : availableSlots.length === 0 ? (
+            <View style={{ padding: 16, backgroundColor: '#FEF2F2', borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="alert-circle-outline" size={22} color="#EF4444" />
+              <Text style={{ marginLeft: 10, color: '#EF4444', fontSize: 13, fontWeight: '700', flex: 1 }}>No available slots for this package on the selected date. Please choose another date.</Text>
+            </View>
+          ) : (
+            <>
+              {morningSlots.length > 0 && (
+                <View style={styles.timeCategory}>
+                  <View style={styles.categoryTitleRow}>
+                    <Ionicons name="sunny-outline" size={22} color="#F97316" />
+                    <Text style={styles.categoryName}>Morning</Text>
+                    <Text style={styles.timeRange}>08:00 - 11:59</Text>
+                  </View>
+                  <View style={styles.slotsGrid}>
+                    {morningSlots.map(renderDynamicSlot)}
+                  </View>
+                </View>
+              )}
 
-          <View style={styles.timeCategory}>
-            <View style={styles.categoryTitleRow}>
-              <Ionicons name="sunny" size={22} color="#F97316" />
-              <Text style={styles.categoryName}>Afternoon</Text>
-              <Text style={styles.timeRange}>12:00 - 16:59</Text>
-            </View>
-            <View style={styles.slotsGrid}>
-              {afternoonSlots.map(renderTimeSlot)}
-            </View>
-          </View>
+              {afternoonSlots.length > 0 && (
+                <View style={styles.timeCategory}>
+                  <View style={styles.categoryTitleRow}>
+                    <Ionicons name="sunny" size={22} color="#F97316" />
+                    <Text style={styles.categoryName}>Afternoon</Text>
+                    <Text style={styles.timeRange}>12:00 - 16:59</Text>
+                  </View>
+                  <View style={styles.slotsGrid}>
+                    {afternoonSlots.map(renderDynamicSlot)}
+                  </View>
+                </View>
+              )}
+            </>
+          )}
         </View>
 
       </ScrollView>

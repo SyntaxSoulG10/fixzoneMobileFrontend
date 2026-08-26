@@ -78,6 +78,12 @@ export const authService = {
       body: JSON.stringify({ email }),
     });
   },
+  verifyResetOtp: async (email: string, token: string): Promise<{ message: string }> => {
+    return request<{ message: string }>('/auth/verify-reset-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, token }),
+    });
+  },
   resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
     return request<{ message: string }>('/auth/reset-password', {
       method: 'POST',

@@ -10,6 +10,7 @@ import { Modal, ActivityIndicator } from 'react-native';
 import { MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 import { checkNotificationsNow } from '../../components/NotificationPoller';
 import { downloadInvoicePDF } from '../../services/pdfService';
+import { formatTimeFromBackend } from '../../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -525,7 +526,7 @@ export default function HistoryScreen() {
                     </View>
                     <View style={[styles.summarySection, { flex: 1 }]}>
                       <Text style={styles.sectionLabel}>Time</Text>
-                      <Text style={styles.sectionValue}>{selectedBooking.bookingTime}</Text>
+                      <Text style={styles.sectionValue}>{formatTimeFromBackend(selectedBooking.bookingTime)}</Text>
                     </View>
                   </View>
 

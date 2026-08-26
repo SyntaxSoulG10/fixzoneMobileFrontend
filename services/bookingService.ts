@@ -28,8 +28,9 @@ export interface BookingRequestDTO {
 }
 
 export const bookingService = {
-  getAvailableSlots: async (centerId: string, date: string): Promise<string[]> => {
-    return request<string[]>(`/bookings/available-slots?centerId=${centerId}&date=${date}`, {
+  getAvailableSlots: async (centerId: string, date: string, packageId?: string): Promise<string[]> => {
+    const pkgQuery = packageId && packageId.trim() !== '' ? `&packageId=${packageId}` : '';
+    return request<string[]>(`/bookings/available-slots?centerId=${centerId}&date=${date}${pkgQuery}`, {
       method: 'GET'
     });
   },

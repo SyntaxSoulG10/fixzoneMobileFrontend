@@ -145,7 +145,16 @@ export default function InitialPaymentScreen() {
 
     } catch (e: any) {
       console.error('Payment/Booking failed', e);
-      Alert.alert('Error', e.message || 'Failed to complete booking. Please try again.');
+      const errMsg = e?.message || '';
+      if (errMsg.toLowerCase().includes('slot') || errMsg.toLowerCase().includes('conflict') || errMsg.toLowerCase().includes('unavailable') || errMsg.toLowerCase().includes('already booked')) {
+        Alert.alert(
+          'Time Slot Unavailable',
+          'Sorry, this time slot was just taken by another user or is no longer available. Please select another time slot.',
+          [{ text: 'Choose Another Time', onPress: () => router.back() }]
+        );
+      } else {
+        Alert.alert('Error', errMsg || 'Failed to complete booking. Please try again.');
+      }
     } finally {
       setIsProcessing(false);
       setIsVerifying(false);

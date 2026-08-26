@@ -23,15 +23,14 @@ const MORNING_SLOTS: TimeSlot[] = [
 ];
 
 const AFTERNOON_SLOTS: TimeSlot[] = [
-  { id: 'a1', time: '12:00 PM', status: 'Available' },
+  { id: 'a1', time: '01:00 PM', status: 'Available' },
   { id: 'a2', time: '02:00 PM', status: 'Available' },
-  { id: 'a3', time: '04:00 PM', status: 'Available' },
+  { id: 'a3', time: '03:00 PM', status: 'Available' },
+  { id: 'a4', time: '04:00 PM', status: 'Available' },
+  { id: 'a5', time: '05:00 PM', status: 'Available' },
 ];
 
-const EVENING_SLOTS: TimeSlot[] = [
-  { id: 'e1', time: '06:00 PM', status: 'Available' },
-  { id: 'e2', time: '07:00 PM', status: 'Available' },
-];
+const EVENING_SLOTS: TimeSlot[] = [];
 
 export default function RescheduleScreen() {
   const { bookingId } = useLocalSearchParams();
@@ -81,8 +80,8 @@ export default function RescheduleScreen() {
     const isSameTime = booking.bookingTime && booking.bookingTime.startsWith(backendFormat);
     if (isSameDate && isSameTime) return true;
 
-    // Check if slot starts with backend format e.g. "08:00-09:00"
-    return availableSlots.some(s => s.startsWith(backendFormat));
+    // Check if slot starts with backend format e.g. "08:00-09:00" or exact match
+    return availableSlots.some(s => s === timeStr || s.startsWith(backendFormat));
   }, [availableSlots, booking, selectedDate]);
 
   useEffect(() => {
@@ -95,7 +94,7 @@ export default function RescheduleScreen() {
         const day = String(selectedDate.getDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
 
-        const slots = await bookingService.getAvailableSlots(booking.centerId, dateStr);
+        const slots = await bookingService.getAvailableSlots(booking.centerId, dateStr, booking.packageId);
         setAvailableSlots(slots);
       } catch (err) {
         console.error('Failed to fetch available slots in reschedule:', err);
@@ -104,7 +103,7 @@ export default function RescheduleScreen() {
       }
     };
     fetchSlots();
-  }, [selectedDate, booking?.centerId]);
+  }, [selectedDate, booking?.centerId, booking?.packageId]);
 
   const dates = useMemo(() => {
     const arr: Date[] = [];
@@ -131,6 +130,14 @@ export default function RescheduleScreen() {
     return arr;
   }, [authUser]);
 
+  const morningSlots = useMemo(() => {
+    return availableSlots.filter(s => s.toUpperCase().includes('AM'));
+  }, [availableSlots]);
+
+  const afternoonSlots = useMemo(() => {
+    return availableSlots.filter(s => s.toUpperCase().includes('PM'));
+  }, [availableSlots]);
+
   if (!booking) {
     return (
       <View style={styles.container}>
@@ -142,12 +149,9 @@ export default function RescheduleScreen() {
   const isReady = selectedDate && selectedTime;
 
   const handleConfirmReschedule = async () => {
-    if (isReady && selectedDate) {
-      const allSlots = [...MORNING_SLOTS, ...AFTERNOON_SLOTS, ...EVENING_SLOTS];
-      const timeStr = allSlots.find(t => t.id === selectedTime)?.time || '';
-
-      const newDateStr = selectedDate.toISOString().split('T')[0];
-      const newTimeStr = `${formatSlotTime(timeStr)}:00`;
+    if (isReady && selectedDate && selectedTime) {
+      const newDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+      const newTimeStr = `${formatSlotTime(selectedTime)}:00`;
 
       try {
         await rescheduleBooking(booking.bookingId, newDateStr, newTimeStr);
@@ -180,30 +184,26 @@ export default function RescheduleScreen() {
     );
   };
 
-  const renderTimeSlot = (slot: TimeSlot) => {
-    const isAvailable = isSlotAvailable(slot.time);
-    const isBusy = !isAvailable;
-    const isSelected = selectedTime === slot.id;
+  const renderDynamicSlot = (timeStr: string) => {
+    const isSelected = selectedTime === timeStr;
     return (
       <TouchableOpacity
-        key={slot.id}
-        disabled={isBusy}
-        onPress={() => setSelectedTime(slot.id)}
+        key={timeStr}
+        onPress={() => setSelectedTime(isSelected ? null : timeStr)}
         style={[
           styles.timeSlot,
-          isBusy && styles.timeSlotBusy,
           isSelected && styles.timeSlotSelected
         ]}
       >
-        <Text style={[styles.timeSlotTime, isSelected && styles.timeSlotTextSelected, isBusy && styles.timeSlotTextBusy]}>
-          {slot.time}
+        <Text style={[styles.timeSlotTime, isSelected && styles.timeSlotTextSelected]}>
+          {timeStr}
         </Text>
         <Text style={[
           styles.timeSlotStatus,
-          isBusy ? styles.statusBusy : styles.statusAvailable,
+          styles.statusAvailable,
           isSelected && styles.statusSelected
         ]}>
-          {isSelected ? 'Selected' : (isBusy ? 'Busy' : 'Available')}
+          {isSelected ? 'Selected' : 'Available'}
         </Text>
       </TouchableOpacity>
     );
@@ -250,20 +250,42 @@ export default function RescheduleScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>SELECT NEW TIME</Text>
 
-          <Text style={styles.timeCategoryLabel}>Morning</Text>
-          <View style={styles.timeSlotsGrid}>
-            {MORNING_SLOTS.map(renderTimeSlot)}
-          </View>
+          {!selectedDate ? (
+            <View style={styles.slotInfoBox}>
+              <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+              <Text style={styles.slotInfoText}>Please select a date above to view available time slots.</Text>
+            </View>
+          ) : isLoadingSlots ? (
+            <View style={styles.slotLoadingBox}>
+              <ActivityIndicator size="small" color="#E84E0F" />
+              <Text style={styles.slotLoadingText}>Checking live availability...</Text>
+            </View>
+          ) : availableSlots.length === 0 ? (
+            <View style={styles.slotEmptyBox}>
+              <Ionicons name="alert-circle-outline" size={22} color="#EF4444" />
+              <Text style={styles.slotEmptyText}>No available slots for this booking on the selected date. Please choose another date.</Text>
+            </View>
+          ) : (
+            <>
+              {morningSlots.length > 0 && (
+                <>
+                  <Text style={styles.timeCategoryLabel}>Morning</Text>
+                  <View style={styles.timeSlotsGrid}>
+                    {morningSlots.map(renderDynamicSlot)}
+                  </View>
+                </>
+              )}
 
-          <Text style={styles.timeCategoryLabel}>Afternoon</Text>
-          <View style={styles.timeSlotsGrid}>
-            {AFTERNOON_SLOTS.map(renderTimeSlot)}
-          </View>
-
-          <Text style={styles.timeCategoryLabel}>Evening</Text>
-          <View style={styles.timeSlotsGrid}>
-            {EVENING_SLOTS.map(renderTimeSlot)}
-          </View>
+              {afternoonSlots.length > 0 && (
+                <>
+                  <Text style={styles.timeCategoryLabel}>Afternoon</Text>
+                  <View style={styles.timeSlotsGrid}>
+                    {afternoonSlots.map(renderDynamicSlot)}
+                  </View>
+                </>
+              )}
+            </>
+          )}
         </View>
 
       </ScrollView>
@@ -453,4 +475,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  slotInfoBox: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#F9FAFB', borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' },
+  slotInfoText: { marginLeft: 10, color: '#6B7280', fontWeight: '600', fontSize: 13, flex: 1 },
+  slotLoadingBox: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FFF7ED', borderRadius: 16, borderWidth: 1, borderColor: '#FFEDD5' },
+  slotLoadingText: { marginLeft: 10, color: '#E84E0F', fontWeight: '700', fontSize: 13 },
+  slotEmptyBox: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FEF2F2', borderRadius: 16, borderWidth: 1, borderColor: '#FEE2E2' },
+  slotEmptyText: { marginLeft: 10, color: '#EF4444', fontWeight: '700', fontSize: 13, flex: 1 },
 });

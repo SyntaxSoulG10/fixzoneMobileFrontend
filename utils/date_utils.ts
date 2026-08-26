@@ -64,3 +64,34 @@ export const getDaysSinceService = (dateString: string): number | undefined => {
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 };
 
+/**
+ * Helper to convert 12-hour formatted time strings (e.g. "02:15 PM") to 24-hour HH:mm (e.g. "14:15") for Spring Boot LocalTime deserialization.
+ */
+export const formatTimeToBackend = (time: string): string => {
+  if (!time) return '';
+  if (!time.includes(' ')) return time; // Already in 24h format e.g. "14:15"
+  const [timePart, ampm] = time.split(' ');
+  let [hours, minutes] = timePart.split(':');
+  let hoursNum = parseInt(hours, 10);
+  if (ampm.toUpperCase() === 'PM' && hoursNum !== 12) hoursNum += 12;
+  if (ampm.toUpperCase() === 'AM' && hoursNum === 12) hoursNum = 0;
+  return `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
+};
+
+/**
+ * Helper to convert 24-hour ISO time strings (e.g. "14:45:00" or "14:45") to 12-hour AM/PM format (e.g. "02:45 PM").
+ */
+export const formatTimeFromBackend = (time: string): string => {
+  if (!time) return '';
+  if (time.toUpperCase().includes('AM') || time.toUpperCase().includes('PM')) return time; // Already in 12h format
+  const parts = time.split(':');
+  if (parts.length < 2) return time;
+  let hoursNum = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  const ampm = hoursNum >= 12 ? 'PM' : 'AM';
+  if (hoursNum > 12) hoursNum -= 12;
+  if (hoursNum === 0) hoursNum = 12;
+  return `${hoursNum.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+};
+
+

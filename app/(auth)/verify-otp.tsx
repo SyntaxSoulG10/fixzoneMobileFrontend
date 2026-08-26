@@ -35,7 +35,14 @@ export default function VerifyOtpScreen() {
     setIsLoading(true);
     try {
       if (mode === 'reset_password') {
-        // Navigate to reset-password screen passing email and otp token
+        // Validate OTP with backend before allowing navigation
+        await authService.verifyResetOtp(email, code);
+        Toast.show({
+          type: 'success',
+          text1: 'Code Verified! 🔑',
+          text2: 'Please enter your new password.',
+          position: 'top',
+        });
         router.push({
           pathname: '/(auth)/reset-password',
           params: { email, token: code }
@@ -91,7 +98,7 @@ export default function VerifyOtpScreen() {
   return (
     <ScreenContainer>
       <BackButton onPress={handleBack} />
-      
+
       <View style={styles.header}>
         <IconCircle iconName="mail" size={72} iconSize={32} />
         <Text style={styles.title}>Enter Verification Code</Text>
