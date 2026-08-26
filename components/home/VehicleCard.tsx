@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   vehicleName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#111827',
   },
