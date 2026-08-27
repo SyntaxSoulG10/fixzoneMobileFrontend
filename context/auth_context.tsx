@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService, LoginRequest, LoginResponse, RegisterRequest } from '../services/authService';
 import { setUnauthorizedListener, clearCache } from '../services/api';
+import { notificationService, registerForPushNotificationsAsync } from '../services/notificationService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -67,6 +68,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Background profile sync skipped:', e);
     }
   };
+
+  const syncPushToken = async () => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        await notificationService.savePushToken(token);
+        console.log('Push notification token synced with backend:', token);
+      }
+    } catch (e) {
+      console.log('Push token sync skipped:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncPushToken();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     setUnauthorizedListener(() => {

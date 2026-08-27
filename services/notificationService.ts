@@ -1,4 +1,67 @@
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { request } from './api';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (!Device.isDevice) {
+    console.log('Push notifications require a physical device');
+    return null;
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    console.log('Notification permission denied');
+    return null;
+  }
+
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    Constants.easConfig?.projectId;
+
+  if (!projectId) {
+    throw new Error('EAS project ID not found');
+  }
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#F97316',
+    });
+  }
+
+  try {
+    const token = await Notifications.getExpoPushTokenAsync({
+      projectId,
+    });
+
+    console.log('Expo Push Token:', token.data);
+    return token.data;
+  } catch (error) {
+    console.error('Error fetching Expo Push Token:', error);
+    return null;
+  }
+}
 
 export interface NotificationDTO {
   id: string;
@@ -13,6 +76,8 @@ export interface NotificationDTO {
 }
 
 export const notificationService = {
+  registerForPushNotifications: registerForPushNotificationsAsync,
+
   getNotifications: async (): Promise<NotificationDTO[]> => {
     return request<NotificationDTO[]>('/notifications');
   },
@@ -49,5 +114,15 @@ export const notificationService = {
     return request<void>(`/notifications/${id}`, {
       method: 'DELETE',
     });
-  }
+  },
+
+  savePushToken: async (pushToken: string): Promise<void> => {
+    return request<void>('/mobile/notifications/register-token', {
+      method: 'POST',
+      body: JSON.stringify({
+        token: pushToken,
+        platform: Platform.OS,
+      }),
+    });
+  },
 };

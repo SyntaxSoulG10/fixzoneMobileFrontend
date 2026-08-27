@@ -225,7 +225,6 @@ export default function AuthScreen() {
         label={mode === 'login' ? 'Login' : 'Create Account'}
         onPress={mode === 'login' ? handleLogin : handleSignup}
         style={styles.btn}
-        rightIcon={mode === 'login' ? "log-in-outline" : undefined}
         loading={isSubmitting}
         disabled={isSubmitting || (mode === 'signup' && (!hasMinLength || !hasUpper || !hasLower || !hasNumber || !hasSpecial || !isMatch))}
       />

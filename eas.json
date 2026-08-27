@@ -18,7 +18,15 @@
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51TMSMgKzCVHcox8Y65gPc8MlennzqnBIDpoAcAMdQQYyfFaswOCtNhSHfh4aMIo3GaQ9CqfSEcT5qGfPd4HXVtWO00OLikMsVZ"
       }
     },
-    "production": {}
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://fixzone-backend.onrender.com/api",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51TMSMgKzCVHcox8Y65gPc8MlennzqnBIDpoAcAMdQQYyfFaswOCtNhSHfh4aMIo3GaQ9CqfSEcT5qGfPd4HXVtWO00OLikMsVZ"
+      }
+    }
   },
   "submit": {
     "production": {}
