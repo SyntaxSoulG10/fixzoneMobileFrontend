@@ -15,6 +15,8 @@ export interface BookingResponseDTO {
   estimatedCost?: number;
   bookingFee?: number;
   cancellationPenalty?: number;
+  durationMins?: number;
+  estimatedDurationMins?: number;
 }
 
 export interface BookingRequestDTO {
