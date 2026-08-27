@@ -94,4 +94,49 @@ export const formatTimeFromBackend = (time: string): string => {
   return `${hoursNum.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
+/**
+ * Safely converts an ISO date string (YYYY-MM-DD) to local formatted date string.
+ */
+export const formatDisplayDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const parts = cleanStr.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      const localDate = new Date(year, month, day);
+      return localDate.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+  }
+  return dateStr;
+};
+
+/**
+ * Safely converts a UTC ISO timestamp (e.g. "2026-08-27T18:43:00") into local phone date & time format.
+ * Appends 'Z' if missing so JavaScript parses it as UTC and converts to local device timezone offset (+5:30).
+ */
+export const formatDisplayDateTime = (isoString?: string): string => {
+  if (!isoString) return '';
+  const utcString = (isoString.endsWith('Z') || isoString.includes('+')) 
+    ? isoString 
+    : `${isoString}Z`;
+  const dateObj = new Date(utcString);
+  if (isNaN(dateObj.getTime())) return isoString;
+  
+  return dateObj.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 

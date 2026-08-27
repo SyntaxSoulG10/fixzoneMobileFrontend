@@ -52,6 +52,32 @@ export const validateLicenseNumber = (text: string): string | null => {
   return null;
 };
 
+/**
+ * Format vehicle model according to constraints:
+ * - Allow English letters (A-Z, a-z), numbers (0-9), space, and hyphen (-)
+ * - Strip out special characters, Emojis, Sinhala/Tamil characters, etc.
+ */
+export const formatVehicleModel = (text: string): string => {
+  if (!text) return '';
+  return text.replace(/[^a-zA-Z0-9 -]/g, '');
+};
+
+/**
+ * Validate vehicle model according to constraints:
+ * - Required
+ * - English letters, numbers, spaces and hyphens only
+ */
+export const validateVehicleModel = (text: string): string | null => {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return 'Vehicle model is required';
+  }
+  if (/[^a-zA-Z0-9 -]/.test(trimmed)) {
+    return 'Only English letters, numbers, spaces and hyphens allowed';
+  }
+  return null;
+};
+
 export function normalizeVehicleType(rawType?: string | null): string {
   if (!rawType) return 'ALL';
   const t = rawType.toLowerCase().trim();

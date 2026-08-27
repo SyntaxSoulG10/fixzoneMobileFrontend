@@ -9,7 +9,7 @@ import AppDropdown from '../ui/AppDropdown';
 import { vehicleService } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
 import { imageKitService } from '../../services/imageKitService';
-import { formatLicenseNumber, validateLicenseNumber } from '../../utils/vehicle_utils';
+import { formatLicenseNumber, validateLicenseNumber, formatVehicleModel, validateVehicleModel } from '../../utils/vehicle_utils';
 import { ALL_VEHICLE_TYPE_NAMES, getBrandsForVehicleType } from '../../constants/vehicle_data';
 
 interface AddVehicleModalProps {
@@ -31,6 +31,7 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
   const [brand, setBrand] = useState('');
   const [customBrand, setCustomBrand] = useState('');
   const [model, setModel] = useState('');
+  const [modelError, setModelError] = useState<string | null>(null);
   const [fuel, setFuel] = useState('');
   const [plate, setPlate] = useState('');
   const [plateError, setPlateError] = useState<string | null>(null);
@@ -59,6 +60,12 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
 
     if (!finalVType || !finalBrand || !model || !plate) {
       Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+
+    const modelErr = validateVehicleModel(model);
+    if (modelErr) {
+      setModelError(modelErr);
       return;
     }
 
@@ -158,7 +165,14 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
             label="Model"
             placeholder="e.g. Civic"
             value={model}
-            onChangeText={setModel}
+            onChangeText={(text) => {
+              const formatted = formatVehicleModel(text);
+              setModel(formatted);
+              if (modelError) {
+                setModelError(validateVehicleModel(formatted));
+              }
+            }}
+            error={modelError || undefined}
           />
 
           <AppInput

@@ -6,10 +6,10 @@ import { request } from './api';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowAlert: false,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    shouldShowBanner: true,
+    shouldShowBanner: false,
     shouldShowList: true,
   }),
 });

@@ -10,7 +10,7 @@ import { Modal, ActivityIndicator } from 'react-native';
 import { MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
 import { checkNotificationsNow } from '../../components/NotificationPoller';
 import { downloadInvoicePDF } from '../../services/pdfService';
-import { formatTimeFromBackend } from '../../utils/date_utils';
+import { formatTimeFromBackend, formatDisplayDate, formatDisplayDateTime } from '../../utils/date_utils';
 
 import { clearCache } from '../../services/api';
 
@@ -703,8 +703,7 @@ export default function HistoryScreen() {
                     ) : (
                       <View style={styles.timelineContainer}>
                         {statusHistory.map((item, index) => {
-                          const dateObj = new Date(item.changedAt);
-                          const formattedTime = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()} at ${dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+                          const formattedTime = formatDisplayDateTime(item.changedAt);
                           const isLast = index === statusHistory.length - 1;
 
                           let iconName = "checkmark";

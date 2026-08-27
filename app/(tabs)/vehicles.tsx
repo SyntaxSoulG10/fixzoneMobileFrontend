@@ -14,8 +14,8 @@ import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService } from '../../services/bookingService';
 import { imageKitService } from '../../services/imageKitService';
-import { getDaysSinceService, getLastServiceDate } from '../../utils/date_utils';
-import { getVehicleIcon, formatLicenseNumber, validateLicenseNumber } from '../../utils/vehicle_utils';
+import { getDaysSinceService, getLastServiceDate, formatDisplayDate } from '../../utils/date_utils';
+import { getVehicleIcon, formatLicenseNumber, validateLicenseNumber, formatVehicleModel, validateVehicleModel } from '../../utils/vehicle_utils';
 import { ALL_VEHICLE_TYPE_NAMES, getBrandsForVehicleType } from '../../constants/vehicle_data';
 
 const { width } = Dimensions.get('window');
@@ -100,6 +100,7 @@ export default function VehiclesScreen() {
   const [brand, setBrand] = useState('');
   const [customBrand, setCustomBrand] = useState('');
   const [model, setModel] = useState('');
+  const [modelError, setModelError] = useState<string | null>(null);
   const [plate, setPlate] = useState('');
   const [plateError, setPlateError] = useState<string | null>(null);
   const [vehicleImage, setVehicleImage] = useState<string | null>(null);
@@ -128,6 +129,7 @@ export default function VehiclesScreen() {
 
   const openModal = (vehicle?: VehicleResponse) => {
     setPlateError(null);
+    setModelError(null);
     if (vehicle) {
       const hasPending = pendingBookings.some(b => b.vehicleId === vehicle.id);
 
@@ -196,9 +198,16 @@ export default function VehiclesScreen() {
   const handleSave = async () => {
     const finalVType = vType === 'Others' ? customVType : vType;
     const finalBrand = brand === 'Other' ? customBrand : brand;
+    const finalModel = formatVehicleModel(model);
 
-    if (!finalVType || !finalBrand || !model || !plate) {
+    if (!finalVType || !finalBrand || !finalModel || !plate) {
       Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+
+    const modelErr = validateVehicleModel(finalModel);
+    if (modelErr) {
+      setModelError(modelErr);
       return;
     }
 
@@ -383,7 +392,7 @@ export default function VehiclesScreen() {
 
                   <View style={styles.serviceInfoRow}>
                     <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                    <Text style={styles.lastServiceText}>Last: {vehicleLastServiceMap[vehicle.id] || vehicle.lastServiceDate || 'N/A'}</Text>
+                    <Text style={styles.lastServiceText}>Last: {formatDisplayDate(vehicleLastServiceMap[vehicle.id] || vehicle.lastServiceDate) || 'N/A'}</Text>
                   </View>
                 </View>
               </View>
@@ -476,7 +485,14 @@ export default function VehiclesScreen() {
               label="Model"
               placeholder="e.g. Civic"
               value={model}
-              onChangeText={setModel}
+              onChangeText={(text) => {
+                const formatted = formatVehicleModel(text);
+                setModel(formatted);
+                if (modelError) {
+                  setModelError(validateVehicleModel(formatted));
+                }
+              }}
+              error={modelError || undefined}
             />
 
             <AppInput

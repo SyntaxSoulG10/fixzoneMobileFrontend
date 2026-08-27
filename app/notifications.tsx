@@ -168,7 +168,10 @@ export default function NotificationsScreen() {
 
   const parseDate = (dateStr: string) => {
     if (!dateStr) return 0;
-    const isoStr = dateStr.replace(' ', 'T');
+    let isoStr = dateStr.replace(' ', 'T');
+    if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+      isoStr += 'Z';
+    }
     const time = new Date(isoStr).getTime();
     if (!isNaN(time)) return time;
     const fallback = new Date(dateStr).getTime();
