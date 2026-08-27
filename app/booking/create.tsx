@@ -228,9 +228,18 @@ export default function SelectScheduleScreen() {
     }
   };
 
+  useEffect(() => {
+    if (selectedVehicleObj && !compatibility.isCompatible) {
+      setSelectedDate(null);
+      setSelectedTime(null);
+    }
+  }, [selectedVehicleObj, compatibility.isCompatible]);
+
   const renderDateItem = (date: Date) => {
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const isLeaveDate = center?.leaveDates?.includes(dateStr);
+    const isIncompatibleVehicle = !!selectedVehicleObj && !compatibility.isCompatible;
+    const isDateDisabled = isLeaveDate || isIncompatibleVehicle;
     const isSelected = selectedDate?.toDateString() === date.toDateString();
     const isToday = new Date().toDateString() === date.toDateString();
     const dayName = date.toLocaleString('default', { weekday: 'narrow' });
@@ -239,12 +248,18 @@ export default function SelectScheduleScreen() {
     return (
       <TouchableOpacity
         key={date.toISOString()}
-        disabled={isLeaveDate}
-        onPress={() => setSelectedDate(date)}
+        disabled={isDateDisabled}
+        onPress={() => {
+          if (isIncompatibleVehicle) {
+            Alert.alert('Incompatible Vehicle', compatibility.reason || 'Please select a compatible vehicle before picking a date.');
+            return;
+          }
+          setSelectedDate(date);
+        }}
         style={[
           styles.dateItem,
           isSelected && styles.dateItemSelected,
-          isLeaveDate && styles.dateItemDisabled
+          isDateDisabled && styles.dateItemDisabled
         ]}
       >
         <Text style={[
@@ -299,7 +314,6 @@ export default function SelectScheduleScreen() {
   }
 
   const price = pkg?.price || pkg?.basePrice || 0;
-  const isReady = selectedDate && selectedTime && selectedVehicle;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -352,6 +366,7 @@ export default function SelectScheduleScreen() {
                 </View>
                 <Text style={[styles.vehicleName, selectedVehicle === v.id && styles.textOrange]}>{v.brand} {v.model}</Text>
               </TouchableOpacity>
+            ))}
           </ScrollView>
 
           {selectedVehicleObj && !compatibility.isCompatible && (
@@ -539,8 +554,9 @@ const styles = StyleSheet.create({
     borderColor: '#FCA5A5',
     borderRadius: 14,
     padding: 12,
-    marginTop: 12,
-    gap: 8,
+    marginTop: 14,
+    marginHorizontal: 20,
+    gap: 10,
   },
   incompatibleWarningText: {
     flex: 1,

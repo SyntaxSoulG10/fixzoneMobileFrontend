@@ -219,9 +219,18 @@ export default function BookServiceScreen() {
     }
   };
 
+  useEffect(() => {
+    if (selectedVehicleObj && !compatibility.isCompatible) {
+      setSelectedDate(null);
+      setSelectedTime(null);
+    }
+  }, [selectedVehicleObj, compatibility.isCompatible]);
+
   const renderDate = (date: Date) => {
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const isLeaveDate = center?.leaveDates?.includes(dateStr);
+    const isIncompatibleVehicle = !!selectedVehicleObj && !compatibility.isCompatible;
+    const isDateDisabled = isLeaveDate || isIncompatibleVehicle;
     const isSelected = selectedDate?.toDateString() === date.toDateString();
     const day = date.getDate();
     const weekDay = date.toLocaleString('default', { weekday: 'narrow' });
@@ -230,15 +239,19 @@ export default function BookServiceScreen() {
     return (
       <TouchableOpacity
         key={date.toISOString()}
-        disabled={isLeaveDate}
+        disabled={isDateDisabled}
         onPress={() => {
+          if (isIncompatibleVehicle) {
+            Alert.alert('Incompatible Vehicle', compatibility.reason || 'Please select a compatible vehicle before picking a date.');
+            return;
+          }
           setSelectedDate(isSelected ? null : date);
           setSelectedTime(null);
         }}
         style={[
           styles.dateItem,
           isSelected && styles.dateItemSelected,
-          isLeaveDate && styles.dateItemDisabled
+          isDateDisabled && styles.dateItemDisabled
         ]}
       >
         <Text style={[
