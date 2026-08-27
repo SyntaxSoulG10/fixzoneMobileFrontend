@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ui/ScreenContainer';
@@ -16,6 +16,10 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleContactSupport = () => {
+    Linking.openURL('mailto:fixzonesupport@gmail.com?subject=Support%20Request%20-%20Password%20Reset');
+  };
 
   const validateEmail = (text: string) => {
     setEmail(text);
@@ -92,10 +96,10 @@ export default function ForgotPasswordScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.supportContainer}>
+      <TouchableOpacity style={styles.supportContainer} onPress={handleContactSupport} activeOpacity={0.7}>
         <Ionicons name="help-circle-outline" size={16} color={COLORS.primary} style={{ marginRight: 4 }} />
         <Text style={styles.supportText}>Contact Support</Text>
-      </View>
+      </TouchableOpacity>
     </ScreenContainer>
   );
 }

@@ -9,6 +9,7 @@ export interface ServicePackageCardProps {
   description?: string;
   features?: string[];
   vehicleType?: string;
+  vehicleBrand?: string;
   type?: string;
   centerId: string;
   centerName: string;
@@ -25,11 +26,35 @@ export interface ServicePackageCardProps {
   }) => void;
 }
 
+export function getServedLabel(vehicleBrand?: string | null, vehicleType?: string | null): string {
+  const brand = vehicleBrand?.trim();
+  const type = vehicleType?.trim() ? vehicleType.trim().toUpperCase() : '';
+
+  // 1. If brand is "ALL" -> "All [Type] Brands" or "All Brands"
+  if (brand && brand.toUpperCase() === 'ALL') {
+    return type ? `All ${type} Brands` : 'All Brands';
+  }
+
+  // 2. Show brand and type both if brand exists
+  if (brand) {
+    return type ? `${brand} (${type})` : brand;
+  }
+
+  // 3. If no brand -> show type
+  if (type) {
+    return type;
+  }
+
+  return 'All Vehicles';
+}
+
 export default function ServicePackageCard({
   packageId,
   name,
   price,
   features = [],
+  vehicleType,
+  vehicleBrand,
   centerId,
   centerName,
   distanceStr = 'N/A',
@@ -82,6 +107,10 @@ export default function ServicePackageCard({
               <Text style={styles.centerName} numberOfLines={1}>
                 {centerName}
               </Text>
+            </View>
+            <View style={styles.servedRow}>
+              <Ionicons name="car-outline" size={12} color="#E84E0F" />
+              <Text style={styles.servedText}>Served for: {getServedLabel(vehicleBrand, vehicleType)}</Text>
             </View>
           </View>
         </View>
@@ -205,6 +234,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
+    marginLeft: 4,
+  },
+  servedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  servedText: {
+    fontSize: 11.5,
+    color: '#E84E0F',
+    fontWeight: '700',
     marginLeft: 4,
   },
   cardHeaderRight: {

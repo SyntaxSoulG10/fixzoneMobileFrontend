@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fixzone-backend.onrender.com/api';
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.100.119:8081/api';
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.15.161.1:8081/api';
 
 // Global session expiration listener callback
 type UnauthorizedListener = () => void;

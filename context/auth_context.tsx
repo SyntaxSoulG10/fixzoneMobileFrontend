@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService, LoginRequest, LoginResponse, RegisterRequest } from '../services/authService';
-import { setUnauthorizedListener } from '../services/api';
+import { setUnauthorizedListener, clearCache } from '../services/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const handleSessionExpired = async () => {
+    await clearCache();
     await AsyncStorage.multiRemove(['token', 'user', 'userRole']);
     setUser(null);
     setIsAuthenticated(false);
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         {
           text: 'Log Out',
           onPress: async () => {
+            await clearCache();
             await AsyncStorage.multiRemove(['token', 'user', 'userRole']);
             setUser(null);
             setIsAuthenticated(false);
@@ -140,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true);
     try {
+      await clearCache();
       await AsyncStorage.removeItem('user');
       await AsyncStorage.removeItem('token');
       setUser(null);

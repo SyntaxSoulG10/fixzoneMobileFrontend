@@ -432,6 +432,7 @@ export default function ServicePackagesScreen() {
               description={item.description}
               features={item.features}
               vehicleType={item.vehicleType}
+              vehicleBrand={item.vehicleBrand}
               type={item.type}
               centerId={item.centerId}
               centerName={item.centerName}

@@ -128,8 +128,7 @@ function RootLayoutNav() {
     const isVerifyScreen = segments.join('/') === '(auth)/verify-otp';
     const isPasswordResetScreen = 
       segments.join('/') === '(auth)/set-new-password' || 
-      segments.join('/') === '(auth)/reset-password' ||
-      segments.join('/') === '(auth)/verify-otp';
+      segments.join('/') === '(auth)/reset-password';
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace("/(auth)/login");
@@ -137,7 +136,7 @@ function RootLayoutNav() {
       if (!user?.emailVerified && !isVerifyScreen) {
         // Redirect to verification screen if not verified
         router.replace({ pathname: "/(auth)/verify-otp", params: { email: user?.email } });
-      } else if (user?.emailVerified && inAuthGroup && !isPasswordResetScreen) {
+      } else if (user?.emailVerified && inAuthGroup && !isPasswordResetScreen && !isVerifyScreen) {
         router.replace("/(tabs)");
       }
     }

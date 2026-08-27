@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { bookingService } from '../../services/bookingService';
-import { getVehicleIcon } from '../../utils/vehicle_utils';
+import { serviceCenterService } from '../../services/serviceCenterService';
+import { getVehicleIcon, checkVehiclePackageCompatibility } from '../../utils/vehicle_utils';
 import { formatTimeToBackend } from '../../utils/date_utils';
 
 const { width } = Dimensions.get('window');
@@ -117,14 +118,31 @@ export default function BookServiceScreen() {
           setVehicles(userVehicles);
         }
 
-        // Use passed params
-        setCenter({ id, name: "FixZone Service Center" });
-        setPkg({
-          id: packageId,
-          name: packageName || "Selected Package",
-          price: Number(packagePrice) || 0,
-          features: ["Full Inspection", "Professional Care", "Quality Guaranteed"]
-        });
+        if (id) {
+          try {
+            const centerData = await serviceCenterService.getServiceCenterById(id as string);
+            setCenter(centerData);
+            const foundPkg = centerData.servicePackages?.find((p: any) => (p.packageId || p.id) === packageId);
+            if (foundPkg) {
+              setPkg(foundPkg);
+            } else {
+              setPkg({
+                id: packageId,
+                name: packageName || "Selected Package",
+                price: Number(packagePrice) || 0,
+                features: ["Full Inspection", "Professional Care", "Quality Guaranteed"]
+              });
+            }
+          } catch {
+            setCenter({ id, name: "FixZone Service Center" });
+            setPkg({
+              id: packageId,
+              name: packageName || "Selected Package",
+              price: Number(packagePrice) || 0,
+              features: ["Full Inspection", "Professional Care", "Quality Guaranteed"]
+            });
+          }
+        }
 
       } catch (e) {
         console.error('Error fetching booking data', e);
@@ -133,7 +151,7 @@ export default function BookServiceScreen() {
       }
     };
     fetchData();
-  }, [id, packageId, authUser?.userId]);
+  }, [id, packageId, packageName, packagePrice, authUser?.userId]);
 
   const dates = useMemo(() => {
     const arr: Date[] = [];
@@ -168,7 +186,16 @@ export default function BookServiceScreen() {
     return availableSlots.filter(s => s.toUpperCase().includes('PM'));
   }, [availableSlots]);
 
-  const isReady = selectedDate && selectedTime && selectedVehicle;
+  const selectedVehicleObj = useMemo(() => {
+    return vehicles.find(v => v.id === selectedVehicle);
+  }, [vehicles, selectedVehicle]);
+
+  const compatibility = useMemo(() => {
+    if (!selectedVehicleObj || !pkg) return { isCompatible: true, typeMatch: true, brandMatch: true };
+    return checkVehiclePackageCompatibility(selectedVehicleObj, pkg);
+  }, [selectedVehicleObj, pkg]);
+
+  const isReady = selectedDate && selectedTime && selectedVehicle && compatibility.isCompatible;
 
   const handleProceed = () => {
     if (isReady && selectedDate && selectedTime) {
@@ -371,6 +398,15 @@ export default function BookServiceScreen() {
                     </TouchableOpacity>
                   )}
                 </ScrollView>
+
+                {selectedVehicleObj && !compatibility.isCompatible && (
+                  <View style={styles.incompatibleWarningBox}>
+                    <Ionicons name="alert-circle" size={20} color="#DC2626" />
+                    <Text style={styles.incompatibleWarningText}>
+                      {compatibility.reason}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* 2. SELECT DATE */}
@@ -570,4 +606,22 @@ const styles = StyleSheet.create({
   slotLoadingText: { marginLeft: 10, color: '#E84E0F', fontWeight: '700', fontSize: 13 },
   slotEmptyBox: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FEF2F2', borderRadius: 16, borderWidth: 1, borderColor: '#FEE2E2' },
   slotEmptyText: { marginLeft: 10, color: '#EF4444', fontWeight: '700', fontSize: 13, flex: 1 },
+  incompatibleWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  incompatibleWarningText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#991B1B',
+    fontWeight: '700',
+    lineHeight: 18,
+  },
 });

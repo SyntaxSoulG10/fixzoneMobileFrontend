@@ -118,12 +118,11 @@ export default function VehiclesScreen() {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
-      base64: true,
+      base64: false,
     });
 
-    if (!result.canceled && result.assets[0].base64) {
+    if (!result.canceled && result.assets[0]?.uri) {
       setVehicleImage(result.assets[0].uri);
-      setVehicleImageBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
     }
   };
 

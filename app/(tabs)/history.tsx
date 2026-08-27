@@ -12,7 +12,18 @@ import { checkNotificationsNow } from '../../components/NotificationPoller';
 import { downloadInvoicePDF } from '../../services/pdfService';
 import { formatTimeFromBackend } from '../../utils/date_utils';
 
+import { clearCache } from '../../services/api';
+
 const { width } = Dimensions.get('window');
+
+function formatDuration(mins?: number): string {
+  if (!mins || mins <= 0) return '60 mins';
+  if (mins < 60) return `${mins} mins`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  if (remMins === 0) return `${hrs} hr${hrs > 1 ? 's' : ''}`;
+  return `${hrs} hr${hrs > 1 ? 's' : ''} ${remMins} mins`;
+}
 
 type FilterStatus = 'All' | 'Upcoming' | 'In Progress' | 'Completed' | 'Cancelled';
 
@@ -36,6 +47,7 @@ export default function HistoryScreen() {
 
   const handlePullToRefresh = async () => {
     setIsRefreshing(true);
+    await clearCache();
     await refreshBookings();
     setIsRefreshing(false);
   };
@@ -216,6 +228,34 @@ export default function HistoryScreen() {
       ]
     );
   };
+
+  const handlePayPendingBooking = (booking: BookingResponseDTO) => {
+    setIsSummaryVisible(false);
+    const vehicleObj = userVehicles.find(v => v.id === booking.vehicleId);
+
+    const dateStr = typeof booking.bookingDate === 'string'
+      ? booking.bookingDate.split('T')[0]
+      : new Date(booking.bookingDate).toISOString().split('T')[0];
+
+    const timeStr = formatTimeFromBackend(booking.bookingTime);
+
+    router.push({
+      pathname: '/payment',
+      params: {
+        bookingId: booking.bookingId,
+        id: booking.centerId,
+        packageId: booking.packageId,
+        date: dateStr,
+        time: timeStr,
+        vehicleId: booking.vehicleId,
+        centerName: booking.serviceCenterName,
+        packageName: booking.packageName,
+        price: (booking.estimatedCost || 0).toString(),
+        vehicleName: vehicleObj ? `${vehicleObj.brand} ${vehicleObj.model}` : 'Your Vehicle',
+        vehiclePlate: vehicleObj?.plateNumber || ''
+      }
+    });
+  };
   const getPackageBullets = (booking: BookingResponseDTO) => {
     let desc = booking.packageDescription;
 
@@ -332,6 +372,22 @@ export default function HistoryScreen() {
             )}
 
             {/* Actions Row */}
+            {booking.status === 'PENDING_PAYMENT' && (
+              <View style={styles.cardActionsRow}>
+                <TouchableOpacity
+                  style={[styles.cardRescheduleBtn, { backgroundColor: '#E84E0F', borderColor: '#E84E0F' }]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handlePayPendingBooking(booking);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="card-outline" size={15} color="#FFFFFF" />
+                  <Text style={[styles.cardRescheduleText, { color: '#FFFFFF', fontWeight: '700' }]}>Pay</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {(booking.status === 'CONFIRMED' || booking.status === 'PENDING') && (
               <View style={styles.cardActionsRow}>
                 <TouchableOpacity
@@ -528,6 +584,12 @@ export default function HistoryScreen() {
                       <Text style={styles.sectionLabel}>Time</Text>
                       <Text style={styles.sectionValue}>{formatTimeFromBackend(selectedBooking.bookingTime)}</Text>
                     </View>
+                    <View style={[styles.summarySection, { flex: 1 }]}>
+                      <Text style={styles.sectionLabel}>Est. Duration</Text>
+                      <Text style={styles.sectionValue}>
+                        {formatDuration(selectedBooking.estimatedDurationMins || (selectedBooking as any).durationMins)}
+                      </Text>
+                    </View>
                   </View>
 
                   <View style={styles.summarySection}>
@@ -587,19 +649,50 @@ export default function HistoryScreen() {
                         </Text>
                       </View>
 
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '600' }}>Initial Advance Paid (40%)</Text>
-                        <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '800' }}>
-                          LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()}
-                        </Text>
-                      </View>
-
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
-                        <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '600' }}>Balance Due at Center (60%)</Text>
-                        <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '800' }}>
-                          LKR {(((selectedBooking.estimatedCost || 0) - (selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)))).toLocaleString()}
-                        </Text>
-                      </View>
+                      {selectedBooking.status === 'EXPIRED' ? (
+                        <>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <Text style={{ fontSize: 13, color: '#EF4444', fontWeight: '600' }}>Required Advance Fee (40%)</Text>
+                            <Text style={{ fontSize: 13, color: '#EF4444', fontWeight: '800' }}>
+                              LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()} (Unpaid)
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
+                            <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '600' }}>Payment Status</Text>
+                            <Text style={{ fontSize: 13, color: '#EF4444', fontWeight: '800' }}>Expired (0% Paid)</Text>
+                          </View>
+                        </>
+                      ) : selectedBooking.status === 'PENDING_PAYMENT' ? (
+                        <>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '600' }}>Required Advance Fee (40%)</Text>
+                            <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '800' }}>
+                              LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()} (Pending)
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
+                            <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '600' }}>Balance Due at Center (60%)</Text>
+                            <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '800' }}>
+                              LKR {(((selectedBooking.estimatedCost || 0) - (selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)))).toLocaleString()}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '600' }}>Initial Advance Paid (40%)</Text>
+                            <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '800' }}>
+                              LKR {(selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)).toLocaleString()}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
+                            <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '600' }}>Balance Due at Center (60%)</Text>
+                            <Text style={{ fontSize: 13, color: '#E84E0F', fontWeight: '800' }}>
+                              LKR {(((selectedBooking.estimatedCost || 0) - (selectedBooking.bookingFee || ((selectedBooking.estimatedCost || 0) * 0.40)))).toLocaleString()}
+                            </Text>
+                          </View>
+                        </>
+                      )}
                     </View>
                   )}
 
@@ -674,22 +767,33 @@ export default function HistoryScreen() {
                       </TouchableOpacity>
                     )}
 
+                    {selectedBooking.status === 'PENDING_PAYMENT' && (
+                      <TouchableOpacity
+                        style={[styles.fullInvoiceBtn, { backgroundColor: '#E84E0F', marginBottom: 0 }]}
+                        onPress={() => handlePayPendingBooking(selectedBooking)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="card-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={styles.fullInvoiceBtnText}>Pay</Text>
+                      </TouchableOpacity>
+                    )}
+
                     {(selectedBooking.status === 'CONFIRMED' || selectedBooking.status === 'PENDING') && (
                       <View style={styles.modalSecondaryActions}>
                         <TouchableOpacity
-                          style={[styles.secondaryBtn, { borderColor: '#E84E0F' }]}
+                          style={[styles.summaryCancelBtn, { borderColor: '#E84E0F' }]}
                           onPress={() => {
                             setIsSummaryVisible(false);
                             handleReschedule(selectedBooking);
                           }}
                         >
-                          <Text style={[styles.secondaryBtnText, { color: '#E84E0F' }]}>Reschedule</Text>
+                          <Text style={[styles.summaryCancelBtnText, { color: '#E84E0F' }]}>Reschedule</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.secondaryBtn, { borderColor: '#EF4444' }]}
+                          style={[styles.summaryCancelBtn, { borderColor: '#EF4444' }]}
                           onPress={() => handleCancel(selectedBooking)}
                         >
-                          <Text style={[styles.secondaryBtnText, { color: '#EF4444' }]}>Cancel</Text>
+                          <Text style={[styles.summaryCancelBtnText, { color: '#EF4444' }]}>Cancel</Text>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -1079,6 +1183,34 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 14,
+    fontWeight: '800',
+  },
+  summaryPayBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#E84E0F',
+  },
+  summaryPayBtnText: {
+    color: '#fff',
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  summaryCancelBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+  },
+  summaryCancelBtnText: {
+    fontSize: 13.5,
     fontWeight: '800',
   },
   cardActionsRow: {

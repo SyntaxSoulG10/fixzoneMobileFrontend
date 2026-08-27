@@ -17,7 +17,7 @@ import { DisplayPackageItem } from '../service-packages';
 
 export default function BookScreen() {
   const router = useRouter();
-  const { focus, search } = useLocalSearchParams<{ focus?: string; search?: string }>();
+  const { focus, search, filter } = useLocalSearchParams<{ focus?: string; search?: string; filter?: string }>();
   const [activeTab, setActiveTab] = useState<'centers' | 'packages'>('centers');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
@@ -89,7 +89,10 @@ export default function BookScreen() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [focus, search]);
+    if (filter === 'true') {
+      setIsFilterVisible(true);
+    }
+  }, [focus, search, filter]);
 
   const fetchCenters = async () => {
     try {
@@ -256,7 +259,8 @@ export default function BookScreen() {
           priceFrom={priceFrom}
           openingHours={item.openingHours}
           isVerified={item.isActive}
-          supportedVehicles={(item.supportedVehicleBrands as any) || ['car', 'van']} 
+          supportedVehicleBrands={item.supportedVehicleBrands}
+          packages={item.servicePackages}
           variant="premium"
           calculatedDistance={
             item.latitude && item.longitude && userLocation

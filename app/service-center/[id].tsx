@@ -8,6 +8,7 @@ import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../../services/serviceCenterService';
 import StatusBadge from '../../components/ui/StatusBadge';
+import { getServedLabel } from '../../components/home/ServicePackageCard';
 import * as Clipboard from 'expo-clipboard';
 import { openDirections } from '../../utils/location_utils';
 import { BlurView } from 'expo-blur';
@@ -30,6 +31,31 @@ export default function ServiceCenterDetails() {
 
   const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const servedList = useMemo(() => {
+    if (center?.supportedVehicleBrands && center.supportedVehicleBrands.length > 0) {
+      return center.supportedVehicleBrands;
+    }
+    if (center?.servicePackages && center.servicePackages.length > 0) {
+      const derived = Array.from(
+        new Set(
+          center.servicePackages
+            .map((pkg: any) => {
+              if (pkg.vehicleBrand && pkg.vehicleBrand.trim() !== '' && pkg.vehicleBrand.toUpperCase() !== 'ALL') {
+                return pkg.vehicleBrand.trim();
+              }
+              if (pkg.vehicleType && pkg.vehicleType.trim() !== '') {
+                return pkg.vehicleType.trim().toUpperCase();
+              }
+              return null;
+            })
+            .filter(Boolean)
+        )
+      );
+      if (derived.length > 0) return derived;
+    }
+    return ['Car', 'Van', 'Bike'];
+  }, [center]);
 
   useEffect(() => {
     if (id) {
@@ -208,22 +234,20 @@ export default function ServiceCenterDetails() {
           style={styles.vehiclesScrollView}
           contentContainerStyle={styles.vehiclesChipsWrapper}
         >
-          {(center.supportedVehicleBrands && center.supportedVehicleBrands.length > 0 
-            ? center.supportedVehicleBrands 
-            : ['Car', 'Van', 'Bike']).map((v, i) => {
-              const type = v.toLowerCase();
-              let iconName: any = 'car-outline';
-              if(type.includes('bike') || type.includes('motor')) iconName = 'bicycle-outline';
-              if(type.includes('van') || type.includes('bus') || type.includes('lorry')) iconName = 'bus-outline';
-              
-              return (
-                <View key={i} style={styles.vehicleChipBadge}>
-                  <Ionicons name={iconName} size={14} color="#E84E0F" />
-                  <Text style={styles.vehicleChipBadgeText}>
-                    {v.charAt(0).toUpperCase() + v.slice(1).toLowerCase()}
-                  </Text>
-                </View>
-              );
+          {servedList.map((v: string, i: number) => {
+            const type = v.toLowerCase();
+            let iconName: any = 'car-outline';
+            if (type.includes('bike') || type.includes('motor')) iconName = 'bicycle-outline';
+            if (type.includes('van') || type.includes('bus') || type.includes('lorry')) iconName = 'bus-outline';
+            
+            return (
+              <View key={i} style={styles.vehicleChipBadge}>
+                <Ionicons name={iconName} size={14} color="#E84E0F" />
+                <Text style={styles.vehicleChipBadgeText}>
+                  {v}
+                </Text>
+              </View>
+            );
           })}
         </ScrollView>
 
@@ -341,6 +365,10 @@ function PackageCard({ pkg, centerId, highlightPackageId, onLayoutY }: { pkg: Se
       
       <View style={styles.pkgBody}>
         <Text style={styles.pkgName}>{pkg.name}</Text>
+        <View style={styles.servedRow}>
+          <Ionicons name="car-outline" size={13} color="#E84E0F" />
+          <Text style={styles.servedText}>Served for: {getServedLabel(pkg.vehicleBrand, pkg.vehicleType)}</Text>
+        </View>
         {!!pkg.description && (
           <Text style={styles.pkgSubtitle}>{pkg.description}</Text>
         )}
@@ -613,6 +641,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: '#111827',
+  },
+  servedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  servedText: {
+    fontSize: 12,
+    color: '#E84E0F',
+    fontWeight: '700',
+    marginLeft: 4,
   },
   pkgSubtitle: {
     fontSize: 12,

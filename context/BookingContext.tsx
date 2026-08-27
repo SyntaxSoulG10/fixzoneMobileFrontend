@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { bookingService, BookingResponseDTO, BookingRequestDTO } from '../services/bookingService';
 import { useAuth } from './auth_context';
+import { clearCache } from '../services/api';
 
 interface BookingContextType {
   bookings: BookingResponseDTO[];
@@ -60,6 +61,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   }, [authUser?.userId]);
 
   const refreshBookings = useCallback(async () => {
+    await clearCache();
     await fetchBookings(false);
   }, [fetchBookings]);
 

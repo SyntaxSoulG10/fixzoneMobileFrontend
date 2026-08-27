@@ -223,7 +223,9 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <HomeHeader />
         <SearchBar
-          onFilterPress={() => setIsFilterVisible(true)}
+          onFilterPress={() => {
+            router.push({ pathname: '/book', params: { filter: 'true' } });
+          }}
           value=""
           onChangeText={() => { }}
           onFocus={() => {
@@ -426,6 +428,9 @@ const styles = StyleSheet.create({
   },
   emptyVehiclesContainer: {
     paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   quickFiltersContainer: {
     flexDirection: 'row',

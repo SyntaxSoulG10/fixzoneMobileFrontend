@@ -19,6 +19,7 @@ interface ServiceCenterCardProps {
   isVerified?: boolean;
   supportedVehicles?: VehicleType[];
   supportedVehicleBrands?: string[];
+  packages?: any[];
   variant?: 'compact' | 'premium';
   calculatedDistance?: number;
   hideServedFor?: boolean;
@@ -35,6 +36,7 @@ export default function ServiceCenterCard({
   isVerified = false,
   supportedVehicles = [],
   supportedVehicleBrands = [],
+  packages = [],
   variant = 'compact',
   calculatedDistance,
   hideServedFor = false,
@@ -53,21 +55,57 @@ export default function ServiceCenterCard({
     });
   };
 
+  const effectiveServedList = React.useMemo(() => {
+    if (supportedVehicleBrands && supportedVehicleBrands.length > 0) {
+      return supportedVehicleBrands;
+    }
+    if (packages && packages.length > 0) {
+      const derived = Array.from(
+        new Set(
+          packages
+            .map((pkg: any) => {
+              if (pkg.vehicleBrand && pkg.vehicleBrand.trim() !== '' && pkg.vehicleBrand.toUpperCase() !== 'ALL') {
+                return pkg.vehicleBrand.trim();
+              }
+              if (pkg.vehicleType && pkg.vehicleType.trim() !== '') {
+                return pkg.vehicleType.trim().toUpperCase();
+              }
+              return null;
+            })
+            .filter(Boolean)
+        )
+      );
+      if (derived.length > 0) return derived;
+    }
+    if (supportedVehicles && supportedVehicles.length > 0) {
+      return supportedVehicles;
+    }
+    return ['Car', 'Van', 'Bike'];
+  }, [supportedVehicleBrands, packages, supportedVehicles]);
+
   const renderVehicleChip = (vType: VehicleType | string, index: number) => {
+    const formatted = typeof vType === 'string' && vType.length > 3
+      ? (vType.charAt(0).toUpperCase() + vType.slice(1).toLowerCase())
+      : vType.toString().toUpperCase();
+
     return (
       <View key={`${vType}-${index}`} style={styles.vehicleChip}>
         <View style={styles.bulletPoint} />
         <Text style={styles.vehicleChipText} numberOfLines={1}>
-          {vType.charAt(0).toUpperCase() + vType.slice(1).toLowerCase()}
+          {formatted}
         </Text>
       </View>
     );
   };
 
   const renderVehicleText = (vType: VehicleType | string, index: number, isLast: boolean) => {
+    const formatted = typeof vType === 'string' && vType.length > 3
+      ? (vType.charAt(0).toUpperCase() + vType.slice(1).toLowerCase())
+      : vType.toString().toUpperCase();
+
     return (
       <Text key={`${vType}-${index}`} style={styles.vehicleChipText}>
-        {vType.charAt(0).toUpperCase() + vType.slice(1).toLowerCase()}{!isLast && ', '}
+        {formatted}{!isLast && ', '}
       </Text>
     );
   };
@@ -95,7 +133,7 @@ export default function ServiceCenterCard({
             <>
               <Text style={styles.servedForLabel}>Served for :</Text>
               <View style={styles.compactChipRow}>
-                {((supportedVehicleBrands && supportedVehicleBrands.length > 0) ? supportedVehicleBrands : (supportedVehicles || [])).map((vType, index) => renderVehicleChip(vType as VehicleType, index))}
+                {effectiveServedList.map((vType, index) => renderVehicleChip(vType as VehicleType, index))}
               </View>
             </>
           )}
@@ -151,7 +189,7 @@ export default function ServiceCenterCard({
         <View style={styles.premiumVehiclesSection}>
           <Text style={styles.servedForLabel}>Served for:</Text>
           <View style={styles.premiumVehicleChips}>
-            {((supportedVehicleBrands && supportedVehicleBrands.length > 0) ? supportedVehicleBrands : (supportedVehicles || [])).map((vType, index, arr) => renderVehicleText(vType as VehicleType, index, index === arr.length - 1))}
+            {effectiveServedList.map((vType, index, arr) => renderVehicleText(vType as VehicleType, index, index === arr.length - 1))}
           </View>
         </View>
 

@@ -9,6 +9,15 @@ import { useAuth } from '../../context/auth_context';
 
 const { width } = Dimensions.get('window');
 
+function formatDuration(mins?: number): string {
+  if (!mins || mins <= 0) return '60 mins';
+  if (mins < 60) return `${mins} mins`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  if (remMins === 0) return `${hrs} hr${hrs > 1 ? 's' : ''}`;
+  return `${hrs} hr${hrs > 1 ? 's' : ''} ${remMins} mins`;
+}
+
 interface TimeSlot {
   id: string;
   time: string;
@@ -71,16 +80,23 @@ export default function RescheduleScreen() {
     return `${hoursNum.toString().padStart(2, '0')}:${minutes}`;
   };
 
+  const isSameAsCurrentBooking = useCallback((timeStr: string) => {
+    if (!booking || !selectedDate) return false;
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const selectedDateStr = `${year}-${month}-${day}`;
+
+    const isSameDate = selectedDateStr === booking.bookingDate;
+    const backendFormat = formatSlotTime(timeStr);
+    const isSameTime = booking.bookingTime && booking.bookingTime.startsWith(backendFormat);
+    return isSameDate && isSameTime;
+  }, [booking, selectedDate]);
+
   const isSlotAvailable = useCallback((timeStr: string) => {
     if (!booking || !selectedDate) return true;
     const backendFormat = formatSlotTime(timeStr);
 
-    // If selected date and slot match current booking, allow it
-    const isSameDate = selectedDate.toISOString().split('T')[0] === booking.bookingDate;
-    const isSameTime = booking.bookingTime && booking.bookingTime.startsWith(backendFormat);
-    if (isSameDate && isSameTime) return true;
-
-    // Check if slot starts with backend format e.g. "08:00-09:00" or exact match
     return availableSlots.some(s => s === timeStr || s.startsWith(backendFormat));
   }, [availableSlots, booking, selectedDate]);
 
@@ -150,6 +166,14 @@ export default function RescheduleScreen() {
 
   const handleConfirmReschedule = async () => {
     if (isReady && selectedDate && selectedTime) {
+      if (isSameAsCurrentBooking(selectedTime)) {
+        Alert.alert(
+          'Cannot Reschedule',
+          'Your booking is already scheduled for this exact date and time. Please select a different date or time slot.'
+        );
+        return;
+      }
+
       const newDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
       const newTimeStr = `${formatSlotTime(selectedTime)}:00`;
 
@@ -186,24 +210,41 @@ export default function RescheduleScreen() {
 
   const renderDynamicSlot = (timeStr: string) => {
     const isSelected = selectedTime === timeStr;
+    const isCurrentSlot = isSameAsCurrentBooking(timeStr);
+
     return (
       <TouchableOpacity
         key={timeStr}
-        onPress={() => setSelectedTime(isSelected ? null : timeStr)}
+        onPress={() => {
+          if (isCurrentSlot) {
+            Alert.alert(
+              'Already Booked',
+              'Your booking is currently scheduled for this exact date and time. Please pick a new date or time slot.'
+            );
+            return;
+          }
+          setSelectedTime(isSelected ? null : timeStr);
+        }}
         style={[
           styles.timeSlot,
-          isSelected && styles.timeSlotSelected
+          isSelected && styles.timeSlotSelected,
+          isCurrentSlot && styles.timeSlotCurrent
         ]}
       >
-        <Text style={[styles.timeSlotTime, isSelected && styles.timeSlotTextSelected]}>
+        <Text style={[
+          styles.timeSlotTime,
+          isSelected && styles.timeSlotTextSelected,
+          isCurrentSlot && styles.timeSlotTextCurrent
+        ]}>
           {timeStr}
         </Text>
         <Text style={[
           styles.timeSlotStatus,
           styles.statusAvailable,
-          isSelected && styles.statusSelected
+          isSelected && styles.statusSelected,
+          isCurrentSlot && styles.statusCurrent
         ]}>
-          {isSelected ? 'Selected' : 'Available'}
+          {isCurrentSlot ? 'Current Slot' : (isSelected ? 'Selected' : 'Available')}
         </Text>
       </TouchableOpacity>
     );
@@ -233,6 +274,10 @@ export default function RescheduleScreen() {
           <View style={styles.summaryRow}>
             <Ionicons name="construct" size={20} color="#E84E0F" />
             <Text style={styles.summaryText}>{booking.packageName}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Ionicons name="timer-outline" size={20} color="#E84E0F" />
+            <Text style={styles.summaryText}>Est. Duration: {formatDuration(booking.estimatedDurationMins || (booking as any).durationMins)}</Text>
           </View>
           <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
             <Ionicons name="time" size={20} color="#E84E0F" />
@@ -445,6 +490,18 @@ const styles = StyleSheet.create({
   },
   timeSlotTextBusy: {
     color: '#9CA3AF',
+  },
+  timeSlotCurrent: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    opacity: 0.7,
+  },
+  timeSlotTextCurrent: {
+    color: '#9CA3AF',
+  },
+  statusCurrent: {
+    color: '#6B7280',
+    fontWeight: '700',
   },
   timeSlotBusy: {
     backgroundColor: '#F9FAFB',

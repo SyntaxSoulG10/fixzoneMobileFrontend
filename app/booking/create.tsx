@@ -10,7 +10,7 @@ import { serviceCenterService, ServiceCenterDTO, ServicePackageDTO } from '../..
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
 import { bookingService } from '../../services/bookingService';
-import { getVehicleIcon } from '../../utils/vehicle_utils';
+import { getVehicleIcon, checkVehiclePackageCompatibility } from '../../utils/vehicle_utils';
 import { formatTimeToBackend } from '../../utils/date_utils';
 import AddVehicleModal from '../../components/booking/AddVehicleModal';
 import { Alert } from 'react-native';
@@ -158,9 +158,24 @@ export default function SelectScheduleScreen() {
     return availableSlots.filter(s => s.toUpperCase().includes('PM'));
   }, [availableSlots]);
 
+  const selectedVehicleObj = useMemo(() => {
+    return vehicles.find(v => v.id === selectedVehicle);
+  }, [vehicles, selectedVehicle]);
+
+  const compatibility = useMemo(() => {
+    if (!selectedVehicleObj || !pkg) return { isCompatible: true, typeMatch: true, brandMatch: true };
+    return checkVehiclePackageCompatibility(selectedVehicleObj, pkg);
+  }, [selectedVehicleObj, pkg]);
+
+  const isReady = selectedDate && selectedTime && selectedVehicle && compatibility.isCompatible;
+
   const handleProceed = async () => {
     if (!selectedVehicle) {
       Alert.alert('Selection Required', 'Please select a vehicle first.');
+      return;
+    }
+    if (!compatibility.isCompatible) {
+      Alert.alert('Incompatible Vehicle', compatibility.reason || 'Selected vehicle is incompatible with this package.');
       return;
     }
     if (!selectedDate) {
@@ -337,8 +352,16 @@ export default function SelectScheduleScreen() {
                 </View>
                 <Text style={[styles.vehicleName, selectedVehicle === v.id && styles.textOrange]}>{v.brand} {v.model}</Text>
               </TouchableOpacity>
-            ))}
           </ScrollView>
+
+          {selectedVehicleObj && !compatibility.isCompatible && (
+            <View style={styles.incompatibleWarningBox}>
+              <Ionicons name="alert-circle" size={20} color="#DC2626" />
+              <Text style={styles.incompatibleWarningText}>
+                {compatibility.reason}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Calendar */}
@@ -508,4 +531,22 @@ const styles = StyleSheet.create({
   proceedBtn: { backgroundColor: '#F97316', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
   proceedBtnDisabled: { backgroundColor: '#E5E7EB', opacity: 0.7 },
   proceedText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  incompatibleWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  incompatibleWarningText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#991B1B',
+    fontWeight: '700',
+    lineHeight: 18,
+  },
 });

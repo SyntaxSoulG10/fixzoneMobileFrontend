@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import BackButton from '../../components/ui/BackButton';
@@ -20,6 +20,10 @@ export default function VerifyOtpScreen() {
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
+
+  const handleContactSupport = () => {
+    Linking.openURL('mailto:fixzonesupport@gmail.com?subject=Support%20Request%20-%20OTP%20Verification');
+  };
 
   const handleBack = async () => {
     if (mode === 'reset_password') {
@@ -60,6 +64,7 @@ export default function VerifyOtpScreen() {
       });
       // Update auth state to trigger navigation
       updateAuthUser({ emailVerified: true });
+      router.replace('/(tabs)');
     } catch (error: any) {
       Toast.show({
         type: 'error',
@@ -140,9 +145,9 @@ export default function VerifyOtpScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.supportContainer}>
+      <TouchableOpacity style={styles.supportContainer} onPress={handleContactSupport} activeOpacity={0.7}>
         <Text style={styles.supportText}>Contact Support</Text>
-      </View>
+      </TouchableOpacity>
     </ScreenContainer>
   );
 }
