@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "536605696910",
+    "project_id": "fixzone-bdaac",
+    "storage_bucket": "fixzone-bdaac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:536605696910:android:55c0486d42c91abf0bbadf",
+        "android_client_info": {
+          "package_name": "com.fixzone.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCR4ZD1eul9oar33WS9h9puyJjH2LgLJZo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

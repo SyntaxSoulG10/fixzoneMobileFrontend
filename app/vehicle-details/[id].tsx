@@ -5,47 +5,56 @@ import { Ionicons } from '@expo/vector-icons';
 import { MOCK_BOOKINGS } from '../../constants/mock_data';
 import { COLORS } from '../../constants/colors';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { bookingService, BookingResponseDTO } from '../../services/bookingService';
 import { useAuth } from '../../context/auth_context';
+import { getDaysSinceService, getLastServiceDate } from '../../utils/date_utils';
+import { getVehicleIcon } from '../../utils/vehicle_utils';
 
 const { width } = Dimensions.get('window');
 
-const getDaysSinceService = (dateString: string) => {
-  if (!dateString) return 0;
-  const parts = dateString.split('/');
-  if (parts.length !== 3) return 0;
-  const serviceDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-  const today = new Date();
-  const diffTime = today.getTime() - serviceDate.getTime();
-  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-};
 
 export default function VehicleDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { user: authUser } = useAuth();
-  
+
+  const handleBack = () => {
+    router.replace('/(tabs)/vehicles');
+  };
+
   const [vehicle, setVehicle] = React.useState<VehicleResponse | null>(null);
+  const [vehicleHistory, setVehicleHistory] = React.useState<BookingResponseDTO[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchVehicle = async () => {
+    const fetchData = async () => {
       if (!authUser?.userId || !id) return;
       try {
-        const data = await vehicleService.getVehiclesByUser(authUser.userId);
-        const found = data.find(v => v.id === id);
+        setIsLoading(true);
+        // Fetch vehicle
+        const vehicles = await vehicleService.getVehiclesByUser(authUser.userId);
+        const found = vehicles.find(v => v.id === id);
         if (found) setVehicle(found);
+
+        // Fetch bookings
+        const bookings = await bookingService.getBookingsByCustomer(authUser.userId);
+        const vehicleBookings = bookings.filter(b => b.vehicleId === id && b.status !== 'PENDING_PAYMENT');
+        setVehicleHistory(vehicleBookings);
       } catch (e) {
         console.error('Error fetching vehicle details', e);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchVehicle();
+    fetchData();
   }, [id, authUser?.userId]);
 
-  const vehicleHistory = MOCK_BOOKINGS.filter(b => b.vehicleId === id);
-  
-  const daysSince = vehicle ? getDaysSinceService(vehicle.lastServiceDate || '') : 0;
+  const lastServiceDate = React.useMemo(() => {
+    if (!id) return vehicle?.lastServiceDate || '';
+    return getLastServiceDate(id as string, vehicleHistory, vehicle?.lastServiceDate);
+  }, [id, vehicleHistory, vehicle]);
+
+  const daysSince = getDaysSinceService(lastServiceDate);
 
   if (isLoading) {
     return (
@@ -67,7 +76,7 @@ export default function VehicleDetailsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerSide} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.headerSide} onPress={handleBack}>
           <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vehicle Details</Text>
@@ -77,32 +86,34 @@ export default function VehicleDetailsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Vehicle Identity */}
         <View style={styles.imageContainer}>
-          <Image source={{ uri: vehicle.imageUrl || 'https://via.placeholder.com/250' }} style={styles.vehicleImage} />
-          <View style={styles.daysBadge}>
-            <Text style={styles.daysBadgeText}>{daysSince} days</Text>
-            <Text style={styles.daysBadgeTitle}>since service</Text>
-          </View>
+          {vehicle.imageUrl ? (
+            <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} />
+          ) : (
+            <View style={[styles.vehicleImage, styles.vectorPlaceholderLarge]}>
+              <Ionicons name={getVehicleIcon(vehicle.vehicleType)} size={120} color="#F97316" />
+            </View>
+          )}
         </View>
 
         <View style={styles.infoSection}>
           <Text style={styles.vehicleName}>{vehicle.brand} {vehicle.model}</Text>
           <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
-          
+
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Ionicons name="flash-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.statLabel}>Fuel Type</Text>
-              <Text style={styles.statValue}>Petrol</Text>
+              <Ionicons name="time-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.statLabel}>Days Since</Text>
+              <Text style={styles.statValue}>{daysSince !== undefined ? daysSince : 'N/A'}</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
               <Text style={styles.statLabel}>Last Service</Text>
-              <Text style={styles.statValue}>{vehicle.lastServiceDate || 'N/A'}</Text>
+              <Text style={styles.statValue}>{lastServiceDate || 'N/A'}</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="construct-outline" size={20} color={COLORS.primary} />
               <Text style={styles.statLabel}>Total Services</Text>
-              <Text style={styles.statValue}>{vehicleHistory.length}</Text>
+              <Text style={styles.statValue}>{vehicleHistory.filter(b => b.status === 'COMPLETED').length}</Text>
             </View>
           </View>
         </View>
@@ -117,18 +128,58 @@ export default function VehicleDetailsScreen() {
           </View>
 
           {vehicleHistory.length > 0 ? (
-            vehicleHistory.map((item, index) => (
-              <View key={item.id} style={styles.historyItem}>
-                <View style={styles.historyIcon}>
-                  <Ionicons name="checkmark-done" size={20} color="#10B981" />
+            vehicleHistory.map((item) => {
+              const getStatusStyle = (status: string) => {
+                switch (status) {
+                  case 'COMPLETED':
+                    return { bg: '#D1FAE5', text: '#10B981', icon: 'checkmark-done-circle', iconColor: '#10B981' };
+                  case 'IN_PROGRESS':
+                    return { bg: '#DBEAFE', text: '#2563EB', icon: 'construct', iconColor: '#2563EB' };
+                  case 'CONFIRMED':
+                    return { bg: '#FFF7ED', text: '#C2410C', icon: 'checkmark-circle', iconColor: '#E84E0F' };
+                  case 'PENDING':
+                  case 'PENDING_PAYMENT':
+                    return { bg: '#FEE2E2', text: '#EF4444', icon: 'time', iconColor: '#EF4444' };
+                  case 'CANCELLED':
+                    return { bg: '#F3F4F6', text: '#6B7280', icon: 'close-circle', iconColor: '#6B7280' };
+                  default:
+                    return { bg: '#F3F4F6', text: '#64748B', icon: 'information-circle', iconColor: '#64748B' };
+                }
+              };
+
+              const statusConfig = getStatusStyle(item.status);
+              const statusText = item.status === 'CONFIRMED' 
+                ? 'READY FOR SERVICE' 
+                : item.status.replace(/_/g, ' ').toUpperCase();
+
+              return (
+                <View key={item.bookingId} style={styles.historyItem}>
+                  <View style={[styles.historyIcon, { backgroundColor: statusConfig.bg }]}>
+                    <Ionicons
+                      name={statusConfig.icon as any}
+                      size={20}
+                      color={statusConfig.iconColor}
+                    />
+                  </View>
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyType} numberOfLines={1}>{item.packageName || 'Service'}</Text>
+                    <Text style={styles.historyDate}>
+                      {new Date(item.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Text>
+                  </View>
+                  <View style={styles.historyPriceContainer}>
+                    <Text style={styles.historyPrice}>
+                      LKR {(item.estimatedCost || 0).toLocaleString()}
+                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+                      <Text style={[styles.statusBadgeText, { color: statusConfig.text }]}>
+                        {statusText}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.historyInfo}>
-                  <Text style={styles.historyType}>Full Service</Text>
-                  <Text style={styles.historyDate}>{item.month} {item.date}, {item.year}</Text>
-                </View>
-                <Text style={styles.historyPrice}>LKR {item.totalPrice.toLocaleString()}</Text>
-              </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyHistory}>
               <Text style={styles.emptyText}>No service history found for this vehicle.</Text>
@@ -138,10 +189,11 @@ export default function VehicleDetailsScreen() {
 
         <TouchableOpacity 
           style={styles.bookButton}
-          onPress={() => router.push('/(tabs)/book')}
+          onPress={() => router.push({ pathname: '/(tabs)/book', params: { vehicleId: vehicle.id } })}
+          activeOpacity={0.8}
         >
+          <Ionicons name="calendar-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
           <Text style={styles.bookButtonText}>Book New Service</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -179,8 +231,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   imageContainer: {
-    width: width,
-    height: 250,
+    width: '100%',
+    height: 180,
+    backgroundColor: '#fff',
     position: 'relative',
   },
   vehicleImage: {
@@ -188,10 +241,17 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
+  vectorPlaceholderLarge: {
+    width: width,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
+  },
   daysBadge: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    bottom: 10,
+    right: 15,
     alignItems: 'flex-end',
   },
   daysBadgeText: {
@@ -212,10 +272,11 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   infoSection: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
   },
   vehicleName: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '900',
     color: '#000',
   },
@@ -228,7 +289,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 25,
+    marginTop: 15,
   },
   statCard: {
     width: (width - 60) / 3,
@@ -253,13 +314,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   historySection: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 5,
+    paddingBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 20,
@@ -275,9 +338,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#F3F4F6',
   },
@@ -309,6 +372,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#000',
   },
+  historyPriceContainer: {
+    alignItems: 'flex-end',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   emptyHistory: {
     padding: 20,
     backgroundColor: '#F9FAFB',
@@ -325,20 +402,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E84E0F',
-    marginHorizontal: 20,
-    paddingVertical: 18,
-    borderRadius: 20,
-    marginTop: 10,
-    elevation: 4,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 24,
+    elevation: 2,
     shadowColor: '#E84E0F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   bookButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginRight: 10,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

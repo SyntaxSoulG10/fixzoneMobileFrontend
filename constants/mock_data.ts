@@ -14,16 +14,20 @@ export interface ServicePackage {
   name: string;
   price: number;
   duration: string;
-  features: string[];
+  features?: string[];
+  type?: string;
   image: any;
   isRecommended: boolean;
   vehicleType: VehicleType;
+  description?: string;
 }
 
 export interface ServiceCenter {
   id: string;
   name: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   type: string;
   distance: string;
   image: any;
@@ -63,13 +67,7 @@ const CAR_PACKAGES: ServicePackage[] = [
     name: 'Gold Full Service (Car)',
     price: 15000,
     duration: '4.5 hrs',
-    features: [
-      'Comprehensive mechanical + diagnostics',
-      'Premium interior detail (leather treatment)',
-      'Engine bay cleaning',
-      'Waxing/polishing with premium products',
-      'Tire balancing + alignment'
-    ],
+    type: 'Comprehensive mechanical & diagnostics, Premium interior detail, Engine bay cleaning, Waxing & polishing, Tire balancing & alignment',
     image: require('../assets/images/carcare_hub_interior.jpg'),
     isRecommended: true,
     vehicleType: 'car'
@@ -79,13 +77,7 @@ const CAR_PACKAGES: ServicePackage[] = [
     name: 'Full Service (Car)',
     price: 10000,
     duration: '3.5 hrs',
-    features: [
-      'Engine Oil & Filter Change',
-      'Brake Inspection & Cleaning',
-      'Tire Rotation',
-      'Coolant Top-Up',
-      'AC Filter Replacement'
-    ],
+    type: 'Engine Oil & Filter Change, Brake Inspection & Cleaning, Tire Rotation, Coolant Top-Up, AC Filter Replacement',
     image: require('../assets/images/elite_auto_detailing.jpg'),
     isRecommended: false,
     vehicleType: 'car'
@@ -98,13 +90,7 @@ const BIKE_PACKAGES: ServicePackage[] = [
     name: 'Gold Package (Bike)',
     price: 8000,
     duration: '4 hrs',
-    features: [
-      'Engine Oil & Filter Change',
-      'Brake Inspection & Cleaning',
-      'Tire Rotation',
-      'Coolant Top-Up',
-      'AC Filter Replacement'
-    ],
+    type: 'Engine Oil & Filter Change, Brake Inspection & Cleaning, Tire Rotation, Coolant Top-Up, AC Filter Replacement',
     image: require('../assets/images/speedworks_tuning.jpg'),
     isRecommended: true,
     vehicleType: 'bike'
@@ -114,12 +100,7 @@ const BIKE_PACKAGES: ServicePackage[] = [
     name: 'Silver Service (Bike)',
     price: 4500,
     duration: '2 hrs',
-    features: [
-      'Basic engine service',
-      'Chain adjustment & lubrication',
-      'Brake check',
-      'Full wash & wax'
-    ],
+    type: 'Basic engine service, Chain adjustment & lubrication, Brake check, Full wash & wax',
     image: require('../assets/images/speedworks_tuning.jpg'),
     isRecommended: false,
     vehicleType: 'bike'
@@ -132,12 +113,7 @@ const VAN_PACKAGES: ServicePackage[] = [
     name: 'Commercial Van Service',
     price: 12000,
     duration: '5 hrs',
-    features: [
-      'Heavy duty engine oil',
-      'Suspension check',
-      'Brake system overhaul',
-      'Wheel alignment'
-    ],
+    type: 'Heavy duty engine oil, Suspension check, Brake system overhaul, Wheel alignment',
     image: require('../assets/images/prime_motors_general.jpg'),
     isRecommended: true,
     vehicleType: 'van'
@@ -348,6 +324,44 @@ export const MOCK_SERVICE_CENTERS: ServiceCenter[] = [
     openingTime: '08:30',
     closingTime: '17:30',
     packages: [...CAR_PACKAGES, ...VAN_PACKAGES]
+  },
+  {
+    id: 'moratuwa-1',
+    name: 'Moratuwa Auto Care',
+    location: 'Moratuwa',
+    latitude: 6.7730,
+    longitude: 79.8816,
+    type: 'General Service',
+    distance: 'Unknown',
+    image: require('../assets/images/prime_motors_general.jpg'),
+    rating: 4.6,
+    ratingCount: 89,
+    priceFrom: 3500,
+    openUntil: '6.00 PM',
+    isVerified: true,
+    supportedVehicles: ['car', 'van'],
+    openingTime: '08:00',
+    closingTime: '18:00',
+    packages: [...CAR_PACKAGES, ...VAN_PACKAGES]
+  },
+  {
+    id: 'moratuwa-2',
+    name: 'Southern Express Wash',
+    location: 'Moratuwa',
+    latitude: 6.7750,
+    longitude: 79.8850,
+    type: 'Full Service Wash',
+    distance: 'Unknown',
+    image: require('../assets/images/elite_auto_detailing.jpg'),
+    rating: 4.8,
+    ratingCount: 156,
+    priceFrom: 1500,
+    openUntil: '8.00 PM',
+    isVerified: true,
+    supportedVehicles: ['bike', 'car', 'van'],
+    openingTime: '07:00',
+    closingTime: '20:00',
+    packages: [...CAR_PACKAGES, ...BIKE_PACKAGES, ...VAN_PACKAGES]
   }
 ];
 

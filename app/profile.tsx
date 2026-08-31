@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import ScreenContainer from '../components/ui/ScreenContainer';
 import AppInput from '../components/ui/AppInput';
@@ -11,20 +12,36 @@ import { COLORS } from '../constants/colors';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/auth_context';
 import { authService } from '../services/authService';
+import { imageKitService } from '../services/imageKitService';
 
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user: localUser, updateUser } = useUser();
-  const { user: authUser, updateAuthUser, logout } = useAuth();
+  const { user: authUser, updateAuthUser, refreshProfile, logout } = useAuth();
 
   // Form State
   const [name, setName] = useState(authUser?.fullName || localUser.name);
   const [mobile, setMobile] = useState(authUser?.phone || localUser.mobile);
   const [email, setEmail] = useState(authUser?.email || localUser.email);
-  const [profileImage, setProfileImage] = useState(authUser?.profilePictureUrl || localUser.profileImage);
+  const [profileImage, setProfileImage] = useState<string | null>(authUser?.profilePictureUrl || localUser.profileImage);
   const [isSaving, setIsSaving] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshProfile();
+    }, [])
+  );
+
+  React.useEffect(() => {
+    if (authUser) {
+      if (authUser.fullName) setName(authUser.fullName);
+      if (authUser.phone) setMobile(authUser.phone);
+      if (authUser.email) setEmail(authUser.email);
+      if (authUser.profilePictureUrl) setProfileImage(authUser.profilePictureUrl);
+    }
+  }, [authUser]);
   
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -42,7 +59,7 @@ export default function ProfileScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
@@ -68,28 +85,56 @@ export default function ProfileScreen() {
     }
   };
 
+  const [mobileError, setMobileError] = useState('');
+
+  const validatePhone = (num: string) => {
+    // Sri Lankan mobile numbers are typically 9 digits starting with 7, 
+    // or 10 digits starting with 0, or 12 digits starting with +947
+    const cleaned = num.replace(/\s/g, '');
+    const regex = /^(\+94|0)?7[0-9]{8}$/;
+    return regex.test(cleaned);
+  };
+
   const handleSave = async () => {
-    if (!name.trim() || !mobile.trim()) {
-      Alert.alert('Required Fields', 'Name and Mobile Number cannot be empty.');
+    if (!name.trim()) {
+      Alert.alert('Required Field', 'Name cannot be empty.');
       return;
     }
+
+    if (!mobile.trim()) {
+      setMobileError('Mobile number is required');
+      return;
+    }
+
+    if (!validatePhone(mobile)) {
+      setMobileError('Please enter a valid Sri Lankan mobile number (e.g. 0771234567 or 771234567)');
+      return;
+    }
+
+    setMobileError('');
     
     setIsSaving(true);
     try {
-      // 1. Update Profile (Name and Phone)
+      let finalImageUrl = profileImage;
+
+      // 1. Upload new image directly to ImageKit CDN if changed
+      if (profileImage && profileImage !== authUser?.profilePictureUrl && !profileImage.startsWith('http')) {
+        finalImageUrl = await imageKitService.uploadToImageKit(profileImage, `profile_${authUser?.userId || Date.now()}.jpg`);
+      }
+
+      // 2. Update Profile (Name and Phone)
       if (authUser?.userId) {
         await authService.updateProfile(authUser.userId, name, mobile);
         
-        // 2. Update backend if image changed
-        if (profileImage !== authUser.profilePictureUrl) {
-          await authService.updateProfileImage(authUser.userId, profileImage || '');
+        if (finalImageUrl && finalImageUrl !== authUser.profilePictureUrl) {
+          await authService.updateProfileImage(authUser.userId, finalImageUrl);
         }
 
         // 3. Sync with AuthContext
         updateAuthUser({ 
           fullName: name, 
           phone: mobile, 
-          profilePictureUrl: profileImage || authUser.profilePictureUrl 
+          profilePictureUrl: finalImageUrl || authUser.profilePictureUrl 
         });
       }
 
@@ -125,7 +170,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScreenContainer scrollable={false}>
+    <ScreenContainer scrollable={false} disableKeyboardDismiss={true}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerSide} onPress={() => router.back()}>
@@ -157,19 +202,22 @@ export default function ProfileScreen() {
         {/* Details Section */}
         <View style={styles.detailsSection}>
           <AppInput
-            label="Full Name"
+            label="Name"
             placeholder="Your Name"
             value={name}
             onChangeText={setName}
             leftIcon="person-outline"
+            maxLength={40}
           />
           <AppInput
             label="Mobile Number"
             placeholder="Your Mobile"
             value={mobile}
-            onChangeText={setMobile}
+            onChangeText={(text) => { setMobile(text); setMobileError(''); }}
+            error={mobileError}
             keyboardType="phone-pad"
             leftIcon="call-outline"
+            maxLength={15}
           />
           <AppInput
             label="Email Address"
@@ -208,8 +256,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 25,
-    paddingBottom: 20,
+    paddingTop: 15,
+    paddingBottom: 15,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
@@ -226,17 +274,17 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   imageSection: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 15,
     backgroundColor: '#fff',
   },
   imageWrapper: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     position: 'relative',
     elevation: 10,
     shadowColor: '#000',
@@ -247,12 +295,12 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 60,
+    borderRadius: 50,
   },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    borderRadius: 60,
+    borderRadius: 50,
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
@@ -274,23 +322,27 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     color: '#111827',
-    marginTop: 16,
+    marginTop: 10,
+    textAlign: 'center',
   },
   userRole: {
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '700',
     marginTop: 4,
+    textAlign: 'center',
   },
   detailsSection: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   footer: {
-    padding: 20,
-    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingTop: 5,
+    paddingBottom: 20,
   },
   saveBtn: {
-    marginBottom: 20,
+    marginBottom: 10,
   },
   logoutBtn: {
     flexDirection: 'row',

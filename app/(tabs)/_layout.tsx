@@ -2,11 +2,10 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
-
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={{
+        screenOptions={{
         tabBarActiveTintColor: '#000000', // Black as per the UI image
         tabBarInactiveTintColor: '#6B7280',
         headerShown: false,

@@ -4,20 +4,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { VehicleType } from '../../constants/mock_data';
+import { isServiceCenterOpen } from '../../utils/businessHours';
 
 const { width } = Dimensions.get('window');
 
 interface ServiceCenterCardProps {
   id: string;
-  image: any;
+  image?: any;
   name: string;
-  location: string;
-  type: string;
+  location?: string;
+  type?: string;
   priceFrom?: number;
-  openUntil?: string;
+  openingHours?: string;
   isVerified?: boolean;
   supportedVehicles?: VehicleType[];
+  supportedVehicleBrands?: string[];
+  packages?: any[];
   variant?: 'compact' | 'premium';
+  calculatedDistance?: number;
+  hideServedFor?: boolean;
 }
 
 export default function ServiceCenterCard({
@@ -27,27 +32,81 @@ export default function ServiceCenterCard({
   location,
   type,
   priceFrom = 0,
-  openUntil = '',
+  openingHours = '',
   isVerified = false,
   supportedVehicles = [],
+  supportedVehicleBrands = [],
+  packages = [],
   variant = 'compact',
+  calculatedDistance,
+  hideServedFor = false,
 }: ServiceCenterCardProps) {
   const router = useRouter();
 
   const handlePress = () => {
     router.push({
       pathname: '/service-center/[id]',
-      params: { id, name },
+      params: {
+        id,
+        name,
+        distance: calculatedDistance !== undefined ? calculatedDistance.toFixed(1) : undefined,
+        from: 'book'
+      },
     });
   };
 
-  const renderVehicleChip = (vType: VehicleType) => {
+  const effectiveServedList = React.useMemo(() => {
+    if (supportedVehicleBrands && supportedVehicleBrands.length > 0) {
+      return supportedVehicleBrands;
+    }
+    if (packages && packages.length > 0) {
+      const derived = Array.from(
+        new Set(
+          packages
+            .map((pkg: any) => {
+              if (pkg.vehicleBrand && pkg.vehicleBrand.trim() !== '' && pkg.vehicleBrand.toUpperCase() !== 'ALL') {
+                return pkg.vehicleBrand.trim();
+              }
+              if (pkg.vehicleType && pkg.vehicleType.trim() !== '') {
+                return pkg.vehicleType.trim().toUpperCase();
+              }
+              return null;
+            })
+            .filter(Boolean)
+        )
+      );
+      if (derived.length > 0) return derived;
+    }
+    if (supportedVehicles && supportedVehicles.length > 0) {
+      return supportedVehicles;
+    }
+    return ['Car', 'Van', 'Bike'];
+  }, [supportedVehicleBrands, packages, supportedVehicles]);
+
+  const renderVehicleChip = (vType: VehicleType | string, index: number) => {
+    const formatted = typeof vType === 'string' && vType.length > 3
+      ? (vType.charAt(0).toUpperCase() + vType.slice(1).toLowerCase())
+      : vType.toString().toUpperCase();
+
     return (
-      <View key={vType} style={styles.vehicleChip}>
-        <Text style={styles.vehicleChipText}>
-          {vType.charAt(0).toUpperCase() + vType.slice(1)}
+      <View key={`${vType}-${index}`} style={styles.vehicleChip}>
+        <View style={styles.bulletPoint} />
+        <Text style={styles.vehicleChipText} numberOfLines={1}>
+          {formatted}
         </Text>
       </View>
+    );
+  };
+
+  const renderVehicleText = (vType: VehicleType | string, index: number, isLast: boolean) => {
+    const formatted = typeof vType === 'string' && vType.length > 3
+      ? (vType.charAt(0).toUpperCase() + vType.slice(1).toLowerCase())
+      : vType.toString().toUpperCase();
+
+    return (
+      <Text key={`${vType}-${index}`} style={styles.vehicleChipText}>
+        {formatted}{!isLast && ', '}
+      </Text>
     );
   };
 
@@ -64,22 +123,33 @@ export default function ServiceCenterCard({
           style={styles.compactImage}
         />
         <View style={styles.compactInfo}>
-          <Text style={styles.compactName}>{name} - {location}</Text>
-          <Text style={styles.servedForLabel}>Served for :</Text>
-          <View style={styles.compactChipRow}>
-            {supportedVehicles.map(renderVehicleChip)}
-          </View>
+          <Text style={styles.compactName}>{name}</Text>
+          {calculatedDistance !== undefined && (
+            <Text style={{ fontSize: 12, color: '#E84E0F', fontWeight: 'bold', marginTop: 2 }}>
+              {calculatedDistance.toFixed(1)} km away
+            </Text>
+          )}
+          {!hideServedFor && (
+            <>
+              <Text style={styles.servedForLabel}>Served for :</Text>
+              <View style={styles.compactChipRow}>
+                {effectiveServedList.map((vType, index) => renderVehicleChip(vType as VehicleType, index))}
+              </View>
+            </>
+          )}
         </View>
       </TouchableOpacity>
     );
   }
+
+  const isOpen = isServiceCenterOpen(openingHours);
 
   // Premium Variant (High-Fidelity)
   return (
     <TouchableOpacity
       style={styles.premiumCard}
       onPress={handlePress}
-      activeOpacity={0.9}
+      activeOpacity={0.95}
     >
       <View style={styles.premiumImageContainer}>
         <Image
@@ -87,40 +157,45 @@ export default function ServiceCenterCard({
           style={styles.premiumImage}
           resizeMode="cover"
         />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.premiumImageGradient}
+        />
+        {isOpen !== null && (
+          <View style={[styles.statusBadgeOverlay, { backgroundColor: isOpen ? '#10B981' : '#EF4444' }]}>
+            <Text style={styles.statusBadgeText}>{isOpen ? 'OPEN' : 'CLOSED'}</Text>
+          </View>
+        )}
+        <View style={styles.premiumPriceBadge}>
+          <Text style={styles.premiumPriceLabel}>Starting from</Text>
+          <Text style={styles.premiumPriceValue}>LKR {priceFrom > 0 ? priceFrom.toLocaleString() : 'N/A'}</Text>
+        </View>
       </View>
 
       <View style={styles.premiumInfoContainer}>
-        <Text style={styles.premiumName}>{name}</Text>
+        <View style={styles.premiumTitleRow}>
+          <Text style={styles.premiumName} numberOfLines={1}>{name}</Text>
+        </View>
 
-        <View style={styles.premiumMiddleRow}>
-          <View style={styles.premiumMiddleLeft}>
-            <View style={styles.premiumLocationRow}>
-              <Ionicons name="location-sharp" size={14} color="#6B7280" />
-              <Text style={styles.premiumLocationText}>{location}</Text>
-            </View>
-            <Text style={styles.premiumStatusText}>Open until {openUntil}</Text>
+        {calculatedDistance !== undefined && (
+          <View style={styles.premiumLocationRow}>
+            <Ionicons name="navigate-outline" size={14} color="#E84E0F" />
+            <Text style={styles.premiumLocationText}>
+              {calculatedDistance.toFixed(1)} km away
+            </Text>
           </View>
-          
-          <View style={styles.premiumMiddleRight}>
-            <Text style={styles.premiumPriceLabel}>Starting from</Text>
-            <Text style={styles.premiumPriceValue}>LKR {priceFrom > 0 ? priceFrom.toLocaleString() : 'N/A'}</Text>
+        )}
+
+        <View style={styles.premiumVehiclesSection}>
+          <Text style={styles.servedForLabel}>Served for:</Text>
+          <View style={styles.premiumVehicleChips}>
+            {effectiveServedList.map((vType, index, arr) => renderVehicleText(vType as VehicleType, index, index === arr.length - 1))}
           </View>
         </View>
 
-        <View style={styles.premiumBottomRow}>
-          <View style={styles.premiumVehiclesAndPrice}>
-            <Text style={styles.servedForLabel}>Served for :</Text>
-            <View style={styles.premiumVehicleChips}>
-              {supportedVehicles.map(renderVehicleChip)}
-            </View>
-          </View>
-
-          <View style={styles.premiumRatingAndAction}>
-            <TouchableOpacity style={styles.detailsButton} onPress={handlePress}>
-              <Text style={styles.detailsButtonText}>View Details</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TouchableOpacity style={styles.detailsButton} onPress={handlePress}>
+          <Text style={styles.detailsButtonText}>View Details</Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -129,14 +204,14 @@ export default function ServiceCenterCard({
 const styles = StyleSheet.create({
   // Compact Styles (Original Home Screen style)
   compactCard: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: '#E2E8F0',
   },
   compactImage: {
     width: 64,
@@ -145,7 +220,7 @@ const styles = StyleSheet.create({
   },
   compactInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
   },
   compactName: {
     color: '#111827',
@@ -166,140 +241,147 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 4,
   },
+  servedForLabel: {
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  compactChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  vehicleChip: {
+    width: '48%', // two-column layout
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bulletPoint: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E84E0F',
+    marginRight: 6,
+  },
+  vehicleChipText: {
+    color: '#4B5563',
+    fontSize: 11,
+    fontWeight: '500',
+  },
 
   // Premium Styles (High Fidelity)
   premiumCard: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 22,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 22,
     elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
     shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   premiumImageContainer: {
     width: '100%',
-    height: 180,
+    height: 162,
     position: 'relative',
   },
   premiumImage: {
     width: '100%',
     height: '100%',
   },
+  premiumImageGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '60%',
+  },
+  statusBadgeOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.5,
+  },
+  premiumPriceBadge: {
+    position: 'absolute',
+    bottom: 46, // Adjusted for the new marginTop of info container
+    right: 10,
+    alignItems: 'flex-end',
+  },
+  premiumPriceLabel: {
+    fontSize: 12,
+    color: '#E5E7EB',
+    fontWeight: '600',
+  },
+  premiumPriceValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
   premiumInfoContainer: {
-    padding: 16,
-    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+    paddingTop: 10,
+    backgroundColor: '#F8FAFC',
+    marginTop: -38, // Shows more image
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  premiumTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
   },
   premiumName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 4,
+    flex: 1,
   },
   premiumLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
   },
-  premiumMiddleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  premiumMiddleLeft: {
-    flex: 1,
-  },
-  premiumMiddleRight: {
-    alignItems: 'flex-end',
-  },
   premiumLocationText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#E84E0F',
     marginLeft: 4,
-    fontWeight: '600',
-  },
-  premiumStatusText: {
-    fontSize: 13,
-    color: '#10B981',
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  premiumBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: -5,
-  },
-  premiumVehiclesAndPrice: {
-    flex: 1,
-  },
-  servedForLabel: {
-    color: '#6B7280',
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 4,
-    marginTop: 10,
-  },
-  vehicleChip: {
-    backgroundColor: '#FFF7ED',
-    borderWidth: 0.5,
-    borderColor: '#E84E0F',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 4,
-  },
-  vehicleChipText: {
-    color: '#4B5563',
-    fontSize: 11,
     fontWeight: '700',
   },
-  compactChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
+  premiumVehiclesSection: {
+    backgroundColor: '#F9FAFB',
+    padding: 4,
+    borderRadius: 8,
+    marginBottom: 6,
   },
   premiumVehicleChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  premiumPriceLabel: {
-    fontSize: 10,
-    color: '#6B7280',
-    fontWeight: '700',
-    textAlign: 'right',
-    marginTop: 10,
-  },
-  premiumPriceValue: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#E84E0F',
-  },
-  premiumRatingAndAction: {
-    alignItems: 'flex-end',
-  },
-  premiumRatingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  premiumRatingText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111827',
-    marginLeft: 4,
   },
   detailsButton: {
     backgroundColor: '#E84E0F',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    height: 40,
     borderRadius: 12,
-    marginBottom: 15
-  
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   detailsButtonText: {
     color: '#fff',

@@ -4,27 +4,44 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { File, Paths } from 'expo-file-system';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import AppDropdown from '../../components/ui/AppDropdown';
 import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/auth_context';
+import { useBookings } from '../../context/BookingContext';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { bookingService } from '../../services/bookingService';
+import { imageKitService } from '../../services/imageKitService';
+import { getDaysSinceService, getLastServiceDate, formatDisplayDate } from '../../utils/date_utils';
+import { getVehicleIcon, formatLicenseNumber, validateLicenseNumber, formatVehicleModel, validateVehicleModel } from '../../utils/vehicle_utils';
+import { ALL_VEHICLE_TYPE_NAMES, getBrandsForVehicleType } from '../../constants/vehicle_data';
 
 const { width } = Dimensions.get('window');
 
-// Form data from complete-profile
-const vehicleTypes = ['Car', 'Bike', 'Three Wheels', 'Van', 'Lorry', 'Others'];
-const brandMap: Record<string, string[]> = {
-  'Car': ['Toyota', 'Honda', 'Nissan', 'BMW', 'Suzuki', 'Kia', 'Other'],
-  'Bike': ['Yamaha', 'Honda', 'Suzuki', 'Bajaj', 'TVS', 'Hero', 'Other'],
-  'Three Wheels': ['Bajaj', 'TVS', 'Piaggio', 'Other'],
-  'Van': ['Nissan', 'Toyota', 'Ford', 'Other'],
-  'Lorry': ['Isuzu', 'Mitsubishi', 'Tata', 'Ashok Leyland', 'Other'],
+const getServiceStatus = (lastServiceDate?: string) => {
+  if (!lastServiceDate || lastServiceDate === 'N/A') {
+    return { label: 'No History', color: '#6B7280', bgColor: '#F3F4F6', dotColor: '#9CA3AF' };
+  }
+
+  const days = getDaysSinceService(lastServiceDate);
+
+  if (days === undefined) {
+    return { label: 'No History', color: '#6B7280', bgColor: '#F3F4F6', dotColor: '#9CA3AF' };
+  }
+
+  if (days <= 180) {
+    return { label: 'Up to date', color: '#059669', bgColor: '#ECFDF5', dotColor: '#10B981' };
+  } else if (days <= 365) {
+    return { label: 'Service Due', color: '#D97706', bgColor: '#FFFBEB', dotColor: '#F59E0B' };
+  } else {
+    return { label: 'Overdue', color: '#DC2626', bgColor: '#FEF2F2', dotColor: '#EF4444' };
+  }
 };
-const fuelTypes = ['Petrol', 'Diesel', 'Hybrid', 'EV'];
+
+// Form data from vehicle categories
+const vehicleTypes = [...ALL_VEHICLE_TYPE_NAMES, 'Others'];
 
 const DEFAULT_VEHICLE_IMAGE = require('../../assets/images/honda_civic_red.jpg');
 
@@ -32,7 +49,9 @@ export default function VehiclesScreen() {
   const router = useRouter();
   const { add, backOnSave } = useGlobalSearchParams<{ add?: string; backOnSave?: string }>();
   const { user: authUser } = useAuth();
+  const { pendingBookings } = useBookings();
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
+  const [vehicleLastServiceMap, setVehicleLastServiceMap] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -50,8 +69,17 @@ export default function VehiclesScreen() {
     if (!authUser?.userId) return;
     try {
       setIsLoading(true);
-      const data = await vehicleService.getVehiclesByUser(authUser.userId);
-      setVehicles(data);
+      const [vehicleData, bookingData] = await Promise.all([
+        vehicleService.getVehiclesByUser(authUser.userId),
+        bookingService.getBookingsByCustomer(authUser.userId)
+      ]);
+      setVehicles(vehicleData);
+
+      const serviceMap: Record<string, string> = {};
+      vehicleData.forEach(v => {
+        serviceMap[v.id] = getLastServiceDate(v.id, bookingData, v.lastServiceDate);
+      });
+      setVehicleLastServiceMap(serviceMap);
     } catch (e) {
       console.error('Failed to fetch vehicles', e);
     } finally {
@@ -72,9 +100,11 @@ export default function VehiclesScreen() {
   const [brand, setBrand] = useState('');
   const [customBrand, setCustomBrand] = useState('');
   const [model, setModel] = useState('');
-  const [fuel, setFuel] = useState('');
+  const [modelError, setModelError] = useState<string | null>(null);
   const [plate, setPlate] = useState('');
+  const [plateError, setPlateError] = useState<string | null>(null);
   const [vehicleImage, setVehicleImage] = useState<string | null>(null);
+  const [vehicleImageBase64, setVehicleImageBase64] = useState<string | null>(null);
 
   const pickVehicleImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -85,28 +115,72 @@ export default function VehiclesScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
+      base64: false,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets[0]?.uri) {
       setVehicleImage(result.assets[0].uri);
     }
   };
 
   const openModal = (vehicle?: VehicleResponse) => {
+    setPlateError(null);
+    setModelError(null);
     if (vehicle) {
+      const hasPending = pendingBookings.some(b => b.vehicleId === vehicle.id);
+
+      if (hasPending) {
+        Alert.alert(
+          'Cannot Edit',
+          'You have a service to go for this vehicle. Please complete or cancel the service first.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       setEditingVehicle(vehicle);
-      setVType(vehicle.vehicleType || 'Car'); 
-      setBrand(vehicle.brand || '');
-      setCustomBrand('');
-      setCustomVType('');
+
+      // Normalize vehicleType
+      let loadedType = vehicleTypes.find(t => t.toLowerCase() === (vehicle.vehicleType || '').toLowerCase()) || 'Car';
+      if (!vehicleTypes.includes(loadedType) && vehicle.vehicleType) {
+        const vt = vehicle.vehicleType.toLowerCase();
+        if (vt.includes('bike') || vt.includes('motor')) loadedType = 'Motorcycle / Bike';
+        else if (vt.includes('wheel') || vt.includes('tuk')) loadedType = 'Three-Wheeler';
+        else if (vt.includes('van')) loadedType = 'Van / Minivan';
+        else if (vt.includes('lorry') || vt.includes('truck')) loadedType = 'Lorry / Truck';
+        else if (vt.includes('scooter')) loadedType = 'Scooter';
+        else loadedType = 'Others';
+      }
+      setVType(loadedType);
+
+      // Normalize brand
+      let loadedBrand = 'Other';
+      const availableBrands = getBrandsForVehicleType(loadedType);
+      if (vehicle.brand && availableBrands.length > 0) {
+        const vb = vehicle.brand.toLowerCase();
+        const matched = availableBrands.find(b => b.toLowerCase() === vb);
+        if (matched) {
+          loadedBrand = matched;
+        } else {
+          setCustomBrand(vehicle.brand);
+        }
+      }
+      setBrand(loadedBrand);
+
+      if (loadedType === 'Others') {
+        setCustomVType(vehicle.vehicleType || '');
+      } else {
+        setCustomVType('');
+      }
+
       setModel(vehicle.model || '');
       setPlate(vehicle.plateNumber || '');
-      setFuel('Petrol');
       setVehicleImage(vehicle.imageUrl || null);
+      setVehicleImageBase64(null);
     } else {
       setEditingVehicle(null);
       setVType('');
@@ -114,9 +188,9 @@ export default function VehiclesScreen() {
       setBrand('');
       setCustomBrand('');
       setModel('');
-      setFuel('');
       setPlate('');
       setVehicleImage(null);
+      setVehicleImageBase64(null);
     }
     setIsModalVisible(true);
   };
@@ -124,9 +198,22 @@ export default function VehiclesScreen() {
   const handleSave = async () => {
     const finalVType = vType === 'Others' ? customVType : vType;
     const finalBrand = brand === 'Other' ? customBrand : brand;
+    const finalModel = formatVehicleModel(model);
 
-    if (!finalVType || !finalBrand || !model || !plate) {
+    if (!finalVType || !finalBrand || !finalModel || !plate) {
       Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+
+    const modelErr = validateVehicleModel(finalModel);
+    if (modelErr) {
+      setModelError(modelErr);
+      return;
+    }
+
+    const plateErr = validateLicenseNumber(plate);
+    if (plateErr) {
+      setPlateError(plateErr);
       return;
     }
 
@@ -136,22 +223,25 @@ export default function VehiclesScreen() {
     }
 
     setIsSaving(true);
+
+    // Client-side duplicate check
+    const isDuplicate = vehicles.some(v =>
+      v.plateNumber.toUpperCase().replace(/\s/g, '') === plate.toUpperCase().replace(/\s/g, '') &&
+      v.id !== editingVehicle?.id
+    );
+
+    if (isDuplicate) {
+      Alert.alert('Duplicate Vehicle', 'A vehicle with this license plate is already in your list.');
+      setIsSaving(false);
+      return;
+    }
+
     try {
-      // Save image to device storage first (like profile image)
-      let savedImageUri: string | undefined = undefined;
+      let finalImageUrl: string | undefined = undefined;
       if (vehicleImage && !vehicleImage.startsWith('http')) {
-        try {
-          const filename = `vehicle_${Date.now()}.jpg`;
-          const sourceFile = new File(vehicleImage);
-          const destinationFile = new File(Paths.document, filename);
-          sourceFile.copy(destinationFile);
-          savedImageUri = destinationFile.uri;
-        } catch (imgErr) {
-          console.warn('Image save failed, continuing without it', imgErr);
-          savedImageUri = vehicleImage;
-        }
+        finalImageUrl = await imageKitService.uploadToImageKit(vehicleImage, `vehicle_${plate}.jpg`);
       } else if (vehicleImage) {
-        savedImageUri = vehicleImage; // already a persisted URL
+        finalImageUrl = vehicleImage;
       }
 
       if (editingVehicle) {
@@ -160,7 +250,7 @@ export default function VehiclesScreen() {
           model,
           vehicleType: finalVType,
           plateNumber: plate,
-          imageUrl: savedImageUri,
+          ...(finalImageUrl ? { imageUrl: finalImageUrl } : {})
         });
         Alert.alert('Success', 'Vehicle updated!');
       } else {
@@ -170,31 +260,47 @@ export default function VehiclesScreen() {
           model,
           vehicleType: finalVType,
           plateNumber: plate,
-          imageUrl: savedImageUri,
+          ...(finalImageUrl ? { imageUrl: finalImageUrl } : {})
         });
         Alert.alert('Success', 'Vehicle added!');
       }
       setIsModalVisible(false);
       await fetchVehicles();
-      
+
       if (backOnSave === 'true') {
         router.back();
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save vehicle');
+      const errorMsg = e.message || '';
+      if (errorMsg.includes('vehicles_plate_number_key') || errorMsg.includes('duplicate key value')) {
+        Alert.alert('Registration Failed', 'A vehicle with this license plate is already registered in our system.');
+      } else {
+        Alert.alert('Error', errorMsg || 'Failed to save vehicle');
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = (id: string) => {
+    const hasPending = pendingBookings.some(b => b.vehicleId === id);
+
+    if (hasPending) {
+      Alert.alert(
+        'Cannot Delete',
+        'You have a service to go for this vehicle. Please complete or cancel the service first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Alert.alert(
       'Delete Vehicle',
       'Are you sure you want to remove this vehicle?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -210,26 +316,27 @@ export default function VehiclesScreen() {
   };
 
   return (
-    <ScreenContainer scrollable={false}>
+    <ScreenContainer scrollable={false} style={{ flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.headerSide} 
+        <TouchableOpacity
+          style={styles.headerSide}
           onPress={() => router.back()}
         >
           <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My vehicles</Text>
+        <Text style={styles.headerTitle}>My Vehicles</Text>
         <View style={styles.headerSide} />
       </View>
 
-      <ScrollView 
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {!isLoading && vehicles.length === 0 ? (
           <View style={{ alignItems: 'center', width: '100%', paddingVertical: 16 }}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => openModal()}
               style={{
                 width: 256,
@@ -269,54 +376,47 @@ export default function VehiclesScreen() {
         ) : (
           vehicles.map((vehicle) => (
             <View key={vehicle.id} style={styles.vehicleCard}>
-            <View style={styles.cardMain}>
-              <Image source={{ uri: vehicle.imageUrl || 'https://via.placeholder.com/250' }} style={styles.vehicleImage} />
-              <View style={styles.vehicleInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.brand} {vehicle.model}</Text>
-                  <View style={[
-                    styles.statusBadge, 
-                    { backgroundColor: '#ECFDF5' }
-                  ]}>
-                    <View style={[
-                      styles.statusDot, 
-                      { backgroundColor: '#10B981' }
-                    ]} />
-                    <Text style={[
-                      styles.statusText, 
-                      { color: '#059669' }
-                    ]}>Up to date</Text>
+              <View style={styles.cardMain}>
+                {vehicle.imageUrl ? (
+                  <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} />
+                ) : (
+                  <View style={[styles.vehicleImage, styles.vectorPlaceholder]}>
+                    <Ionicons name={getVehicleIcon(vehicle.vehicleType)} size={40} color="#F97316" />
+                  </View>
+                )}
+                <View style={styles.vehicleInfo}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.vehicleName} numberOfLines={1}>{vehicle.brand} {vehicle.model}</Text>
+                  </View>
+                  <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
+
+                  <View style={styles.serviceInfoRow}>
+                    <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                    <Text style={styles.lastServiceText}>Last: {formatDisplayDate(vehicleLastServiceMap[vehicle.id] || vehicle.lastServiceDate) || 'N/A'}</Text>
                   </View>
                 </View>
-                <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
-                
-                <View style={styles.serviceInfoRow}>
-                  <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                  <Text style={styles.lastServiceText}>Last: {vehicle.lastServiceDate || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.cardFooter}>
+                <TouchableOpacity
+                  style={styles.detailsBtn}
+                  onPress={() => router.push(`/vehicle-details/${vehicle.id}`)}
+                >
+                  <Text style={styles.detailsBtnText}>View Details</Text>
+                  <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
+                </TouchableOpacity>
+
+                <View style={styles.actionGroup}>
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => openModal(vehicle)}>
+                    <Ionicons name="create-outline" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => handleDelete(vehicle.id)}>
+                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
-
-            <View style={styles.cardFooter}>
-              <TouchableOpacity 
-                style={styles.detailsBtn} 
-                onPress={() => router.push(`/vehicle-details/${vehicle.id}`)}
-              >
-                <Text style={styles.detailsBtnText}>View Details</Text>
-                <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
-              </TouchableOpacity>
-              
-              <View style={styles.actionGroup}>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => openModal(vehicle)}>
-                  <Ionicons name="create-outline" size={20} color="#6B7280" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => handleDelete(vehicle.id)}>
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )))}
+          )))}
       </ScrollView>
 
       {/* FAB */}
@@ -343,6 +443,7 @@ export default function VehiclesScreen() {
               options={vehicleTypes}
               onSelect={(val) => {
                 setVType(val);
+                setBrand('');
                 if (val !== 'Others') setCustomVType('');
               }}
             />
@@ -358,9 +459,13 @@ export default function VehiclesScreen() {
 
             <AppDropdown
               label="Brand"
-              placeholder="Select Brand"
+              placeholder={!vType ? 'Select vehicle type first' : 'Select Brand'}
               value={brand}
-              options={brandMap[vType] || ['Other']}
+              options={getBrandsForVehicleType(vType)}
+              disabled={!vType}
+              onDisabledPress={() => {
+                Alert.alert('Selection Required', 'Please select a vehicle type first.');
+              }}
               onSelect={(val) => {
                 setBrand(val);
                 if (val !== 'Other') setCustomBrand('');
@@ -380,23 +485,30 @@ export default function VehiclesScreen() {
               label="Model"
               placeholder="e.g. Civic"
               value={model}
-              onChangeText={setModel}
-            />
-
-            <AppDropdown
-              label="Fuel Type ⚡"
-              placeholder="Select Fuel Type"
-              value={fuel}
-              options={fuelTypes}
-              onSelect={setFuel}
+              onChangeText={(text) => {
+                const formatted = formatVehicleModel(text);
+                setModel(formatted);
+                if (modelError) {
+                  setModelError(validateVehicleModel(formatted));
+                }
+              }}
+              error={modelError || undefined}
             />
 
             <AppInput
-              label="License Number"
-              placeholder="e.g. ABC 1234"
+              label="Vehicle Plate Number"
+              placeholder="e.g.BCZ-1234"
               value={plate}
-              onChangeText={setPlate}
+              onChangeText={(text) => {
+                const formatted = formatLicenseNumber(text);
+                setPlate(formatted);
+                if (plateError) {
+                  setPlateError(validateLicenseNumber(formatted));
+                }
+              }}
+              maxLength={10}
               autoCapitalize="characters"
+              error={plateError || undefined}
             />
 
             <TouchableOpacity style={styles.imagePlaceholder} onPress={pickVehicleImage}>
@@ -472,6 +584,11 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 16,
     backgroundColor: '#F3F4F6',
+  },
+  vectorPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
   },
   vehicleInfo: {
     flex: 1,
@@ -557,7 +674,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 60,
     right: 20,
     width: 65,
     height: 65,

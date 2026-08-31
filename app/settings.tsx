@@ -1,28 +1,35 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { getNotificationPopupEnabled, setNotificationPopupEnabled } from '../utils/notification_settings';
 
 interface SettingItemProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  subtitle?: string;
   onPress?: () => void;
   isLast?: boolean;
+  rightElement?: React.ReactNode;
 }
 
-const SettingItem = ({ icon, label, onPress, isLast }: SettingItemProps) => (
+const SettingItem = ({ icon, label, subtitle, onPress, isLast, rightElement }: SettingItemProps) => (
   <TouchableOpacity 
     style={[styles.settingItem, !isLast && styles.borderBottom]} 
     onPress={onPress}
+    disabled={!onPress && !rightElement}
   >
     <View style={styles.itemLeft}>
       <View style={styles.iconContainer}>
         <Ionicons name={icon} size={22} color="#E84E0F" />
       </View>
-      <Text style={styles.itemLabel}>{label}</Text>
+      <View style={{ flex: 1, paddingRight: 10 }}>
+        <Text style={styles.itemLabel}>{label}</Text>
+        {subtitle && <Text style={styles.itemSubtitle}>{subtitle}</Text>}
+      </View>
     </View>
-    <Ionicons name="chevron-forward" size={24} color="#D1D5DB" />
+    {rightElement ? rightElement : <Ionicons name="chevron-forward" size={24} color="#D1D5DB" />}
   </TouchableOpacity>
 );
 
@@ -35,8 +42,107 @@ const SettingSection = ({ title, children }: { title: string, children: React.Re
   </View>
 );
 
+interface SettingItemData {
+  id: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  subtitle?: string;
+  route?: string;
+  isToggle?: boolean;
+}
+
+interface SettingSectionData {
+  id: string;
+  title: string;
+  items: SettingItemData[];
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [popupEnabled, setPopupEnabled] = useState(true);
+
+  useEffect(() => {
+    getNotificationPopupEnabled().then(enabled => {
+      setPopupEnabled(enabled);
+    });
+  }, []);
+
+  const handleTogglePopup = async (val: boolean) => {
+    setPopupEnabled(val);
+    await setNotificationPopupEnabled(val);
+  };
+
+  const settingSections: SettingSectionData[] = [
+    {
+      id: 'account',
+      title: 'Account Settings',
+      items: [
+        { id: 'profile-edit', icon: 'person-outline', label: 'Profile Edit', route: '/profile' },
+        { id: 'password', icon: 'lock-closed-outline', label: 'Change Password', route: '/change-password' },
+      ],
+    },
+    {
+      id: 'notifications',
+      title: 'Notification Preference',
+      items: [
+        { id: 'push-notif', icon: 'notifications-outline', label: 'Push Notification', route: '/notifications' },
+        { 
+          id: 'notif-popup', 
+          icon: 'chatbox-ellipses-outline', 
+          label: 'Notification Pop-up', 
+          subtitle: 'Show banner alerts & vibration on screen',
+          isToggle: true 
+        },
+      ],
+    },
+    {
+      id: 'security',
+      title: 'Security & Privacy',
+      items: [
+        { id: 'privacy', icon: 'shield-checkmark-outline', label: 'Privacy Policy', route: '/privacy' },
+        { id: 'business-policy', icon: 'briefcase-outline', label: 'Business Policy', route: '/business-policy' },
+      ],
+    },
+    {
+      id: 'preferences',
+      title: 'Preferences',
+      items: [
+        { id: 'language', icon: 'globe-outline', label: 'Language' },
+      ],
+    },
+  ];
+
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) return settingSections;
+    const query = searchQuery.toLowerCase().trim();
+
+    return settingSections.map(section => {
+      const sectionTitleMatches = section.title.toLowerCase().includes(query);
+      const matchingItems = section.items.filter(
+        item => sectionTitleMatches || item.label.toLowerCase().includes(query)
+      );
+
+      return {
+        ...section,
+        items: matchingItems,
+      };
+    }).filter(section => section.items.length > 0);
+  }, [searchQuery, settingSections]);
+
+  const handleItemPress = (item: SettingItemData) => {
+    if (item.id === 'language') {
+      Alert.alert(
+        'Language Updates',
+        'New language updates are coming in the next update soon! Stay tuned. 🌐',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    if (item.route) {
+      router.push(item.route as any);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -57,27 +163,51 @@ export default function SettingsScreen() {
             placeholder="Search Settings...." 
             placeholderTextColor="#9CA3AF"
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Sections */}
-        <SettingSection title="Frequently Asked Questions">
-          <SettingItem icon="person-outline" label="Profile Edit" />
-          <SettingItem icon="lock-closed-outline" label="Password" isLast />
-        </SettingSection>
-
-        <SettingSection title="Notification Preference">
-          <SettingItem icon="notifications-outline" label="Push Notification" />
-          <SettingItem icon="chatbubble-outline" label="SMS Notification" isLast />
-        </SettingSection>
-
-        <SettingSection title="Security & Privacy">
-          <SettingItem icon="shield-checkmark-outline" label="Privacy" isLast />
-        </SettingSection>
-
-        <SettingSection title="Preferences">
-          <SettingItem icon="globe-outline" label="Language" isLast />
-        </SettingSection>
+        {/* Filtered Sections */}
+        {filteredSections.length > 0 ? (
+          filteredSections.map(section => (
+            <SettingSection key={section.id} title={section.title}>
+              {section.items.map((item, index) => (
+                <SettingItem
+                  key={item.id}
+                  icon={item.icon}
+                  label={item.label}
+                  subtitle={item.subtitle}
+                  isLast={index === section.items.length - 1}
+                  onPress={item.isToggle ? () => handleTogglePopup(!popupEnabled) : () => handleItemPress(item)}
+                  rightElement={
+                    item.isToggle ? (
+                      <Switch
+                        value={popupEnabled}
+                        onValueChange={handleTogglePopup}
+                        trackColor={{ false: '#E5E7EB', true: '#FFEDD5' }}
+                        thumbColor={popupEnabled ? '#E84E0F' : '#9CA3AF'}
+                      />
+                    ) : undefined
+                  }
+                />
+              ))}
+            </SettingSection>
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={48} color="#D1D5DB" />
+            <Text style={styles.emptyTitle}>No settings found</Text>
+            <Text style={styles.emptySubtitle}>
+              We couldn&apos;t find any setting matching &quot;{searchQuery}&quot;
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -155,6 +285,7 @@ const styles = StyleSheet.create({
   itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   iconContainer: {
     width: 36,
@@ -169,5 +300,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+  },
+  itemSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });

@@ -1,30 +1,114 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import BackButton from '../../components/ui/BackButton';
 import IconCircle from '../../components/ui/IconCircle';
 import AppButton from '../../components/ui/AppButton';
 import { COLORS } from '../../constants/colors';
+import { authService } from '../../services/authService';
+import { useAuth } from '../../context/auth_context';
+import Toast from 'react-native-toast-message';
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const [code, setCode] = useState('');
+  const params = useLocalSearchParams();
+  const email = (params.email as string) || '';
+  const mode = (params.mode as string) || 'verify_email';
+  const { updateAuthUser, logout } = useAuth();
 
-  const handleVerify = () => {
-    // In a real app we verify code here
-    router.push('/(auth)/set-new-password');
+  const [code, setCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  const handleContactSupport = () => {
+    Linking.openURL('mailto:fixzonesupport@gmail.com?subject=Support%20Request%20-%20OTP%20Verification');
+  };
+
+  const handleBack = async () => {
+    if (mode === 'reset_password') {
+      router.replace('/(auth)/forgot-password');
+      return;
+    }
+    await logout();
+    router.replace('/(auth)/login');
+  };
+
+  const handleVerify = async () => {
+    if (code.length !== 5) return;
+    setIsLoading(true);
+    try {
+      if (mode === 'reset_password') {
+        // Validate OTP with backend before allowing navigation
+        await authService.verifyResetOtp(email, code);
+        Toast.show({
+          type: 'success',
+          text1: 'Code Verified! 🔑',
+          text2: 'Please enter your new password.',
+          position: 'top',
+        });
+        router.push({
+          pathname: '/(auth)/reset-password',
+          params: { email, token: code }
+        });
+        return;
+      }
+
+      await authService.verifyOtp(email, code);
+      Toast.show({
+        type: 'success',
+        text1: 'Welcome to FixZone! 🎉',
+        text2: 'Your account has been verified successfully.',
+        position: 'top',
+        visibilityTime: 5000,
+      });
+      // Update auth state to trigger navigation
+      updateAuthUser({ emailVerified: true });
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: error.message || 'Invalid verification code',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setIsResending(true);
+    try {
+      if (mode === 'reset_password') {
+        await authService.forgotPassword(email);
+      } else {
+        await authService.resendOtp(email);
+      }
+      Toast.show({
+        type: 'info',
+        text1: 'OTP Sent',
+        text2: 'A new verification code has been sent to your email.',
+      });
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to resend',
+        text2: error.message || 'Could not resend code',
+      });
+    } finally {
+      setIsResending(false);
+    }
   };
 
   return (
     <ScreenContainer>
-      <BackButton />
-      
+      <BackButton onPress={handleBack} />
+
       <View style={styles.header}>
         <IconCircle iconName="mail" size={72} iconSize={32} />
         <Text style={styles.title}>Enter Verification Code</Text>
         <Text style={styles.subtitle}>
-          We&apos;ve sent a code to your registered email or phone number.Please enter it below to verify your identity.
+          We've sent a 5-digit code to {email}. Please enter it below to verify your identity.
         </Text>
       </View>
 
@@ -32,7 +116,7 @@ export default function VerifyOtpScreen() {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="o  o  o  o  o"
+          placeholder="• • • • •"
           placeholderTextColor={COLORS.textMuted}
           keyboardType="number-pad"
           maxLength={5}
@@ -46,19 +130,24 @@ export default function VerifyOtpScreen() {
         label="Verify"
         onPress={handleVerify}
         style={styles.btn}
-        disabled={code.length !== 5}
+        disabled={code.length !== 5 || isLoading}
+        loading={isLoading}
       />
 
       <View style={styles.resendContainer}>
-        <Text style={styles.resendText}>Didn&apos;t receive the code ? </Text>
-        <TouchableOpacity>
-          <Text style={styles.resendLink}>Resend</Text>
+        <Text style={styles.resendText}>Didn't receive the code? </Text>
+        <TouchableOpacity onPress={handleResend} disabled={isResending}>
+          {isResending ? (
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          ) : (
+            <Text style={styles.resendLink}>Resend</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.supportContainer}>
+      <TouchableOpacity style={styles.supportContainer} onPress={handleContactSupport} activeOpacity={0.7}>
         <Text style={styles.supportText}>Contact Support</Text>
-      </View>
+      </TouchableOpacity>
     </ScreenContainer>
   );
 }

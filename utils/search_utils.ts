@@ -73,7 +73,8 @@ export const filterServiceCenters = (
       // 2. Package Matching
       const hasMatchingPackage = center.packages.some(pkg => 
         pkg.name.toLowerCase().includes(q) || 
-        pkg.features.some(f => f.toLowerCase().includes(q))
+        (pkg.features && pkg.features.some(f => f.toLowerCase().includes(q))) ||
+        (pkg.type && pkg.type.toLowerCase().includes(q))
       );
       if (hasMatchingPackage) score += 7;
 
@@ -94,7 +95,8 @@ export const filterServiceCenters = (
         if (aiFilters.service) {
             const serviceMatch = center.packages.some(pkg => 
                 pkg.name.toLowerCase().includes(aiFilters.service!) || 
-                pkg.features.some(f => f.toLowerCase().includes(aiFilters.service!))
+                (pkg.features && pkg.features.some(f => f.toLowerCase().includes(aiFilters.service!))) ||
+                (pkg.type && pkg.type.toLowerCase().includes(aiFilters.service!))
             );
             if (serviceMatch) score += 15;
         }

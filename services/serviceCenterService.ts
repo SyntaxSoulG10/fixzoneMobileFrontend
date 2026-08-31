@@ -11,8 +11,11 @@ export interface ServicePackageDTO {
   features?: string[];
   description?: string;
   image?: any;
+  imageUrl?: string;
   isRecommended?: boolean;
   vehicleType?: string;
+  vehicleBrand?: string;
+  type?: string;
 }
 
 export interface ServiceCenterDTO {
@@ -21,6 +24,8 @@ export interface ServiceCenterDTO {
   name: string;
   managerName?: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   contactPhone: string;
   openingHours?: string;
   rating?: number;
@@ -29,14 +34,32 @@ export interface ServiceCenterDTO {
   status?: string;
   servicePackages?: ServicePackageDTO[];
   imageUrl?: string;
+  leaveDates?: string[];
+}
+
+export interface PagedResponse<T> {
+  content: T[];
+  pageNo: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
 }
 
 export const serviceCenterService = {
-  getAllServiceCenters: async (): Promise<ServiceCenterDTO[]> => {
-    return request<ServiceCenterDTO[]>('/service-centers');
+  getAllServiceCenters: async (page = 0, size = 10): Promise<PagedResponse<ServiceCenterDTO>> => {
+    return request<PagedResponse<ServiceCenterDTO>>(`/service-centers?page=${page}&size=${size}`);
+  },
+
+  getNearbyServiceCenters: async (lat: number, lng: number, radius = 15, page = 0, size = 10): Promise<PagedResponse<ServiceCenterDTO>> => {
+    return request<PagedResponse<ServiceCenterDTO>>(`/service-centers/nearby?lat=${lat}&lng=${lng}&radius=${radius}&page=${page}&size=${size}`);
   },
 
   getServiceCenterById: async (id: string): Promise<ServiceCenterDTO> => {
     return request<ServiceCenterDTO>(`/service-centers/${id}`);
+  },
+
+  getTrustedCenters: async (customerId: string): Promise<ServiceCenterDTO[]> => {
+    return request<ServiceCenterDTO[]>(`/customers/${customerId}/trusted-service-centers`);
   }
 };

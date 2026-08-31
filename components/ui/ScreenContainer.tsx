@@ -17,12 +17,14 @@ interface ScreenContainerProps {
   children: React.ReactNode;
   style?: ViewStyle;
   scrollable?: boolean;
+  disableKeyboardDismiss?: boolean;
 }
 
 const ScreenContainer: React.FC<ScreenContainerProps> = ({
   children,
   style,
   scrollable = true,
+  disableKeyboardDismiss = false,
 }) => {
   const content = (
     <View style={[styles.inner, style]}>{children}</View>
@@ -32,25 +34,26 @@ const ScreenContainer: React.FC<ScreenContainerProps> = ({
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoid}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ flex: 1 }}>
-            {scrollable ? (
-              <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                {content}
-              </ScrollView>
-            ) : (
-              content
-            )}
-          </View>
-        </TouchableWithoutFeedback>
+        {scrollable ? (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={disableKeyboardDismiss ? undefined : Keyboard.dismiss}
+            showsVerticalScrollIndicator={false}
+          >
+            {content}
+          </ScrollView>
+        ) : disableKeyboardDismiss ? (
+          <View style={{ flex: 1 }}>{content}</View>
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ flex: 1 }}>{content}</View>
+          </TouchableWithoutFeedback>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -71,11 +74,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 32,
   },
 });
+
 
 export default ScreenContainer;

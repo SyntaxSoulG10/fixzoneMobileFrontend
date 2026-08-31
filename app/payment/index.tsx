@@ -3,19 +3,24 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MOCK_VEHICLES, MOCK_SERVICE_CENTERS } from '../../constants/mock_data';
+import { useAuth } from '../../context/auth_context';
 import { useBookings } from '../../context/BookingContext';
+import { useStripe } from '@stripe/stripe-react-native';
+import { paymentService } from '../../services/paymentService';
+import { checkNotificationsNow } from '../../components/NotificationPoller';
 
 const { width } = Dimensions.get('window');
 
 export default function InitialPaymentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { addBooking } = useBookings();
+  const { user: authUser } = useAuth();
+  const { refreshBookings } = useBookings();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   // Extract data from params
-  const { id, packageId, date, time, vehicleId, centerName, packageName, price: priceParam } = params;
+  const { bookingId, id, packageId, date, time, vehicleId, centerName, packageName, price: priceParam, vehicleName, vehiclePlate } = params;
 
-  // Find objects
   // Find objects or use fallbacks
   const center = MOCK_SERVICE_CENTERS.find(c => c.id === id) || { 
     name: centerName as string || 'Service Center', 
@@ -28,14 +33,17 @@ export default function InitialPaymentScreen() {
     price: parseFloat(priceParam as string) || 0 
   };
   
-  const vehicle = MOCK_VEHICLES.find(v => v.id === vehicleId) || { 
-    name: 'Your Vehicle', 
-    plate: '', 
-    image: require('../../assets/images/honda_vezel_silver.jpg') 
+  const mockVehicle = MOCK_VEHICLES.find(v => v.id === vehicleId);
+  
+  const vehicle = { 
+    name: vehicleName as string || mockVehicle?.name || 'Your Vehicle', 
+    plate: vehiclePlate as string || mockVehicle?.plate || '', 
+    image: mockVehicle?.image || require('../../assets/images/honda_vezel_silver.jpg') 
   };
 
   // States
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   if (!center.name || !pkg.name || !vehicle.name) {
     return (
@@ -46,43 +54,111 @@ export default function InitialPaymentScreen() {
   }
 
   const totalPrice = pkg.price;
-  const bookingCharge = totalPrice * 0.1;
+  const bookingCharge = totalPrice * 0.4;
   const discount = 0;
 
-  const handlePay = () => {
+  const handlePay = async () => {
+    if (!authUser?.userId) {
+      Alert.alert('Error', 'Please log in to continue');
+      return;
+    }
+
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      
-      // Add to booking history
-      addBooking({
-        id: Math.random().toString(36).substr(2, 9),
-        status: 'Pending',
-        centerId: center.id,
-        packageId: pkg.id,
-        vehicleId: vehicle.id,
+    try {
+      // 1. Initialize Payment on Backend to get paymentId
+      const initResponse = await paymentService.initPayment({
+        servicePackageId: packageId as string,
+        vehicleId: vehicleId as string,
         date: date as string,
-        time: time as string,
-        month: 'Oct', // Simplified for prototype
-        year: '2026',
-        totalPrice: totalPrice,
-        bookingFee: bookingCharge,
-        paymentMethod: 'Card Payment',
-        invoiceId: `INV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+        timeSlot: time as string,
+        centerId: id as string,
+        bookingId: bookingId as string,
       });
 
-      router.replace({
-        pathname: '/booking/success',
-        params: {
-          centerName: center.name,
-          vehicleName: vehicle.name,
-          date: date as string,
-          time: time as string,
-          price: pkg.price.toLocaleString()
-        }
+      if (!initResponse.stripeConnected) {
+        Alert.alert('Unavailable', initResponse.message || 'Online payment is not available for this center.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2. Prepare Payment Sheet
+      const sheetResponse = await paymentService.preparePaymentSheet(initResponse.paymentId);
+
+      // 3. Initialize Stripe Payment Sheet
+      const { error: initError } = await initPaymentSheet({
+        merchantDisplayName: 'FixZone',
+        paymentIntentClientSecret: sheetResponse.clientSecret,
       });
-    }, 2000);
+
+      if (initError) {
+        Alert.alert("Initialization Error", initError.message);
+        setIsProcessing(false);
+        return;
+      }
+
+      // 4. Present Payment Sheet
+      setIsProcessing(false); // Enable UI while sheet is presented
+      const { error: paymentError } = await presentPaymentSheet();
+
+      if (paymentError) {
+        if (paymentError.code === 'Canceled') {
+          // User closed the sheet
+          return;
+        }
+        Alert.alert(`Payment Error (${paymentError.code})`, paymentError.message);
+        return;
+      }
+
+      // 5. Verify payment status with Backend
+      setIsVerifying(true);
+      const maxRetries = 5;
+      let isPaid = false;
+
+      for (let i = 0; i < maxRetries; i++) {
+        const verifyResp = await paymentService.verifyPaymentStatus(initResponse.paymentId);
+        if (verifyResp.status === 'PAID') {
+          isPaid = true;
+          break;
+        }
+        // Wait 2 seconds before retrying (webhook might be processing)
+        await new Promise(res => setTimeout(res, 2000));
+      }
+
+      await refreshBookings();
+      checkNotificationsNow();
+
+      if (isPaid) {
+        router.replace({
+          pathname: '/booking/success',
+          params: {
+            centerName: center.name,
+            vehicleName: vehicle.name || 'Your Vehicle',
+            date: date as string,
+            time: time as string,
+            price: pkg.price.toLocaleString()
+          }
+        });
+      } else {
+        Alert.alert('Payment Pending', 'Your payment is being processed. Please check your bookings later.');
+        router.replace('/(tabs)/book'); // or somewhere appropriate
+      }
+
+    } catch (e: any) {
+      console.error('Payment/Booking failed', e);
+      const errMsg = e?.message || '';
+      if (errMsg.toLowerCase().includes('slot') || errMsg.toLowerCase().includes('conflict') || errMsg.toLowerCase().includes('unavailable') || errMsg.toLowerCase().includes('already booked')) {
+        Alert.alert(
+          'Time Slot Unavailable',
+          'Sorry, this time slot was just taken by another user or is no longer available. Please select another time slot.',
+          [{ text: 'Choose Another Time', onPress: () => router.back() }]
+        );
+      } else {
+        Alert.alert('Error', errMsg || 'Failed to complete booking. Please try again.');
+      }
+    } finally {
+      setIsProcessing(false);
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -144,7 +220,7 @@ export default function InitialPaymentScreen() {
           
           <View style={styles.chargeBanner}>
             <View>
-              <Text style={styles.chargeLabel}>Booking Charge (10%)</Text>
+              <Text style={styles.chargeLabel}>Booking Charge (40%)</Text>
               <Text style={styles.chargeSubtext}>Pay now to confirm slot</Text>
             </View>
             <Text style={styles.chargeValue}>Rs {bookingCharge.toLocaleString()}.00</Text>
@@ -153,7 +229,7 @@ export default function InitialPaymentScreen() {
           <View style={[styles.breakdownRow, { marginTop: 16 }]}>
             <Text style={[styles.breakdownLabel, { color: '#6B7280' }]}>Balance to Pay</Text>
             <Text style={[styles.breakdownValue, { color: '#6B7280' }]}>
-              Rs {(totalPrice * 0.9).toLocaleString()}.00 + extra
+              Rs {(totalPrice * 0.6).toLocaleString()}.00 + extra
             </Text>
           </View>
 
@@ -170,11 +246,11 @@ export default function InitialPaymentScreen() {
       {/* Action Button */}
       <View style={styles.footer}>
         <TouchableOpacity 
-          style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
+          style={[styles.payButton, (isProcessing || isVerifying) && styles.payButtonDisabled]}
           onPress={handlePay}
-          disabled={isProcessing}
+          disabled={isProcessing || isVerifying}
         >
-          {isProcessing ? (
+          {isProcessing || isVerifying ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <>

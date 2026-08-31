@@ -11,15 +11,17 @@ export default function CustomDrawer(props: any) {
   const { logout, user: authUser } = useAuth();
   const { user } = useUser();
   
-  const displayName = authUser?.fullName?.split(' ')[0] || user.name.split(' ')[0];
+  const displayName = authUser?.fullName || user.name;
   const displayPhone = authUser?.phone || user.mobile;
   const displayImage = authUser?.profilePictureUrl || user.profileImage;
 
   const menuItems = [
     { label: 'Dash Board', icon: 'grid-outline', route: '/(tabs)' },
-    { label: 'Promotion', icon: 'megaphone-outline', route: '/promotions' },
+    { label: 'Book a service', icon: 'calendar-outline', route: '/(tabs)/book' },
+    { label: 'History', icon: 'time-outline', route: '/(tabs)/history' },
     { label: 'Support', icon: 'headset-outline', route: '/support' },
     { label: 'Settings', icon: 'settings-outline', route: '/settings' },
+    { label: 'About Us', icon: 'information-circle-outline', route: '/about' },
   ];
 
   const handleLogout = async () => {

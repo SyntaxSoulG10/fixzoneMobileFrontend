@@ -1,8 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { MOCK_BOOKINGS, MOCK_SERVICE_CENTERS, MOCK_VEHICLES } from '../../constants/mock_data';
+import { bookingService, BookingResponseDTO } from '../../services/bookingService';
+import { vehicleService, VehicleResponse } from '../../services/vehicleService';
+import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
+import { downloadInvoicePDF } from '../../services/pdfService';
 
 const { width } = Dimensions.get('window');
 
@@ -10,20 +13,69 @@ export default function InvoiceScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
-  const booking = MOCK_BOOKINGS.find(b => b.id === id);
-  const center = MOCK_SERVICE_CENTERS.find(c => c.id === booking?.centerId);
-  const vehicle = MOCK_VEHICLES.find(v => v.id === booking?.vehicleId);
-  const pkg = center?.packages.find(p => p.id === booking?.packageId);
+  const [booking, setBooking] = useState<BookingResponseDTO | null>(null);
+  const [vehicle, setVehicle] = useState<VehicleResponse | null>(null);
+  const [center, setCenter] = useState<ServiceCenterDTO | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!booking || !center || !vehicle || !pkg) {
+  useEffect(() => {
+    const loadData = async () => {
+      if (!id) return;
+      try {
+        setIsLoading(true);
+        const bookingData = await bookingService.getBookingById(id as string);
+        setBooking(bookingData);
+
+        const [vehicleData, centerData] = await Promise.all([
+          vehicleService.getVehicleById(bookingData.vehicleId),
+          serviceCenterService.getServiceCenterById(bookingData.centerId)
+        ]);
+
+        setVehicle(vehicleData);
+        setCenter(centerData);
+      } catch (e) {
+        console.error('Failed to load invoice data', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [id]);
+
+  if (isLoading) {
     return (
-      <View style={styles.container}>
-        <Text>Invoice not available</Text>
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#E84E0F" />
       </View>
     );
   }
 
-  const isCompleted = booking.status === 'Completed';
+  if (!booking || !center || !vehicle) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+            <Ionicons name="close" size={28} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Invoice</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Ionicons name="alert-circle-outline" size={64} color="#D1D5DB" />
+          <Text style={{ marginTop: 16, fontSize: 18, color: '#6B7280', fontWeight: '600' }}>Invoice not available</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const isCompleted = booking.status === 'COMPLETED';
+  const pkg = center.servicePackages?.find(p => p.packageId === booking.packageId || p.id === booking.packageId);
+
+  const formattedDate = new Date(booking.bookingDate).toLocaleDateString('en-US', { 
+    month: 'long', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
 
   return (
     <View style={styles.container}>
@@ -44,7 +96,7 @@ export default function InvoiceScreen() {
         {/* Status Section */}
         <View style={styles.statusSection}>
           <Text style={styles.statusTitle}>{isCompleted ? 'Payment Successful' : 'Booking Confirmed'}</Text>
-          <Text style={styles.statusDate}>{booking.month} {booking.date}, {booking.year} | {booking.time}</Text>
+          <Text style={styles.statusDate}>{formattedDate} | {booking.bookingTime}</Text>
         </View>
 
         {/* Invoice Card */}
@@ -55,7 +107,7 @@ export default function InvoiceScreen() {
             <View>
               <Text style={styles.detailLabel}>Service Center</Text>
               <Text style={styles.detailValue}>{center.name}</Text>
-              <Text style={styles.detailSubValue}>{center.location}</Text>
+              <Text style={styles.detailSubValue}>{center.address}</Text>
             </View>
             <Ionicons name="business" size={24} color="#E84E0F" />
           </View>
@@ -65,21 +117,25 @@ export default function InvoiceScreen() {
           <View style={styles.detailRow}>
             <View>
               <Text style={styles.detailLabel}>Vehicle Details</Text>
-              <Text style={styles.detailValue}>{vehicle.name}</Text>
-              <Text style={styles.detailSubValue}>{vehicle.plate}</Text>
+              <Text style={styles.detailValue}>{vehicle.brand} {vehicle.model}</Text>
+              <Text style={styles.detailSubValue}>{vehicle.plateNumber}</Text>
             </View>
             <Ionicons name="car" size={24} color="#E84E0F" />
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.cardSectionTitle}>Service Items Completed</Text>
-          {pkg.features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
+          <Text style={styles.cardSectionTitle}>Service Items {isCompleted ? 'Completed' : 'Included'}</Text>
+          {pkg?.features && pkg.features.length > 0 ? (
+            pkg.features.map((feature, index) => (
+              <View key={index} style={styles.featureItem}>
+                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                <Text style={styles.featureText}>{feature}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={{ color: '#9CA3AF', fontStyle: 'italic' }}>Standard service items included</Text>
+          )}
 
           <View style={styles.divider} />
 
@@ -87,36 +143,40 @@ export default function InvoiceScreen() {
 
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Service Package Cost</Text>
-            <Text style={styles.priceValue}>LKR {booking.totalPrice.toLocaleString()}.00</Text>
+            <Text style={styles.priceValue}>LKR {(booking.estimatedCost || 0).toLocaleString()}.00</Text>
           </View>
 
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Booking Fee (Paid)</Text>
-            <Text style={styles.priceValue}>LKR {booking.bookingFee.toLocaleString()}.00</Text>
+            <Text style={styles.priceValue}>LKR {(booking.bookingFee || 0).toLocaleString()}.00</Text>
           </View>
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>
-              {isCompleted ? 'Balance Paid' : 'Balance to be Paid'}
+              {isCompleted ? 'Total Paid' : 'Balance to be Paid'}
             </Text>
-            <Text style={styles.totalValue}>LKR {(booking.totalPrice - booking.bookingFee).toLocaleString()}.00</Text>
+            <Text style={styles.totalValue}>LKR {((booking.estimatedCost || 0) - (isCompleted ? 0 : (booking.bookingFee || 0))).toLocaleString()}.00</Text>
           </View>
 
           <View style={styles.paymentInfoRow}>
             <View>
-              <Text style={styles.paymentInfoLabel}>Payment Method</Text>
-              <Text style={styles.paymentInfoValue}>{booking.paymentMethod || 'N/A'}</Text>
+              <Text style={styles.paymentInfoLabel}>Status</Text>
+              <Text style={styles.paymentInfoValue}>{booking.status === 'CONFIRMED' ? 'Ready for Service' : booking.status.replace('_', ' ')}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.paymentInfoLabel}>Invoice ID</Text>
-              <Text style={styles.paymentInfoValue}>{booking.invoiceId || `INV-${booking.id.toUpperCase()}`}</Text>
+              <Text style={styles.paymentInfoLabel}>Booking ID</Text>
+              <Text style={styles.paymentInfoValue}>{booking.bookingId.substr(0, 8).toUpperCase()}</Text>
             </View>
           </View>
         </View>
 
         {/* Action Buttons */}
         {isCompleted && (
-          <TouchableOpacity style={styles.downloadButton}>
+          <TouchableOpacity 
+            style={styles.downloadButton}
+            onPress={() => downloadInvoicePDF(booking)}
+            activeOpacity={0.8}
+          >
             <Ionicons name="download-outline" size={20} color="#fff" />
             <Text style={styles.downloadButtonText}>Download Invoice (PDF)</Text>
           </TouchableOpacity>
@@ -148,9 +208,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     backgroundColor: '#fff',
   },
-  backButton: {
-    padding: 4,
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
@@ -174,20 +231,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     zIndex: 1,
-  },
-  statusIconBg: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-  },
-  completedIconBg: {
-    backgroundColor: '#D1FAE5',
-  },
-  pendingIconBg: {
-    backgroundColor: '#FEE2E2',
   },
   statusTitle: {
     fontSize: 22,
@@ -337,14 +380,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     marginLeft: 10,
-  },
-  footerNote: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '600',
-    marginHorizontal: 40,
-    marginTop: 24,
-    lineHeight: 18,
   },
 });

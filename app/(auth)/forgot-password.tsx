@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ui/ScreenContainer';
@@ -8,11 +8,18 @@ import IconCircle from '../../components/ui/IconCircle';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import { COLORS } from '../../constants/colors';
+import { authService } from '../../services/authService';
+import Toast from 'react-native-toast-message';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleContactSupport = () => {
+    Linking.openURL('mailto:fixzonesupport@gmail.com?subject=Support%20Request%20-%20Password%20Reset');
+  };
 
   const validateEmail = (text: string) => {
     setEmail(text);
@@ -23,9 +30,32 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  const handleSendCode = () => {
-    // In a real app we would call an API here
-    router.push('/(auth)/verify-otp');
+  const handleSendCode = async () => {
+    if (!email || emailError) return;
+    setIsLoading(true);
+    try {
+      await authService.forgotPassword(email);
+      Toast.show({
+        type: 'info',
+        text1: 'Verification Code Sent',
+        text2: 'A 5-digit recovery code has been sent to your email.',
+        position: 'top',
+        visibilityTime: 4000,
+      });
+      router.push({
+        pathname: '/(auth)/verify-otp',
+        params: { email, mode: 'reset_password' }
+      });
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error?.message || 'Failed to send recovery code',
+        position: 'top',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -36,12 +66,12 @@ export default function ForgotPasswordScreen() {
         <IconCircle iconName="lock-closed" size={72} iconSize={32} />
         <Text style={styles.title}>Forgot Password ?</Text>
         <Text style={styles.subtitle}>
-          Don&apos;t worry ! It happens. Please enter the email or phone number associated with your account
+          Don&apos;t worry ! It happens. Please enter the email associated with your account
         </Text>
       </View>
 
       <AppInput
-        label="Email ID/ Phone Number"
+        label="Email ID"
         placeholder="user@example.com"
         value={email}
         onChangeText={validateEmail}
@@ -55,7 +85,8 @@ export default function ForgotPasswordScreen() {
         label="Send Verification Code"
         onPress={handleSendCode}
         style={styles.btn}
-        disabled={!email || !!emailError}
+        disabled={!email || !!emailError || isLoading}
+        loading={isLoading}
       />
 
       <View style={styles.loginContainer}>
@@ -65,10 +96,10 @@ export default function ForgotPasswordScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.supportContainer}>
+      <TouchableOpacity style={styles.supportContainer} onPress={handleContactSupport} activeOpacity={0.7}>
         <Ionicons name="help-circle-outline" size={16} color={COLORS.primary} style={{ marginRight: 4 }} />
         <Text style={styles.supportText}>Contact Support</Text>
-      </View>
+      </TouchableOpacity>
     </ScreenContainer>
   );
 }

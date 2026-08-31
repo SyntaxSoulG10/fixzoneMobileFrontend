@@ -25,8 +25,33 @@ export default function CompleteProfileScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  const [phoneError, setPhoneError] = useState('');
+
+  const validatePhone = (num: string) => {
+    // Remove any spaces or non-digit characters
+    const cleaned = num.replace(/\D/g, '');
+    
+    // Sri Lankan mobile numbers are typically 9 digits (after +94) or 10 digits (starting with 0)
+    // Here we expect the user to enter the 9 digits after +94
+    if (cleaned.length !== 9 || !cleaned.startsWith('7')) {
+      return false;
+    }
+    return true;
+  };
+
   const handleCreateAccount = async () => {
-    if (!fullName || !phone) return;
+    if (!fullName) return;
+    if (!phone) {
+      setPhoneError('Phone number is required');
+      return;
+    }
+    
+    if (!validatePhone(phone)) {
+      setPhoneError('Please enter a valid 9-digit mobile number (e.g. 771234567)');
+      return;
+    }
+
+    setPhoneError('');
     setIsLoading(true);
     try {
       const email = params.email as string;
@@ -36,12 +61,12 @@ export default function CompleteProfileScreen() {
         fullName,
         email,
         password,
-        phone: `+94 ${phone}`
+        phone: `+94 ${phone.replace(/\s/g, '')}`
       });
 
       updateUser({
         name: fullName,
-        mobile: `+94 ${phone}`,
+        mobile: `+94 ${phone.replace(/\s/g, '')}`,
       });
     } catch (error) {
       console.error('Signup failed', error);
@@ -80,7 +105,8 @@ export default function CompleteProfileScreen() {
           label="Phone number"
           placeholder="7x xxx xxxx"
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(text) => { setPhone(text); setPhoneError(''); }}
+          error={phoneError}
           keyboardType="phone-pad"
           leftElement={phonePrefix}
         />

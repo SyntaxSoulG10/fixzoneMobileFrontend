@@ -1,65 +1,141 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../../constants/colors';
+import { getDaysSinceService } from '../../utils/date_utils';
+import { getVehicleIcon } from '../../utils/vehicle_utils';
+import { Ionicons } from '@expo/vector-icons';
 
 interface VehicleCardProps {
   image: string;
   name: string;
   plate: string;
   lastService: string;
+  type?: string;
   daysSinceService?: number;
 }
 
-const getDaysSinceService = (dateString: string) => {
-  if (!dateString) return 0;
-  const parts = dateString.split('/');
-  if (parts.length !== 3) return 0;
-  const serviceDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-  const today = new Date();
-  const diffTime = today.getTime() - serviceDate.getTime();
-  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-};
 
-export default function VehicleCard({ image, name, plate, lastService, daysSinceService }: VehicleCardProps) {
+export default function VehicleCard({ image, name, plate, lastService, type, daysSinceService }: VehicleCardProps) {
   const daysSince = daysSinceService !== undefined ? daysSinceService : getDaysSinceService(lastService);
 
   return (
-    <TouchableOpacity 
-      className="bg-gray-100 rounded-3xl overflow-hidden mr-4 w-64 border border-gray-200 shadow-sm"
-      style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-      }}
-    >
-      <Image 
-        source={typeof image === 'string' ? { uri: image } : image} 
-        className="w-full h-32"
-        resizeMode="cover"
-      />
-      <View className="p-4 bg-gray-200/50">
-        <View className="flex-row justify-between items-start mb-2">
-          <View className="flex-1 mr-2">
-            <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>{name}</Text>
-            <Text className="text-gray-500 text-xs font-medium">{plate}</Text>
+    <View style={styles.cardContainer}>
+      {image && !image.includes('via.placeholder.com') ? (
+        <Image
+          source={typeof image === 'string' ? { uri: image } : image}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.imagePlaceholder}>
+          <Ionicons name={getVehicleIcon(type)} size={60} color="#F97316" />
+        </View>
+      )}
+      <View style={styles.detailsContainer}>
+        <View style={styles.headerRow}>
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.vehicleName} numberOfLines={1}>{name}</Text>
+            <Text style={styles.plateText}>{plate}</Text>
           </View>
-          <View className="items-end justify-center">
-            <Text className="text-[12px] text-orange-600 font-bold">
-              {daysSince} days
-            </Text>
-            <Text className="text-[9px] text-gray-600 font-medium mt-0.5">
-              since service
-            </Text>
+          <View style={styles.daysContainer}>
+            {daysSince !== undefined ? (
+              <>
+                <Text style={styles.daysText}>
+                  {daysSince} days
+                </Text>
+                <Text style={styles.sinceText}>
+                  since service
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.daysText}>
+                New
+              </Text>
+            )}
           </View>
         </View>
-        
+
         <View>
-          <Text className="text-gray-900 text-sm font-bold">Last Service Date</Text>
-          <Text className="text-gray-500 text-xs">{lastService}</Text>
+          <Text style={styles.lastServiceLabel}>Last Service Date</Text>
+          <Text style={styles.lastServiceDate}>{lastService}</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  cardContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginRight: 16,
+    width: 256,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardImage: {
+    width: '100%',
+    height: 128,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 128,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailsContainer: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#F1F5F9',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  vehicleInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  vehicleName: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  plateText: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  daysContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  daysText: {
+    fontSize: 12,
+    color: '#EA580C',
+    fontWeight: 'bold',
+  },
+  sinceText: {
+    fontSize: 9,
+    color: '#4B5563',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  lastServiceLabel: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  lastServiceDate: {
+    color: '#6B7280',
+    fontSize: 12,
+  },
+});

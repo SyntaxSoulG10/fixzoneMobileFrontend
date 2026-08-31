@@ -1,11 +1,12 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import SegmentedToggle from '../../components/ui/SegmentedToggle';
+import PasswordStrengthIndicator from '../../components/ui/PasswordStrengthIndicator';
 import { COLORS } from '../../constants/colors';
 import { useAuth } from '../../context/auth_context';
 
@@ -16,7 +17,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function AuthScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { login, error: authError } = useAuth();
+  const { login, error: authError, clearError } = useAuth();
   
   const [mode, setMode] = useState<'login' | 'signup'>((params.initialMode as 'login' | 'signup') || 'login');
   const [email, setEmail] = useState('');
@@ -27,13 +28,46 @@ export default function AuthScreen() {
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Signup password complexity checks
+  const hasPassword = password.length > 0;
+  const hasMinLength = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+  const hasConfirm = confirmPassword.length > 0;
+  const isMatch = hasConfirm && confirmPassword === password;
+  const isConfirmMismatch = hasConfirm && confirmPassword.length >= 2 && confirmPassword !== password;
+
+  const strengthScore = [hasMinLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+  let strengthLabel = '';
+  let strengthColor = '#E5E7EB';
+  let strengthWidth = '0%';
+
+  if (hasPassword) {
+    if (strengthScore <= 2) {
+      strengthLabel = 'Weak';
+      strengthColor = '#EF4444';
+      strengthWidth = '33%';
+    } else if (strengthScore <= 4) {
+      strengthLabel = 'Medium';
+      strengthColor = '#F59E0B';
+      strengthWidth = '66%';
+    } else {
+      strengthLabel = 'Strong';
+      strengthColor = '#10B981';
+      strengthWidth = '100%';
+    }
+  }
+
   const handleModeChange = (newMode: 'login' | 'signup') => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setMode(newMode);
-    // Clear errors when switching
     setEmailError('');
     setPasswordError('');
     setConfirmPasswordError('');
+    clearError();
   };
 
   const handleLogin = async () => {
@@ -49,6 +83,9 @@ export default function AuthScreen() {
     if (!password) {
       setPasswordError('Password is required');
       isValid = false;
+    } else if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      isValid = false;
     }
 
     if (!isValid) return;
@@ -57,7 +94,7 @@ export default function AuthScreen() {
     try {
       await login({ email, password });
     } catch (error) {
-      // Error is handled in context and exposed via authError
+      // Error handled in auth_context
     } finally {
       setIsSubmitting(false);
     }
@@ -68,12 +105,22 @@ export default function AuthScreen() {
     if (!email) {
       setEmailError('Email is required');
       isValid = false;
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setEmailError('Invalid email format');
+        isValid = false;
+      }
     }
     if (!password) {
       setPasswordError('Password is required');
       isValid = false;
+    } else if (!hasMinLength || !hasUpper || !hasLower || !hasNumber || !hasSpecial) {
+      setPasswordError('Password must meet all complexity requirements below');
+      isValid = false;
     }
-    if (password !== confirmPassword) {
+
+    if (!isMatch) {
       setConfirmPasswordError('Passwords do not match');
       isValid = false;
     }
@@ -88,7 +135,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <ScreenContainer scrollable={mode === 'signup'}>
+    <ScreenContainer scrollable={true}>
       <View style={styles.header}>
         <Image 
           source={require('../../assets/images/fixzone-logo.png')} 
@@ -112,7 +159,7 @@ export default function AuthScreen() {
         label="Email Address"
         placeholder="user@example.com"
         value={email}
-        onChangeText={(text) => { setEmail(text); setEmailError(''); }}
+        onChangeText={(text) => { setEmail(text); setEmailError(''); clearError(); }}
         error={emailError}
         rightIcon="mail"
         autoCapitalize="none"
@@ -124,22 +171,41 @@ export default function AuthScreen() {
         label="Password"
         placeholder="********"
         value={password}
-        onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
+        onChangeText={(text) => { setPassword(text); setPasswordError(''); clearError(); }}
         error={passwordError}
         isPassword
         style={{ marginBottom: 4 }}
       />
 
       {mode === 'signup' && (
-        <AppInput
-          label="Confirm Password"
-          placeholder="********"
-          value={confirmPassword}
-          onChangeText={(text) => { setConfirmPassword(text); setConfirmPasswordError(''); }}
-          error={confirmPasswordError}
-          isPassword
-          style={{ marginBottom: 4 }}
-        />
+        <PasswordStrengthIndicator password={password} />
+      )}
+
+      {mode === 'signup' && (
+        <>
+          <AppInput
+            label="Confirm Password"
+            placeholder="********"
+            value={confirmPassword}
+            onChangeText={(text) => { setConfirmPassword(text); setConfirmPasswordError(''); }}
+            error={confirmPasswordError}
+            isPassword
+            style={{ marginBottom: 4, marginTop: 8 }}
+          />
+
+          {isConfirmMismatch && (
+            <View style={styles.feedbackRow}>
+              <Ionicons name="alert-circle" size={15} color="#EF4444" />
+              <Text style={styles.fieldErrorText}>Passwords do not match</Text>
+            </View>
+          )}
+          {isMatch && (
+            <View style={styles.feedbackRow}>
+              <Ionicons name="checkmark-circle" size={15} color="#10B981" />
+              <Text style={styles.fieldMatchText}>Passwords match</Text>
+            </View>
+          )}
+        </>
       )}
 
       {authError && (
@@ -159,29 +225,9 @@ export default function AuthScreen() {
         label={mode === 'login' ? 'Login' : 'Create Account'}
         onPress={mode === 'login' ? handleLogin : handleSignup}
         style={styles.btn}
-        rightIcon={mode === 'login' ? "log-in-outline" : undefined}
         loading={isSubmitting}
-        disabled={isSubmitting}
+        disabled={isSubmitting || (mode === 'signup' && (!hasMinLength || !hasUpper || !hasLower || !hasNumber || !hasSpecial || !isMatch))}
       />
-
-      <View style={styles.dividerContainer}>
-        <View style={styles.line} />
-        <Text style={styles.orText}>{mode === 'login' ? 'or login with' : 'or continue with'}</Text>
-        <View style={styles.line} />
-      </View>
-
-      {mode === 'login' ? (
-        <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Ionicons name="finger-print" size={32} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.googleBtn}>
-          <Ionicons name="logo-google" size={24} color="#EA4335" />
-          <Text style={styles.googleBtnText}>Sign Up with Google</Text>
-        </TouchableOpacity>
-      )}
 
       <View style={styles.bottomContainer}>
         <Text style={styles.bottomText}>
@@ -192,6 +238,21 @@ export default function AuthScreen() {
         </TouchableOpacity>
       </View>
     </ScreenContainer>
+  );
+}
+
+function RequirementItem({ met, text }: { met: boolean; text: string }) {
+  return (
+    <View style={styles.reqRow}>
+      <Ionicons
+        name={met ? "checkmark-circle" : "ellipse-outline"}
+        size={15}
+        color={met ? "#10B981" : "#D1D5DB"}
+      />
+      <Text style={[styles.reqText, met ? styles.reqMetText : styles.reqUnmetText]}>
+        {text}
+      </Text>
+    </View>
   );
 }
 
@@ -231,59 +292,81 @@ const styles = StyleSheet.create({
   },
   btn: {
     marginBottom: 20,
+    marginTop: 12,
   },
-  dividerContainer: {
+  strengthContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
-  line: {
+  strengthBarBg: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#000',
+    height: 5,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginRight: 10,
   },
-  orText: {
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: '#000',
+  strengthBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  strengthText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  checklistContainer: {
+    marginBottom: 12,
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  reqRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  reqText: {
+    fontSize: 13,
+    marginLeft: 8,
     fontWeight: '500',
   },
-  socialContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
+  reqMetText: {
+    color: '#059669',
+    fontWeight: '600',
   },
-  socialBtn: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  reqUnmetText: {
+    color: '#6B7280',
   },
-  googleBtn: {
+  feedbackRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 30,
-    height: 44,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 20,
+    marginTop: 2,
+    marginBottom: 10,
+    marginLeft: 4,
   },
-  googleBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#000',
-    marginLeft: 8,
+  fieldErrorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  fieldMatchText: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   bottomContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 20,
-    marginTop: 'auto',
+    paddingVertical: 10,
+    marginTop: 8,
   },
   bottomText: {
     fontSize: 14,

@@ -8,6 +8,9 @@ import AppButton from '../ui/AppButton';
 import AppDropdown from '../ui/AppDropdown';
 import { vehicleService } from '../../services/vehicleService';
 import { useAuth } from '../../context/auth_context';
+import { imageKitService } from '../../services/imageKitService';
+import { formatLicenseNumber, validateLicenseNumber, formatVehicleModel, validateVehicleModel } from '../../utils/vehicle_utils';
+import { ALL_VEHICLE_TYPE_NAMES, getBrandsForVehicleType } from '../../constants/vehicle_data';
 
 interface AddVehicleModalProps {
   visible: boolean;
@@ -15,14 +18,7 @@ interface AddVehicleModalProps {
   onSuccess: () => void;
 }
 
-const vehicleTypes = ['Car', 'Bike', 'Three Wheels', 'Van', 'Lorry', 'Others'];
-const brandMap: Record<string, string[]> = {
-  'Car': ['Toyota', 'Honda', 'Nissan', 'BMW', 'Suzuki', 'Kia', 'Other'],
-  'Bike': ['Yamaha', 'Honda', 'Suzuki', 'Bajaj', 'TVS', 'Hero', 'Other'],
-  'Three Wheels': ['Bajaj', 'TVS', 'Piaggio', 'Other'],
-  'Van': ['Nissan', 'Toyota', 'Ford', 'Other'],
-  'Lorry': ['Isuzu', 'Mitsubishi', 'Tata', 'Ashok Leyland', 'Other'],
-};
+const vehicleTypes = [...ALL_VEHICLE_TYPE_NAMES, 'Others'];
 const fuelTypes = ['Petrol', 'Diesel', 'Hybrid', 'EV'];
 
 export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehicleModalProps) {
@@ -35,8 +31,10 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
   const [brand, setBrand] = useState('');
   const [customBrand, setCustomBrand] = useState('');
   const [model, setModel] = useState('');
+  const [modelError, setModelError] = useState<string | null>(null);
   const [fuel, setFuel] = useState('');
   const [plate, setPlate] = useState('');
+  const [plateError, setPlateError] = useState<string | null>(null);
   const [vehicleImage, setVehicleImage] = useState<string | null>(null);
 
   const pickVehicleImage = async () => {
@@ -65,21 +63,27 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
       return;
     }
 
+    const modelErr = validateVehicleModel(model);
+    if (modelErr) {
+      setModelError(modelErr);
+      return;
+    }
+
+    const plateErr = validateLicenseNumber(plate);
+    if (plateErr) {
+      setPlateError(plateErr);
+      return;
+    }
+
     if (!user?.userId) return;
 
     setIsSaving(true);
     try {
-      let savedImageUri: string | undefined = undefined;
+      let imageUrl: string | undefined = undefined;
       if (vehicleImage && !vehicleImage.startsWith('http')) {
-        try {
-          const filename = `vehicle_${Date.now()}.jpg`;
-          const sourceFile = new File(vehicleImage);
-          const destinationFile = new File(Paths.document, filename);
-          sourceFile.copy(destinationFile);
-          savedImageUri = destinationFile.uri;
-        } catch (imgErr) {
-          savedImageUri = vehicleImage;
-        }
+        imageUrl = await imageKitService.uploadToImageKit(vehicleImage, `vehicle_${plate}.jpg`);
+      } else if (vehicleImage) {
+        imageUrl = vehicleImage;
       }
 
       await vehicleService.createVehicle({
@@ -88,7 +92,7 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
         model,
         vehicleType: finalVType,
         plateNumber: plate,
-        imageUrl: savedImageUri,
+        imageUrl: imageUrl,
       });
 
       Alert.alert('Success', 'Vehicle added!');
@@ -119,6 +123,7 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
             options={vehicleTypes}
             onSelect={(val) => {
               setVType(val);
+              setBrand('');
               if (val !== 'Others') setCustomVType('');
             }}
           />
@@ -134,9 +139,13 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
 
           <AppDropdown
             label="Brand"
-            placeholder="Select Brand"
+            placeholder={!vType ? 'Select vehicle type first' : 'Select Brand'}
             value={brand}
-            options={brandMap[vType] || ['Other']}
+            options={getBrandsForVehicleType(vType)}
+            disabled={!vType}
+            onDisabledPress={() => {
+              Alert.alert('Selection Required', 'Please select a vehicle type first.');
+            }}
             onSelect={(val) => {
               setBrand(val);
               if (val !== 'Other') setCustomBrand('');
@@ -156,15 +165,30 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }: AddVehi
             label="Model"
             placeholder="e.g. Civic"
             value={model}
-            onChangeText={setModel}
+            onChangeText={(text) => {
+              const formatted = formatVehicleModel(text);
+              setModel(formatted);
+              if (modelError) {
+                setModelError(validateVehicleModel(formatted));
+              }
+            }}
+            error={modelError || undefined}
           />
 
           <AppInput
-            label="License Number"
-            placeholder="e.g. ABC 1234"
+            label="Vehicle Plate Number"
+            placeholder="e.g. CAB-1234"
             value={plate}
-            onChangeText={setPlate}
+            onChangeText={(text) => {
+              const formatted = formatLicenseNumber(text);
+              setPlate(formatted);
+              if (plateError) {
+                setPlateError(validateLicenseNumber(formatted));
+              }
+            }}
+            maxLength={10}
             autoCapitalize="characters"
+            error={plateError || undefined}
           />
 
           <TouchableOpacity style={styles.imagePlaceholder} onPress={pickVehicleImage}>

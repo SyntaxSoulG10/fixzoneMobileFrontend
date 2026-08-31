@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,39 +8,122 @@ import SearchBar from '../../components/home/SearchBar';
 import PromoBanner from '../../components/home/PromoBanner';
 import VehicleCard from '../../components/home/VehicleCard';
 import ServiceCenterCard from '../../components/home/ServiceCenterCard';
-import NoResults from '../../components/home/NoResults';
 import FilterBottomSheet, { FilterState } from '../../components/home/FilterBottomSheet';
 import { useBookings } from '../../context/BookingContext';
 import { useAuth } from '../../context/auth_context';
 import { vehicleService, VehicleResponse } from '../../services/vehicleService';
-import { MOCK_SERVICE_CENTERS, ServiceCenter } from '../../constants/mock_data';
-import { filterServiceCenters, mockAiSearch, AiFilters } from '../../utils/search_utils';
+import { bookingService } from '../../services/bookingService';
+import { serviceCenterService, ServiceCenterDTO } from '../../services/serviceCenterService';
+import { getDaysSinceService, getLastServiceDate } from '../../utils/date_utils';
+import * as Location from 'expo-location';
+import { calculateDistance } from '../../utils/location_utils';
+import { applyFilters, extractFilterOptions } from '../../utils/filter_utils';
 
 export default function HomeScreen() {
   const { user: authUser } = useAuth();
   const { pendingBookings } = useBookings();
   const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
+  const [vehicleLastServiceMap, setVehicleLastServiceMap] = useState<Record<string, string>>({});
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [trustedCenters, setTrustedCenters] = useState<ServiceCenterDTO[]>([]);
+  const [isLoadingTrusted, setIsLoadingTrusted] = useState(true);
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     distance: '',
     vehicleType: '',
-    serviceType: '',
+    price: '',
     availability: '',
   });
 
-  // Search State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<ServiceCenter[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const hasFetchedVehicles = useRef(false);
+  const hasFetchedTrusted = useRef(false);
+  const [nearbyCenters, setNearbyCenters] = useState<ServiceCenterDTO[]>([]);
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    const fetchLocation = async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          return;
+        }
+        let location = await Location.getLastKnownPositionAsync({});
+        if (!location) {
+          location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+        }
+        if (location) setUserLocation(location);
+      } catch (e) {
+        console.log('Location services unavailable on device');
+      }
+    };
+    fetchLocation();
+  }, []);
+
+  const fetchNearbyCenters = useCallback(async (lat: number, lng: number) => {
+    try {
+      setIsLoadingNearby(true);
+      setNearbyError(null);
+      const res = await serviceCenterService.getNearbyServiceCenters(lat, lng, 15, 0, 10);
+      setNearbyCenters(res.content);
+    } catch (e) {
+      console.error('Failed to fetch nearby centers', e);
+      setNearbyError('Unable to load service centers.');
+    } finally {
+      setIsLoadingNearby(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authUser?.userId) return;
+    if (userLocation) {
+      fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude);
+    } else if (userLocation === null && !isLocationLoading) {
+      // If location denied or unavailable, fetch all centers instead of nearby
+      // (Or we can just show empty / fallback message)
+    }
+  }, [userLocation, fetchNearbyCenters, authUser?.userId]);
+
+  const fetchTrustedCenters = useCallback(async () => {
+    if (!authUser?.userId) return;
+    try {
+      if (!hasFetchedTrusted.current) {
+        setIsLoadingTrusted(true);
+      }
+      const data = await serviceCenterService.getTrustedCenters(authUser.userId);
+      setTrustedCenters(data);
+      hasFetchedTrusted.current = true;
+    } catch (e) {
+      console.error('Failed to fetch trusted centers', e);
+    } finally {
+      setIsLoadingTrusted(false);
+    }
+  }, [authUser?.userId]);
 
   const fetchVehicles = useCallback(async () => {
     if (!authUser?.userId) return;
     try {
-      const data = await vehicleService.getVehiclesByUser(authUser.userId);
-      setVehicles(data);
+      if (!hasFetchedVehicles.current) {
+        setIsLoadingVehicles(true);
+      }
+      const [vehicleData, bookingData] = await Promise.all([
+        vehicleService.getVehiclesByUser(authUser.userId),
+        bookingService.getBookingsByCustomer(authUser.userId)
+      ]);
+
+      setVehicles(vehicleData);
+      hasFetchedVehicles.current = true;
+
+      const serviceMap: Record<string, string> = {};
+      vehicleData.forEach(vehicle => {
+        serviceMap[vehicle.id] = getLastServiceDate(vehicle.id, bookingData, vehicle.lastServiceDate);
+      });
+      setVehicleLastServiceMap(serviceMap);
     } catch (e) {
       console.error('Failed to fetch vehicles', e);
     } finally {
@@ -51,184 +134,238 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchVehicles();
-    }, [fetchVehicles])
+      fetchTrustedCenters();
+      if (authUser?.userId && userLocation) {
+        fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude);
+      }
+    }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters, authUser?.userId])
   );
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      fetchVehicles(),
+      fetchTrustedCenters(),
+      (authUser?.userId && userLocation) ? fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude) : Promise.resolve()
+    ]);
+    setIsRefreshing(false);
+  }, [fetchVehicles, fetchTrustedCenters, userLocation, fetchNearbyCenters, authUser?.userId]);
 
   const router = useRouter();
 
   const handleApplyFilters = (newFilters: FilterState) => {
     setFilters(newFilters);
     setIsFilterVisible(false);
-    // Logic to filter the list could go here
-    console.log('Applied Filters:', newFilters);
   };
 
   const handleResetFilters = () => {
     setFilters({
       distance: '',
       vehicleType: '',
-      serviceType: '',
+      price: '',
       availability: '',
     });
   };
 
-  // 1. Debounce logic
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // 2. Search Execution Logic
-  useEffect(() => {
-    const performSearch = async () => {
-      if (!debouncedQuery.trim()) {
-        setSearchResults([]);
-        setIsSearching(false);
-        return;
+  // Compute dynamic filters based on real data
+  const allHomeCenters = useMemo(() => {
+    const combined = [...nearbyCenters];
+    trustedCenters.forEach(tc => {
+      if (!combined.some(c => c.centerId === tc.centerId)) {
+        combined.push(tc);
       }
+    });
+    return combined;
+  }, [nearbyCenters, trustedCenters]);
 
-      setIsSearching(true);
-      const isComplex = debouncedQuery.trim().split(' ').length > 1;
-      
-      let aiFilters: AiFilters | undefined;
-      if (isComplex) {
-        setIsAiProcessing(true);
-        aiFilters = await mockAiSearch(debouncedQuery);
-        setIsAiProcessing(false);
+  const { availableVehicles, availableServices } = useMemo(() => {
+    return extractFilterOptions(allHomeCenters);
+  }, [allHomeCenters]);
+
+  // Filter nearby & trusted lists
+  const filteredNearbyCenters = useMemo(() => {
+    return applyFilters(nearbyCenters, filters, '', userLocation);
+  }, [nearbyCenters, filters, userLocation]);
+
+  const filteredTrustedCenters = useMemo(() => {
+    return applyFilters(trustedCenters, filters, '', userLocation);
+  }, [trustedCenters, filters, userLocation]);
+
+  const getCentersWithDistance = <T extends any>(centers: T[]): T[] => {
+    if (!userLocation) return centers;
+
+    return [...centers].map((center: any) => {
+      if (center.latitude && center.longitude) {
+        const dist = calculateDistance(
+          userLocation.coords.latitude,
+          userLocation.coords.longitude,
+          center.latitude,
+          center.longitude
+        );
+        return { ...center, calculatedDistance: dist };
       }
+      return center;
+    }).sort((a: any, b: any) => {
+      const distA = a.calculatedDistance ?? Infinity;
+      const distB = b.calculatedDistance ?? Infinity;
+      return distA - distB;
+    });
+  };
 
-      const results = filterServiceCenters(debouncedQuery, MOCK_SERVICE_CENTERS, aiFilters);
-      setSearchResults(results);
-    };
+  const sortedTrustedCenters = getCentersWithDistance(filteredTrustedCenters);
+  const sortedNearbyCenters = useMemo(() => {
+    return getCentersWithDistance(filteredNearbyCenters);
+  }, [filteredNearbyCenters, userLocation]);
 
-    performSearch();
-  }, [debouncedQuery]);
-
+  // Now nearbyCenters comes from the API and is already sorted by distance!
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View className="flex-1 bg-white">
+      <View style={styles.container}>
         <HomeHeader />
-        <SearchBar 
-          onFilterPress={() => setIsFilterVisible(true)} 
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+        <SearchBar
+          onFilterPress={() => {
+            router.push({ pathname: '/book', params: { filter: 'true' } });
+          }}
+          value=""
+          onChangeText={() => { }}
+          onFocus={() => {
+            router.push({ pathname: '/book', params: { focus: 'true' } });
+          }}
         />
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          {isSearching ? (
-            <View className="px-5 py-4">
-              <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xl font-bold text-gray-900">
-                  {isAiProcessing ? 'AI is analyzing...' : `Results for "${debouncedQuery}"`}
-                </Text>
-                {isAiProcessing && <ActivityIndicator color="#E84E0F" size="small" />}
-              </View>
+        <ScrollView
+          style={styles.flex1}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#E84E0F']} />}
+        >
+          <PromoBanner pendingBookings={pendingBookings} />
 
-              {searchResults.length > 0 ? (
-                searchResults.map(center => (
-                  <ServiceCenterCard 
-                    key={`search-${center.id}`}
-                    {...center}
-                    variant="compact"
-                  />
-                ))
-              ) : !isAiProcessing ? (
-                <NoResults query={debouncedQuery} onReset={() => setSearchQuery('')} />
-              ) : null}
-            </View>
-          ) : (
-            <>
-              <PromoBanner pendingBookings={pendingBookings} />
-
-              {/* My Vehicles Section */}
-              <View className="px-5 mt-4">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-gray-900">My Vehicles</Text>
-                  {!isLoadingVehicles && vehicles.length > 0 && (
-                    <TouchableOpacity 
-                      className="flex-row items-center"
-                      onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
-                    >
-                      <Text className="text-orange-500 font-bold mr-2">Add New</Text>
-                      <View className="bg-orange-500 rounded-full w-6 h-6 items-center justify-center">
-                        <Ionicons name="add" size={18} color="white" />
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {isLoadingVehicles ? (
-                  <ActivityIndicator color="#E84E0F" />
-                ) : vehicles.length > 0 ? (
-                  <FlatList
-                    data={vehicles}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity onPress={() => router.push(`/vehicle-details/${item.id}`)}>
-                        <VehicleCard 
-                          image={item.imageUrl || 'https://via.placeholder.com/250'}
-                          name={`${item.brand || ''} ${item.model || ''}`}
-                          plate={item.plateNumber}
-                          lastService={item.lastServiceDate || '01/01/2026'}
-                          daysSinceService={item.daysSinceService}
-                        />
-                      </TouchableOpacity>
-                    )}
-                  />
-                ) : (
-                  <View className="items-center w-full py-4">
-                    <TouchableOpacity 
-                      onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
-                      className="w-64 h-[210px] bg-orange-50/50 rounded-3xl border-2 border-dashed border-orange-300 items-center justify-center p-4"
-                    >
-                      <View className="w-16 h-16 bg-orange-100 rounded-full items-center justify-center mb-3 shadow-sm shadow-orange-200">
-                        <Ionicons name="add" size={32} color="#E84E0F" />
-                      </View>
-                      <Text className="text-orange-900 font-bold text-base mb-1">Add New Vehicle</Text>
-                      <Text className="text-orange-600/80 text-xs text-center font-medium leading-relaxed px-2">
-                        Add your vehicle here for smooth bookings
-                      </Text>
-                    </TouchableOpacity>
+          {/* My Vehicles Section */}
+          <View style={styles.vehiclesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>My Vehicles</Text>
+              {!isLoadingVehicles && vehicles.length > 0 && (
+                <TouchableOpacity
+                  style={styles.rowCenter}
+                  onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+                >
+                  <Text style={styles.addText}>Add New</Text>
+                  <View style={styles.addButtonCircle}>
+                    <Ionicons name="add" size={18} color="white" />
                   </View>
-                )}
-              </View>
+                </TouchableOpacity>
+              )}
+            </View>
 
-              <View className="px-5 mt-8">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-gray-900">Trusted Service Centers</Text>
-                </View>
-                
-                {MOCK_SERVICE_CENTERS.slice(0, 2).map(center => (
-                  <ServiceCenterCard 
-                    key={center.id}
-                    {...center}
-                    variant="compact"
-                  />
-                ))}
-              </View>
-
-              {/* Nearby Service Centers Section */}
-              <View className="px-5 mt-4 mb-8">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-gray-900">Nearby Service Centers</Text>
-                  <TouchableOpacity onPress={() => router.push('/book')}>
-                    <Text className="text-orange-500 font-bold">View All</Text>
+            {isLoadingVehicles ? (
+              <ActivityIndicator color="#E84E0F" />
+            ) : vehicles.length > 0 ? (
+              <FlatList
+                data={vehicles}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity onPress={() => router.push(`/vehicle-details/${item.id}`)}>
+                    <VehicleCard
+                      image={item.imageUrl || ''}
+                      name={`${item.brand || ''} ${item.model || ''}`}
+                      plate={item.plateNumber}
+                      type={item.vehicleType}
+                      lastService={vehicleLastServiceMap[item.id] || item.lastServiceDate || 'N/A'}
+                    />
                   </TouchableOpacity>
-                </View>
-                
-                {MOCK_SERVICE_CENTERS.slice(2).map(center => (
-                  <ServiceCenterCard 
-                    key={`nearby-${center.id}`}
-                    {...center}
-                    variant="compact"
-                  />
-                ))}
+                )}
+              />
+            ) : (
+              <View style={styles.emptyVehiclesContainer}>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/vehicles', params: { add: 'true' } })}
+                  style={styles.addVehiclePlaceholder}
+                >
+                  <View style={styles.addPlaceholderIconContainer}>
+                    <Ionicons name="add" size={32} color="#E84E0F" />
+                  </View>
+                  <Text style={styles.addPlaceholderTitle}>Add New Vehicle</Text>
+                  <Text style={styles.addPlaceholderSubtitle}>
+                    Add your vehicle here for smooth bookings
+                  </Text>
+                </TouchableOpacity>
               </View>
-            </>
-          )}
+            )}
+          </View>
+
+          <View style={styles.trustedSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Trusted Service Centers</Text>
+            </View>
+
+            {isLoadingTrusted ? (
+              <ActivityIndicator color="#E84E0F" />
+            ) : sortedTrustedCenters.length > 0 ? (
+              <FlatList
+                data={sortedTrustedCenters}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.centerId || Math.random().toString()}
+                contentContainerStyle={{ paddingRight: 20 }}
+                ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+                renderItem={({ item }: { item: any }) => (
+                  <ServiceCenterCard
+                    {...item}
+                    id={item.centerId}
+                    location={item.address || ''}
+                    calculatedDistance={item.calculatedDistance}
+                    hideServedFor={true}
+                  />
+                )}
+              />
+            ) : (
+              <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
+                You haven't visited any service centers yet.
+              </Text>
+            )}
+          </View>
+
+          {/* Nearby Service Centers Section */}
+          <View style={styles.nearbySection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Nearby Service Centers</Text>
+              <TouchableOpacity onPress={() => router.push('/book')}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingNearby ? (
+              <ActivityIndicator color="#E84E0F" size="large" style={{ marginVertical: 20 }} />
+            ) : nearbyError ? (
+              <View style={{ alignItems: 'center', padding: 20 }}>
+                <Text style={{ color: '#EF4444', marginBottom: 10 }}>{nearbyError}</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#E84E0F', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                  onPress={() => userLocation && fetchNearbyCenters(userLocation.coords.latitude, userLocation.coords.longitude)}
+                >
+                  <Text style={{ color: 'white', fontWeight: '600' }}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : sortedNearbyCenters.length > 0 ? (
+              sortedNearbyCenters.map((center: any) => (
+                <ServiceCenterCard
+                  key={`nearby-${center.centerId}`}
+                  {...center}
+                  id={center.centerId}
+                  location={center.address || ''}
+                  variant="compact"
+                  calculatedDistance={center.calculatedDistance}
+                />
+              ))
+            ) : (
+              <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 10 }}>
+                {nearbyCenters.length > 0
+                  ? "No service centers match your filters."
+                  : (!userLocation ? "Location access needed to find nearby centers." : "No service centers found within 15 km.")}
+              </Text>
+            )}
+          </View>
         </ScrollView>
 
         <FilterBottomSheet
@@ -237,8 +374,144 @@ export default function HomeScreen() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           initialFilters={filters}
+          availableVehicles={availableVehicles}
+          availableServices={availableServices}
         />
       </View>
     </TouchableWithoutFeedback>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  flex1: {
+    flex: 1,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  vehiclesSection: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  rowCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addText: {
+    color: '#F97316',
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  addButtonCircle: {
+    backgroundColor: '#F97316',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyVehiclesContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  quickFiltersContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  quickFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  quickFilterChipActive: {
+    backgroundColor: '#E84E0F',
+    borderColor: '#E84E0F',
+  },
+  quickFilterText: {
+    marginLeft: 4,
+    color: '#E84E0F',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  quickFilterTextActive: {
+    color: '#FFFFFF',
+  },
+  addVehiclePlaceholder: {
+    width: 256,
+    height: 210,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  addPlaceholderIconContainer: {
+    width: 64,
+    height: 64,
+    backgroundColor: '#FFEDD5',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#FED7AA',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  addPlaceholderTitle: {
+    color: '#7C2D12',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  addPlaceholderSubtitle: {
+    color: 'rgba(234, 88, 12, 0.8)',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  trustedSection: {
+    paddingHorizontal: 20,
+    marginTop: 32,
+  },
+  nearbySection: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 32,
+  },
+  viewAllText: {
+    color: '#F97316',
+    fontWeight: 'bold',
+  },
+});

@@ -11,6 +11,12 @@ export interface BookingResponseDTO {
   status: string;
   serviceCenterName: string;
   packageName: string;
+  packageDescription?: string;
+  estimatedCost?: number;
+  bookingFee?: number;
+  cancellationPenalty?: number;
+  durationMins?: number;
+  estimatedDurationMins?: number;
 }
 
 export interface BookingRequestDTO {
@@ -24,8 +30,9 @@ export interface BookingRequestDTO {
 }
 
 export const bookingService = {
-  getAvailableSlots: async (centerId: string, date: string): Promise<string[]> => {
-    return request<string[]>(`/bookings/available-slots?centerId=${centerId}&date=${date}`, {
+  getAvailableSlots: async (centerId: string, date: string, packageId?: string): Promise<string[]> => {
+    const pkgQuery = packageId && packageId.trim() !== '' ? `&packageId=${packageId}` : '';
+    return request<string[]>(`/bookings/available-slots?centerId=${centerId}&date=${date}${pkgQuery}`, {
       method: 'GET'
     });
   },
@@ -47,5 +54,38 @@ export const bookingService = {
     return request<BookingResponseDTO>(`/bookings/${id}/cancel`, {
       method: 'PUT'
     });
+  },
+
+  getBookingsByCustomer: async (customerId: string): Promise<BookingResponseDTO[]> => {
+    return request<BookingResponseDTO[]>(`/bookings/customer/${customerId}`, {
+      method: 'GET'
+    });
+  },
+
+  rescheduleBooking: async (id: string, newDate: string, newTime: string): Promise<BookingResponseDTO> => {
+    return request<BookingResponseDTO>(`/bookings/${id}/reschedule?newDate=${newDate}&newTime=${newTime}`, {
+      method: 'PUT'
+    });
+  },
+
+  completePayment: async (id: string, gatewaySessionId: string): Promise<BookingResponseDTO> => {
+    return request<BookingResponseDTO>(`/bookings/${id}/payment?gatewaySessionId=${gatewaySessionId}`, {
+      method: 'POST'
+    });
+  },
+
+  getStatusHistory: async (id: string): Promise<BookingStatusHistoryDTO[]> => {
+    return request<BookingStatusHistoryDTO[]>(`/bookings/${id}/status-history`, {
+      method: 'GET'
+    });
   }
 };
+
+export interface BookingStatusHistoryDTO {
+  id: string;
+  bookingId: string;
+  status: string;
+  statusDisplay: string;
+  changedAt: string;
+  changedBy?: string;
+}

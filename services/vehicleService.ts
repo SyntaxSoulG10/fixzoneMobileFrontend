@@ -19,33 +19,41 @@ export interface VehicleCreateRequest {
   vehicleType: string;
   plateNumber: string;
   imageUrl?: string;
+  imageData?: string;
   lastServiceDate?: string;
 }
 
 export const vehicleService = {
   getVehiclesByUser: async (customerId: string): Promise<VehicleResponse[]> => {
-    return request<VehicleResponse[]>(`/vehicles/user/${customerId}`, {
+    return request<VehicleResponse[]>(`/customer/vehicles`, {
+      method: 'GET',
+    });
+  },
+
+  getVehicleById: async (vehicleId: string): Promise<VehicleResponse> => {
+    return request<VehicleResponse>(`/customer/vehicle/${vehicleId}`, {
       method: 'GET',
     });
   },
 
   createVehicle: async (data: VehicleCreateRequest): Promise<VehicleResponse> => {
-    return request<VehicleResponse>('/vehicles', {
+    return request<VehicleResponse>('/customer/vehicle', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   updateVehicle: async (vehicleId: string, data: Partial<VehicleCreateRequest>): Promise<VehicleResponse> => {
-    return request<VehicleResponse>(`/vehicles/${vehicleId}`, {
+    return request<VehicleResponse>(`/customer/vehicle/${vehicleId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   deleteVehicle: async (vehicleId: string): Promise<void> => {
-    return request<void>(`/vehicles/${vehicleId}`, {
+    return request<void>(`/customer/vehicle/${vehicleId}`, {
       method: 'DELETE',
     });
   },
 };
+
